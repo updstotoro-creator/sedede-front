@@ -1,39 +1,44 @@
-# SEDEDE Chuquisaca — Frontend
+# sedede-frontend
 
-Vue 3 + Vite + Tailwind CSS + Pinia + Vue Router + Axios.
+This template should help get you started developing with Vue 3 in Vite.
 
-## Setup
+## Recommended IDE Setup
 
-```bash
+[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+
+## Recommended Browser Setup
+
+- Chromium-based browsers (Chrome, Edge, Brave, etc.):
+  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
+  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
+- Firefox:
+  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
+  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+
+## Customize configuration
+
+See [Vite Configuration Reference](https://vite.dev/config/).
+
+## Project Setup
+
+```sh
 npm install
-cp .env.example .env   # ajusta VITE_API_BASE_URL al backend Laravel
+```
+
+### Compile and Hot-Reload for Development
+
+```sh
 npm run dev
 ```
 
-## Estructura
+### Compile and Minify for Production
 
-```
-src/
-├── components/
-│   ├── landing/   # Navbar, Hero, Servicios, Footer (landing pública)
-│   └── auth/      # LoginForm.vue (con estados loading/error)
-├── views/
-│   ├── LandingView.vue
-│   └── LoginView.vue
-├── services/
-│   ├── api.js         # instancia axios + interceptores
-│   └── authService.js # login/logout/me contra Sanctum
-├── stores/
-│   └── auth.js    # Pinia: estado de sesión, loading, error
-└── router/
-    └── index.js   # guards requiresAuth / guestOnly
+```sh
+npm run build
 ```
 
-## Notas de integración con Laravel
+### Lint with [ESLint](https://eslint.org/)
 
-- El flujo asume **Sanctum SPA (cookie-based)**: `GET /sanctum/csrf-cookie`
-  antes de `POST /login`. Si el backend usa tokens Bearer clásicos, basta
-  con quitar esa llamada en `authService.js`; el interceptor de `api.js`
-  ya adjunta el token guardado en `localStorage`.
-- El backend Laravel debe tener `SANCTUM_STATEFUL_DOMAINS` y `SESSION_DOMAIN`
-  configurados para el dominio del frontend, y CORS con `supports_credentials: true`.
+```sh
+npm run lint
+```
