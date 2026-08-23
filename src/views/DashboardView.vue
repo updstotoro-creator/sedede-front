@@ -1,31 +1,53 @@
 <script setup>
-import { useAuthStore } from '../stores/auth'
+import { useRoute } from 'vue-router'
+import AppSidebar from '../components/dashboard/AppSidebar.vue'
 
-const auth = useAuthStore()
+const route = useRoute()
+
+const titles = {
+  dashboard: 'Resumen',
+  'dashboard-users': 'Usuarios',
+  'dashboard-roles': 'Roles',
+}
 </script>
 
 <template>
-  <div class="min-h-screen bg-paper p-8">
-    <header class="mb-8 flex items-center justify-between">
-      <div>
-        <h1 class="font-display text-2xl font-bold text-brand-700">Panel SEDEDE</h1>
-        <p class="text-sm text-slate-500">
-          Bienvenido, {{ auth.user?.name }}
-          <span v-if="auth.user?.role" class="ml-1 text-slate-400">· {{ auth.user.role.nombre ?? auth.user.role }}</span>
-        </p>
-      </div>
-      <button class="btn-primary" @click="auth.logout()">Cerrar sesión</button>
-    </header>
+  <div class="flex bg-paper">
+    <AppSidebar />
 
-    <nav class="flex gap-4">
-      <router-link to="/dashboard/users" class="text-sm font-semibold text-brand-600 hover:underline">
-        Usuarios
-      </router-link>
-      <router-link to="/dashboard/roles" class="text-sm font-semibold text-brand-600 hover:underline">
-        Roles
-      </router-link>
-    </nav>
+    <div class="flex-1">
+      <header class="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-5">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">SEDEDE Chuquisaca</p>
+          <h1 class="font-display text-xl font-bold text-ink">{{ titles[route.name] ?? 'Panel' }}</h1>
+        </div>
+      </header>
 
-    <router-view />
+      <main class="p-8">
+        <!-- Vista de resumen, solo cuando estamos en /dashboard exacto -->
+        <div v-if="route.name === 'dashboard'" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <router-link
+            to="/dashboard/users"
+            class="rounded-lg border border-slate-200 bg-white p-6 transition-shadow hover:shadow-md"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">Gestión</p>
+            <h2 class="mt-2 font-display text-lg font-bold text-ink">Usuarios</h2>
+            <p class="mt-1 text-sm text-slate-500">Listar, crear, editar y desactivar cuentas del sistema.</p>
+          </router-link>
+
+          <router-link
+            to="/dashboard/roles"
+            class="rounded-lg border border-slate-200 bg-white p-6 transition-shadow hover:shadow-md"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">Gestión</p>
+            <h2 class="mt-2 font-display text-lg font-bold text-ink">Roles</h2>
+            <p class="mt-1 text-sm text-slate-500">Definir roles y permisos de acceso al sistema.</p>
+          </router-link>
+        </div>
+
+        <!-- Rutas hijas: /dashboard/users, /dashboard/roles -->
+        <router-view v-else />
+      </main>
+    </div>
   </div>
 </template>
