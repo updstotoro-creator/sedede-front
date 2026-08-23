@@ -1,25 +1,18 @@
 import axios from 'axios'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL
+const prefix = import.meta.env.VITE_API_PREFIX ?? '/api/v1/core'
 
-// Cliente para las rutas web de Sanctum (cookie CSRF, /sanctum/csrf-cookie)
-export const sanctum = axios.create({
-  baseURL,
-  withCredentials: true, // imprescindible para Sanctum SPA (cookies de sesión)
-  withXSRFToken: true,
-})
-
-// Cliente para el consumo normal de la API REST
+// Cliente para el consumo de la API REST del backend (Laravel Sanctum,
+// autenticación por token Bearer — sin cookies, sin csrf-cookie).
 const api = axios.create({
-  baseURL: `${baseURL}${import.meta.env.VITE_API_PREFIX ?? '/api'}`,
-  withCredentials: true,
+  baseURL: `${baseURL}${prefix}`,
   headers: {
     Accept: 'application/json',
   },
 })
 
-// Si en vez de Sanctum SPA usan tokens (Bearer/JWT), adjuntamos el token
-// guardado por el store de auth en cada petición saliente.
+// Adjunta el token guardado por el store de auth en cada petición saliente.
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('sedede_token')
   if (token) {

@@ -36,8 +36,13 @@ export const useAuthStore = defineStore('auth', {
 
     mapError(error) {
       const status = error.response?.status
+      const backendMessage = error.response?.data?.error
+
+      if (status === 401) {
+        return backendMessage || 'Credenciales inválidas. Verifica tu correo y contraseña.'
+      }
       if (status === 422) {
-        return 'Credenciales inválidas. Verifica tu correo y contraseña.'
+        return 'Revisa los datos ingresados.'
       }
       if (status === 429) {
         return 'Demasiados intentos. Espera unos minutos antes de volver a intentar.'
