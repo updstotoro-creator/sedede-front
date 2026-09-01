@@ -8,16 +8,12 @@ const links = [
   { to: '/dashboard', label: 'Resumen', exact: true },
   { to: '/dashboard/users', label: 'Usuarios' },
   { to: '/dashboard/roles', label: 'Roles' },
+  { to: '/dashboard/asociaciones', label: 'Asociaciones' },
 ]
 
 function initials(name) {
   if (!name) return '?'
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
+  return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
 }
 </script>
 
@@ -42,15 +38,10 @@ function initials(name) {
         <a
           :href="href"
           class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors"
-          :class="(link.exact ? isExactActive : isActive)
-            ? 'bg-brand-50 text-brand-700'
-            : 'text-slate-600 hover:bg-slate-50 hover:text-ink'"
+          :class="(link.exact ? isExactActive : isActive) ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-ink'"
           @click="navigate"
         >
-          <span
-            class="h-1.5 w-1.5 rounded-full"
-            :class="(link.exact ? isExactActive : isActive) ? 'bg-brand-600' : 'bg-transparent'"
-          ></span>
+          <span class="h-1.5 w-1.5 rounded-full" :class="(link.exact ? isExactActive : isActive) ? 'bg-brand-600' : 'bg-transparent'"></span>
           {{ link.label }}
         </a>
       </router-link>
@@ -66,10 +57,7 @@ function initials(name) {
           <p class="truncate text-xs text-slate-400">{{ auth.user?.role?.nombre ?? auth.user?.email }}</p>
         </div>
       </div>
-      <button
-        class="w-full rounded-md border border-slate-200 py-2 text-xs font-semibold text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-        @click="auth.logout()"
-      >
+      <button class="w-full rounded-md border border-slate-200 py-2 text-xs font-semibold text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600" @click="auth.logout()">
         Cerrar sesión
       </button>
     </div>
