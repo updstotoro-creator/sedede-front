@@ -11,6 +11,8 @@ const titles = {
   'dashboard-asociaciones': 'Padrón de Asociaciones',
   'dashboard-asociacion-detalle': 'Clubes de la Asociación',
   'dashboard-club-detalle': 'Deportistas del Club',
+  'dashboard-inventario-tipos-item': 'Tipos de Ítem',
+  'dashboard-inventario-almacenes': 'Almacenes',
 }
 </script>
 
@@ -41,6 +43,16 @@ const titles = {
             <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">Padrón</p>
             <h2 class="mt-2 font-display text-lg font-bold text-ink">Asociaciones</h2>
             <p class="mt-1 text-sm text-slate-500">Consultar asociaciones, sus clubes y deportistas registrados.</p>
+          </router-link>
+          <router-link to="/dashboard/inventario/tipos-item" class="rounded-lg border border-slate-200 bg-white p-6 transition-shadow hover:shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">Inventario</p>
+            <h2 class="mt-2 font-display text-lg font-bold text-ink">Tipos de Ítem</h2>
+            <p class="mt-1 text-sm text-slate-500">Catálogo jerárquico de categorías de inventario.</p>
+          </router-link>
+          <router-link to="/dashboard/inventario/almacenes" class="rounded-lg border border-slate-200 bg-white p-6 transition-shadow hover:shadow-md">
+            <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">Inventario</p>
+            <h2 class="mt-2 font-display text-lg font-bold text-ink">Almacenes</h2>
+            <p class="mt-1 text-sm text-slate-500">Almacenes del SEDEDE y sus subdivisiones.</p>
           </router-link>
         </div>
 

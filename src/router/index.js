@@ -44,6 +44,16 @@ const routes = [
         name: 'dashboard-club-detalle',
         component: () => import('../views/ClubDetailView.vue'),
       },
+      {
+        path: 'inventario/tipos-item',
+        name: 'dashboard-inventario-tipos-item',
+        component: () => import('../views/TiposItemView.vue'),
+      },
+      {
+        path: 'inventario/almacenes',
+        name: 'dashboard-inventario-almacenes',
+        component: () => import('../views/AlmacenesView.vue'),
+      },
     ],
   },
 ]
@@ -68,3 +78,4 @@ router.beforeEach((to) => {
 })
 
 export default router
+

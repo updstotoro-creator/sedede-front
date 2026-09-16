@@ -9,6 +9,8 @@ const links = [
   { to: '/dashboard/users', label: 'Usuarios' },
   { to: '/dashboard/roles', label: 'Roles' },
   { to: '/dashboard/asociaciones', label: 'Asociaciones' },
+  { to: '/dashboard/inventario/tipos-item', label: 'Tipos de Ítem' },
+  { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
 ]
 
 function initials(name) {
@@ -63,3 +65,4 @@ function initials(name) {
     </div>
   </aside>
 </template>
+
