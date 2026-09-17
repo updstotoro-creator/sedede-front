@@ -45,21 +45,31 @@ const routes = [
         component: () => import('../views/ClubDetailView.vue'),
       },
       {
-        path: 'inventario/tipos-item',
-        name: 'dashboard-inventario-tipos-item',
-        component: () => import('../views/TiposItemView.vue'),
+        path: 'deportistas',
+        name: 'dashboard-deportistas',
+        component: () => import('../views/DeportistasView.vue'),
       },
       {
-        path: 'inventario/almacenes',
-        name: 'dashboard-inventario-almacenes',
-        component: () => import('../views/AlmacenesView.vue'),
+        path: 'escenarios',
+        name: 'dashboard-escenarios',
+        component: () => import('../views/EscenariosView.vue'),
+      },
+      {
+        path: 'tramites',
+        name: 'dashboard-tramites',
+        component: () => import('../views/TramitesView.vue'),
+      },
+      {
+        path: 'tarifario',
+        name: 'dashboard-tarifario',
+        component: () => import('../views/TarifarioView.vue'),
       },
     ],
   },
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 

@@ -6,24 +6,23 @@ import api from './api'
  */
 export const userService = {
   async list(page = 1) {
-    const { data } = await api.get('/users', { params: { page } })
+    const { data } = await api.get('/core/users', { params: { page } })
     return { items: data.data, meta: data.meta }
   },
 
   async create(payload) {
-    const { data } = await api.post('/users', payload)
+    const { data } = await api.post('/core/users', payload)
     return data.data
   },
 
   async update(id, payload) {
-    const { data } = await api.put(`/users/${id}`, payload)
+    const { data } = await api.put(`/core/users/${id}`, payload)
     return data.data
   },
 
-  // "Desactivar" no borra al usuario: solo cambia el campo activo,
-  // reutilizando el mismo endpoint de edición.
+  // "Desactivar" no borra al usuario: solo cambia el campo activo
   async setActive(id, activo) {
-    const { data } = await api.put(`/users/${id}`, { activo })
+    const { data } = await api.put(`/core/users/${id}`, { activo })
     return data.data
   },
 }

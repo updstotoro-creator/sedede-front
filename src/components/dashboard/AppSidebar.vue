@@ -5,12 +5,15 @@ import logo from '../../assets/images/logo-sedede.png'
 const auth = useAuthStore()
 
 const links = [
+  
   { to: '/dashboard', label: 'Resumen', exact: true },
   { to: '/dashboard/users', label: 'Usuarios' },
   { to: '/dashboard/roles', label: 'Roles' },
   { to: '/dashboard/asociaciones', label: 'Asociaciones' },
-  { to: '/dashboard/inventario/tipos-item', label: 'Tipos de Ítem' },
-  { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
+  { to: '/dashboard/deportistas', label: 'Deportistas (RUN)' },
+  { to: '/dashboard/tramites', label: 'Solicitudes y Trámites' },
+  { to: '/dashboard/escenarios', label: 'Programación Escenarios' },
+  { to: '/dashboard/tarifario', label: 'Tarifario & Ingresos' },
 ]
 
 function initials(name) {

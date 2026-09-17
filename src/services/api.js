@@ -25,11 +25,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginRequest = error.config?.url?.includes('/login')
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('sedede_token')
-      // Evita loop si ya estamos en /login
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login'
+      const base = import.meta.env.BASE_URL || '/sedede/'
+      const loginUrl = `${base}login`.replace(/\/+/g, '/')
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = loginUrl
       }
     }
     return Promise.reject(error)

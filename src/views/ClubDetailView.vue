@@ -1,64 +1,52 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAsociacionesStore } from '../stores/asociaciones'
+import { asociacionService } from '../services/asociacionService'
+import { deportistaService } from '../services/deportistaService'
 
 const route = useRoute()
-const store = useAsociacionesStore()
+const asociacionId = route.params.asociacionId
+const clubId = route.params.clubId
 
-const asociacion = computed(() => store.getAsociacion(route.params.asociacionId))
-const club = computed(() => store.getClub(route.params.asociacionId, route.params.clubId))
+const asociacion = ref(null)
+const club = ref(null)
+const deportistas = ref([])
+const status = ref('loading')
+const errorMessage = ref('')
 
-// Modal editar datos del club
-const showClubModal = ref(false)
-const clubForm = reactive({ nombre: '', entrenador: '' })
+async function loadData() {
+  status.value = 'loading'
+  errorMessage.value = ''
+  try {
+    asociacion.value = await asociacionService.get(asociacionId)
+    const clubes = await asociacionService.listClubes(asociacionId)
+    club.value = clubes.find((c) => c.id === Number(clubId)) || null
 
-function openEditClub() {
-  clubForm.nombre = club.value.nombre
-  clubForm.entrenador = club.value.entrenador
-  showClubModal.value = true
-}
-function submitClubForm() {
-  store.updateClub(asociacion.value.id, club.value.id, { ...clubForm })
-  showClubModal.value = false
-}
-
-// Modal crear/editar deportista
-const showDeportistaModal = ref(false)
-const editingDeportista = ref(null)
-const deportistaForm = reactive({ nombre: '', edad: '', categoria: '' })
-
-function openCreateDeportista() {
-  editingDeportista.value = null
-  deportistaForm.nombre = ''
-  deportistaForm.edad = ''
-  deportistaForm.categoria = ''
-  showDeportistaModal.value = true
-}
-function openEditDeportista(deportista) {
-  editingDeportista.value = deportista
-  deportistaForm.nombre = deportista.nombre
-  deportistaForm.edad = deportista.edad
-  deportistaForm.categoria = deportista.categoria
-  showDeportistaModal.value = true
-}
-function closeDeportistaModal() {
-  showDeportistaModal.value = false
-  editingDeportista.value = null
-}
-function submitDeportistaForm() {
-  const payload = { ...deportistaForm, edad: Number(deportistaForm.edad) }
-  if (editingDeportista.value) {
-    store.updateDeportista(asociacion.value.id, club.value.id, editingDeportista.value.id, payload)
-  } else {
-    store.addDeportista(asociacion.value.id, club.value.id, payload)
+    const res = await deportistaService.list({ club_id: clubId })
+    deportistas.value = res.items || []
+    status.value = 'idle'
+  } catch (error) {
+    status.value = 'error'
+    errorMessage.value = error.response?.data?.error || 'Error al cargar los deportistas del club.'
   }
-  closeDeportistaModal()
 }
+
+onMounted(() => {
+  loadData()
+})
 </script>
 
 <template>
-  <section v-if="asociacion && club">
+  <section v-if="status === 'loading'" class="py-10 text-center text-sm text-slate-400">
+    Cargando información del club…
+  </section>
+
+  <section v-else-if="status === 'error'" role="alert" class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {{ errorMessage }}
+  </section>
+
+  <section v-else-if="asociacion && club">
+    <!-- Breadcrumb de 3 niveles -->
     <nav class="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-500">
       <router-link to="/dashboard/asociaciones" class="hover:text-brand-600 hover:underline">Asociaciones</router-link>
       <span>/</span>
@@ -67,66 +55,41 @@ function submitDeportistaForm() {
       <span class="font-semibold text-ink">{{ club.nombre }}</span>
     </nav>
 
-    <div class="mb-6 flex items-start justify-between rounded-lg border border-slate-200 bg-white p-5">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">Club</p>
-        <h2 class="mt-1 font-display text-lg font-bold text-ink">{{ club.nombre }}</h2>
-        <p class="mt-1 text-sm text-slate-500">Entrenador: {{ club.entrenador }}</p>
-        <span class="mt-2 inline-block rounded-full px-2.5 py-1 text-xs font-semibold" :class="club.activo ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'">
-          {{ club.activo ? 'Activo' : 'Inactivo' }}
-        </span>
-      </div>
-      <div class="flex shrink-0 gap-3">
-        <button class="text-xs font-semibold text-slate-500 hover:underline" @click="openEditClub">Editar</button>
-        <button
-          class="text-xs font-semibold hover:underline"
-          :class="club.activo ? 'text-red-600' : 'text-teal-700'"
-          @click="store.toggleClubActivo(asociacion.id, club.id)"
-        >
-          {{ club.activo ? 'Inactivar' : 'Activar' }}
-        </button>
-      </div>
+    <div class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">Club Deportivo Afiliado</p>
+      <h2 class="mt-1 font-display text-lg font-bold text-ink">{{ club.nombre }}</h2>
+      <p class="mt-1 text-sm text-slate-500">Sigla: {{ club.sigla || '—' }} | Personería: {{ club.personeria_juridica || 'En trámite' }}</p>
     </div>
 
-    <div class="mb-3 flex items-center justify-between">
-      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Deportistas registrados</h3>
-      <button class="btn-primary" @click="openCreateDeportista">+ Nuevo deportista</button>
-    </div>
+    <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Deportistas Registrados en este Club</h3>
 
     <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <table class="w-full text-left text-sm">
-        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
-            <th class="px-4 py-3">Nombre</th>
-            <th class="px-4 py-3">Edad</th>
+            <th class="px-4 py-3">Deportista</th>
+            <th class="px-4 py-3">C.I.</th>
+            <th class="px-4 py-3">Disciplina</th>
             <th class="px-4 py-3">Categoría</th>
+            <th class="px-4 py-3">Ranking Deptal</th>
             <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3 text-right">Acciones</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="deportista in club.deportistas" :key="deportista.id">
-            <td class="px-4 py-3 font-medium text-ink">{{ deportista.nombre }}</td>
-            <td class="px-4 py-3 text-slate-600">{{ deportista.edad }}</td>
-            <td class="px-4 py-3 text-slate-600">{{ deportista.categoria }}</td>
+          <tr v-for="dep in deportistas" :key="dep.id" class="hover:bg-slate-50">
+            <td class="px-4 py-3 font-semibold text-ink">{{ dep.nombres }} {{ dep.primer_apellido }} {{ dep.segundo_apellido }}</td>
+            <td class="px-4 py-3 text-slate-600">{{ dep.ci }} {{ dep.expedido ? `(${dep.expedido})` : '' }}</td>
+            <td class="px-4 py-3 text-slate-600">{{ dep.disciplina }}</td>
+            <td class="px-4 py-3 text-slate-600">{{ dep.categoria || 'Senior' }}</td>
+            <td class="px-4 py-3 font-mono text-slate-600">#{{ dep.ranking_departamental || '—' }}</td>
             <td class="px-4 py-3">
-              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="deportista.activo ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'">
-                {{ deportista.activo ? 'Activo' : 'Inactivo' }}
+              <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="dep.activo ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-500'">
+                {{ dep.estado_atleta || (dep.activo ? 'Activo' : 'Inactivo') }}
               </span>
             </td>
-            <td class="px-4 py-3 text-right">
-              <button class="mr-3 text-xs font-semibold text-slate-500 hover:underline" @click="openEditDeportista(deportista)">Editar</button>
-              <button
-                class="text-xs font-semibold hover:underline"
-                :class="deportista.activo ? 'text-red-600' : 'text-teal-700'"
-                @click="store.toggleDeportistaActivo(asociacion.id, club.id, deportista.id)"
-              >
-                {{ deportista.activo ? 'Inactivar' : 'Activar' }}
-              </button>
-            </td>
           </tr>
-          <tr v-if="!club.deportistas.length">
-            <td colspan="5" class="px-4 py-8 text-center text-slate-400">Este club aún no tiene deportistas registrados.</td>
+          <tr v-if="!deportistas.length">
+            <td colspan="6" class="px-4 py-8 text-center text-slate-400">Este club aún no tiene deportistas registrados.</td>
           </tr>
         </tbody>
       </table>
