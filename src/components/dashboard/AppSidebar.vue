@@ -22,6 +22,10 @@ const poaSubmenu = [
   { to: '/dashboard/poa/bitacora', label: 'Bitácora' },
 ]
 
+function togglePoa() {
+  poaOpen.value = !poaOpen.value
+}
+
 function initials(name) {
   if (!name) return '?'
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
