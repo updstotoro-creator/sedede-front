@@ -4,12 +4,15 @@ import { poaService } from '@/services/poaService'
 export const usePoaStore = defineStore('poa', {
   state: () => ({
     dashboard: null,
+    arbol: [],
     programas: [],
     proyectos: [],
     planes: [],
     actividades: [],
     indicadores: [],
     metas: [],
+    techos: [],
+    transiciones: [],
     loading: false,
     error: null,
   }),
@@ -31,6 +34,20 @@ export const usePoaStore = defineStore('poa', {
         this.dashboard = await poaService.getDashboard()
       } catch (e) {
         this.setError(e.response?.data?.message || 'Error al cargar dashboard')
+      } finally {
+        this.setLoading(false)
+      }
+    },
+
+    // ── Árbol jerárquico ─────────────────────────────────────
+    async fetchArbol(params) {
+      this.setLoading(true)
+      this.setError(null)
+      try {
+        const res = await poaService.getArbol(params)
+        this.arbol = res.data
+      } catch (e) {
+        this.setError(e.response?.data?.message || 'Error al cargar árbol')
       } finally {
         this.setLoading(false)
       }
@@ -367,6 +384,51 @@ export const usePoaStore = defineStore('poa', {
       } catch (e) {
         this.setError(e.response?.data?.message || 'Error al actualizar meta')
         throw e
+      } finally {
+        this.setLoading(false)
+      }
+    },
+
+    // ── Techos ───────────────────────────────────────────────
+    async fetchTechos(params) {
+      this.setLoading(true)
+      this.setError(null)
+      try {
+        const res = await poaService.listTechos(params)
+        this.techos = res.data
+        return res
+      } catch (e) {
+        this.setError(e.response?.data?.message || 'Error al cargar techos')
+      } finally {
+        this.setLoading(false)
+      }
+    },
+
+    async createTecho(payload) {
+      this.setLoading(true)
+      this.setError(null)
+      try {
+        const res = await poaService.createTecho(payload)
+        this.techos.push(res.data)
+        return res
+      } catch (e) {
+        this.setError(e.response?.data?.message || 'Error al crear techo')
+        throw e
+      } finally {
+        this.setLoading(false)
+      }
+    },
+
+    // ── Transiciones ─────────────────────────────────────────
+    async fetchTransiciones(params) {
+      this.setLoading(true)
+      this.setError(null)
+      try {
+        const res = await poaService.listTransiciones(params)
+        this.transiciones = res.data
+        return res
+      } catch (e) {
+        this.setError(e.response?.data?.message || 'Error al cargar transiciones')
       } finally {
         this.setLoading(false)
       }

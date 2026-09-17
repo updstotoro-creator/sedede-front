@@ -6,6 +6,12 @@ export const poaService = {
     return data
   },
 
+  // ── Árbol jerárquico ─────────────────────────────────────
+  async getArbol(params) {
+    const { data } = await api.get('/poa/arbol', { params })
+    return data
+  },
+
   // ── Programas ──────────────────────────────────────────────
   async listProgramas(params) {
     const { data } = await api.get('/poa/programas', { params })
@@ -75,6 +81,11 @@ export const poaService = {
     return data
   },
 
+  async getActividad(id) {
+    const { data } = await api.get(`/poa/actividades/${id}`)
+    return data
+  },
+
   async createActividad(payload) {
     const { data } = await api.post('/poa/actividades', payload)
     return data
@@ -124,6 +135,33 @@ export const poaService = {
 
   async updateMeta(id, payload) {
     const { data } = await api.put(`/poa/metas/${id}`, payload)
+    return data
+  },
+
+  // ── Techos presupuestarios ─────────────────────────────────
+  async listTechos(params) {
+    const { data } = await api.get('/poa/techos', { params })
+    return data
+  },
+
+  async createTecho(payload) {
+    const { data } = await api.post('/poa/techos', payload)
+    return data
+  },
+
+  async updateTecho(id, payload) {
+    const { data } = await api.put(`/poa/techos/${id}`, payload)
+    return data
+  },
+
+  // ── Transiciones (bitácora) ────────────────────────────────
+  async listTransiciones(params) {
+    const { data } = await api.get('/poa/transiciones', { params })
+    return data
+  },
+
+  async createTransicion(payload) {
+    const { data } = await api.post('/poa/transiciones', payload)
     return data
   },
 }

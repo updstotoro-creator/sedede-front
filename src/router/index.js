@@ -64,6 +64,26 @@ const routes = [
         name: 'dashboard-poa-dashboard',
         component: () => import('../views/PoaDashboard.vue'),
       },
+      {
+        path: 'poa/planes',
+        name: 'dashboard-poa-planes',
+        component: () => import('../views/PoaPlanesView.vue'),
+      },
+      {
+        path: 'poa/actividad/:id',
+        name: 'dashboard-poa-actividad',
+        component: () => import('../views/PoaActividadDetail.vue'),
+      },
+      {
+        path: 'poa/techos',
+        name: 'dashboard-poa-techos',
+        component: () => import('../views/PoaTechosView.vue'),
+      },
+      {
+        path: 'poa/bitacora',
+        name: 'dashboard-poa-bitacora',
+        component: () => import('../views/PoaBitacoraView.vue'),
+      },
     ],
   },
 ]
