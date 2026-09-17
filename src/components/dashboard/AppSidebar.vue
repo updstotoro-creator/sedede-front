@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import logo from '../../assets/images/logo-sedede.png'
 
@@ -25,6 +25,21 @@ const poaSubmenu = [
 function togglePoa() {
   poaOpen.value = !poaOpen.value
 }
+
+function handleClickOutside(event) {
+  const sidebar = document.querySelector('aside')
+  if (sidebar && !sidebar.contains(event.target)) {
+    poaOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 function initials(name) {
   if (!name) return '?'
