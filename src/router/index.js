@@ -54,6 +54,16 @@ const routes = [
         name: 'dashboard-inventario-almacenes',
         component: () => import('../views/AlmacenesView.vue'),
       },
+      {
+        path: 'poa',
+        name: 'dashboard-poa',
+        component: () => import('../views/PoaView.vue'),
+      },
+      {
+        path: 'poa/dashboard',
+        name: 'dashboard-poa-dashboard',
+        component: () => import('../views/PoaDashboard.vue'),
+      },
     ],
   },
 ]
