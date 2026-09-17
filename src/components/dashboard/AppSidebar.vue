@@ -43,6 +43,7 @@ function initials(name) {
     </div>
 
     <nav class="flex-1 space-y-1 px-3 py-5">
+      <!-- Enlaces principales -->
       <router-link
         v-for="link in mainLinks"
         :key="link.to"
@@ -60,6 +61,42 @@ function initials(name) {
           {{ link.label }}
         </a>
       </router-link>
+
+      <!-- Botón POA con submenú -->
+      <div class="relative">
+        <button
+          @click="togglePoa"
+          class="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors"
+          :class="poaOpen ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-ink'"
+        >
+          <span class="text-lg">☰</span>
+          POA
+        </button>
+        
+        <!-- Submenú POA -->
+        <div
+          v-show="poaOpen"
+          class="absolute bottom-full left-0 mb-1 w-full rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          <router-link
+            v-for="sublink in poaSubmenu"
+            :key="sublink.to"
+            :to="sublink.to"
+            custom
+            v-slot="{ href, navigate, isActive }"
+          >
+            <a
+              :href="href"
+              class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors"
+              :class="isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-ink'"
+              @click="navigate"
+            >
+              <span class="h-1.5 w-1.5 rounded-full" :class="isActive ? 'bg-brand-600' : 'bg-transparent'"></span>
+              {{ sublink.label }}
+            </a>
+          </router-link>
+        </div>
+      </div>
     </nav>
 
     <div class="border-t border-slate-100 px-4 py-4">
