@@ -1,8 +1,10 @@
 <script setup>
+import { ref } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import logo from '../../assets/images/logo-sedede.png'
 
 const auth = useAuthStore()
+const poaOpen = ref(false)
 
 const mainLinks = [
   { to: '/dashboard', label: 'Resumen', exact: true },
