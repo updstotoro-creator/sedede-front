@@ -11,6 +11,8 @@ const links = [
   { to: '/dashboard/asociaciones', label: 'Asociaciones' },
   { to: '/dashboard/inventario/tipos-item', label: 'Tipos de Ítem' },
   { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
+  { to: '/dashboard/poa', label: 'POA' },
+  { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
 ]
 
 function initials(name) {
