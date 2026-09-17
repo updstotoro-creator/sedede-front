@@ -6,23 +6,25 @@ import api from './api'
  */
 export const authService = {
   async login({ email, password }) {
-    const { data } = await api.post('/login', { email, password })
+    const { data } = await api.post('/core/login', { email, password })
 
-    localStorage.setItem('sedede_token', data.token)
+    if (data?.token) {
+      localStorage.setItem('sedede_token', data.token)
+    }
 
-    return data.data // el usuario viene dentro de "data.data"
+    return data?.data ?? data?.user ?? data
   },
 
   async logout() {
     try {
-      await api.post('/logout')
+      await api.post('/core/logout')
     } finally {
       localStorage.removeItem('sedede_token')
     }
   },
 
   async me() {
-    const { data } = await api.get('/me')
-    return data.data
+    const { data } = await api.get('/core/me')
+    return data?.data ?? data
   },
 }

@@ -44,12 +44,32 @@ const routes = [
         name: 'dashboard-club-detalle',
         component: () => import('../views/ClubDetailView.vue'),
       },
+      {
+        path: 'deportistas',
+        name: 'dashboard-deportistas',
+        component: () => import('../views/DeportistasView.vue'),
+      },
+      {
+        path: 'escenarios',
+        name: 'dashboard-escenarios',
+        component: () => import('../views/EscenariosView.vue'),
+      },
+      {
+        path: 'tramites',
+        name: 'dashboard-tramites',
+        component: () => import('../views/TramitesView.vue'),
+      },
+      {
+        path: 'tarifario',
+        name: 'dashboard-tarifario',
+        component: () => import('../views/TarifarioView.vue'),
+      },
     ],
   },
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 

@@ -9,6 +9,10 @@ const links = [
   { to: '/dashboard/users', label: 'Usuarios' },
   { to: '/dashboard/roles', label: 'Roles' },
   { to: '/dashboard/asociaciones', label: 'Asociaciones' },
+  { to: '/dashboard/deportistas', label: 'Deportistas (RUN)' },
+  { to: '/dashboard/tramites', label: 'Solicitudes y Trámites' },
+  { to: '/dashboard/escenarios', label: 'Programación Escenarios' },
+  { to: '/dashboard/tarifario', label: 'Tarifario & Ingresos' },
 ]
 
 function initials(name) {
