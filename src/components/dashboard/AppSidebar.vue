@@ -4,15 +4,20 @@ import logo from '../../assets/images/logo-sedede.png'
 
 const auth = useAuthStore()
 
-const links = [
+const mainLinks = [
   { to: '/dashboard', label: 'Resumen', exact: true },
   { to: '/dashboard/users', label: 'Usuarios' },
   { to: '/dashboard/roles', label: 'Roles' },
   { to: '/dashboard/asociaciones', label: 'Asociaciones' },
   { to: '/dashboard/inventario/tipos-item', label: 'Tipos de Ítem' },
   { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
-  { to: '/dashboard/poa', label: 'POA' },
+]
+
+const poaSubmenu = [
   { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
+  { to: '/dashboard/poa/planes', label: 'Planes POA' },
+  { to: '/dashboard/poa/techos', label: 'Techos Presup.' },
+  { to: '/dashboard/poa/bitacora', label: 'Bitácora' },
 ]
 
 function initials(name) {
@@ -33,7 +38,7 @@ function initials(name) {
 
     <nav class="flex-1 space-y-1 px-3 py-5">
       <router-link
-        v-for="link in links"
+        v-for="link in mainLinks"
         :key="link.to"
         :to="link.to"
         custom
