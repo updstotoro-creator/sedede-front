@@ -100,8 +100,8 @@ onMounted(() => {
   <section class="mt-8">
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h2 class="font-display text-xl font-bold text-ink">Gestión de Roles</h2>
-        <p class="text-xs text-slate-500">Administra los roles del sistema y sus niveles de acceso</p>
+        <h2 class="font-display text-xl font-bold text-ink">Roles</h2>
+        <p class="text-xs text-slate-500">Roles de usuario y accesos.</p>
       </div>
       <button class="btn-primary" @click="openCreateModal">+ Nuevo Rol</button>
     </div>

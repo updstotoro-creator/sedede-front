@@ -40,4 +40,25 @@ export const escenarioService = {
     const { data } = await api.post(`/escenarios/${escenarioId}/programaciones`, payload)
     return data.data
   },
+
+  // Bloque 1: Visibilidad de Ocupación, Disciplinas y Reservas con Tarifario
+  async getOcupacion(params = {}) {
+    const response = await api.get('/escenarios/ocupacion', { params })
+    return response.data
+  },
+
+  async getReservas(params = {}) {
+    const response = await api.get('/escenarios/reservas', { params })
+    return response.data
+  },
+
+  async crearReserva(payload) {
+    const response = await api.post('/escenarios/reservas', payload)
+    return response.data
+  },
+
+  async actualizarEstadoReserva(id, payload) {
+    const response = await api.patch(`/escenarios/reservas/${id}/estado`, payload)
+    return response.data
+  },
 }

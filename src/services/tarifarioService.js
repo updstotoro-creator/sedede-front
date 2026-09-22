@@ -31,8 +31,9 @@ export const tarifarioService = {
     return response.data
   },
 
-  async getResumen() {
-    const response = await api.get('/tarifario/resumen')
+  async getResumen(params = {}) {
+    const response = await api.get('/tarifario/resumen', { params })
     return response.data
   },
 }
+

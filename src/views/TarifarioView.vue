@@ -4,16 +4,28 @@
     <div class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <div class="flex items-center gap-2 text-emerald-200 text-xs font-semibold tracking-wider uppercase mb-1">
-          <span class="px-2 py-0.5 bg-emerald-950/40 rounded-md border border-emerald-500/30">Módulo Financiero SEDEDE</span>
-          <span>•</span>
-          <span>RAG CH/N.º 011/2024</span>
+          <span class="px-2 py-0.5 bg-emerald-950/40 rounded-md border border-emerald-500/30">Tarifario SEDEDE</span>
         </div>
-        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Tarifario de Alquileres e Ingresos Propios</h1>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Tarifario</h1>
         <p class="text-emerald-100 text-sm mt-1 max-w-2xl">
-          Gestión de cánones, cotizaciones en tiempo real, emisión de recibos y control estricto de depósitos en 24 horas para escenarios deportivos.
+          Reservas de escenarios, cotizador y emisión de recibos.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
+        <button
+          @click="activeTab = 'calendario'"
+          :class="[
+            'px-4 py-2.5 rounded-xl font-medium text-sm transition-all shadow-sm flex items-center gap-2',
+            activeTab === 'calendario'
+              ? 'bg-white text-emerald-900 shadow-emerald-900/20 font-semibold scale-105'
+              : 'bg-emerald-700/60 hover:bg-emerald-600/80 text-white'
+          ]"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Calendario de Reservas
+        </button>
         <button
           @click="activeTab = 'cotizador'"
           :class="[
@@ -24,9 +36,9 @@
           ]"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
           </svg>
-          Cotizador RAG 011/2024
+          Cotizador
         </button>
         <button
           @click="activeTab = 'liquidaciones'"
@@ -40,7 +52,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Liquidaciones & Recibos
+          Recibos
         </button>
         <button
           @click="activeTab = 'catalogo'"
@@ -54,8 +66,34 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
           </svg>
-          Catálogo Oficial
+          Tarifas
         </button>
+      </div>
+    </div>
+
+    <!-- Filtro por Rango de Fechas para Recaudación Financiera -->
+    <div class="bg-white rounded-xl p-4 border border-emerald-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div class="flex items-center gap-2 font-bold text-gray-700">
+        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span>Filtro de Recaudación por Rango de Fechas:</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-1">
+          <span class="text-gray-500 font-medium">Desde:</span>
+          <input type="date" v-model="fechaDesdeResumen" @change="fetchResumen" class="rounded-lg border-gray-200 text-xs py-1 px-2 font-semibold" />
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-gray-500 font-medium">Hasta:</span>
+          <input type="date" v-model="fechaHastaResumen" @change="fetchResumen" class="rounded-lg border-gray-200 text-xs py-1 px-2 font-semibold" />
+        </div>
+        <div class="flex items-center gap-1 pl-2">
+          <button @click="setPresetFechaResumen('hoy')" class="px-2 py-1 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 rounded font-semibold text-[11px]">Hoy</button>
+          <button @click="setPresetFechaResumen('mes')" class="px-2 py-1 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 rounded font-semibold text-[11px]">Este Mes</button>
+          <button @click="setPresetFechaResumen('anio')" class="px-2 py-1 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 rounded font-semibold text-[11px]">2026</button>
+          <button @click="setPresetFechaResumen('todo')" class="px-2 py-1 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 rounded font-semibold text-[11px]">Todo</button>
+        </div>
       </div>
     </div>
 
@@ -64,7 +102,7 @@
       <div class="bg-white rounded-xl p-5 border border-emerald-100 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex justify-between items-start">
           <div>
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudado Total</p>
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudado (En Rango)</p>
             <h3 class="text-2xl font-bold text-gray-900 mt-1">Bs. {{ formatMoney(resumen.total_recaudado) }}</h3>
           </div>
           <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
@@ -77,6 +115,7 @@
           <span class="font-semibold text-emerald-600">{{ resumen.total_liquidaciones }}</span> órdenes procesadas
         </p>
       </div>
+
 
       <div class="bg-white rounded-xl p-5 border border-emerald-100 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex justify-between items-start">
@@ -115,22 +154,248 @@
       <div class="bg-white rounded-xl p-5 border border-emerald-100 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex justify-between items-start">
           <div>
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Exenciones Autorizadas</p>
-            <h3 class="text-2xl font-bold text-purple-700 mt-1">{{ resumen.total_exenciones }}</h3>
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Reservas Confirmadas</p>
+            <h3 class="text-2xl font-bold text-teal-700 mt-1">{{ reservas.length }}</h3>
           </div>
-          <div class="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+          <div class="p-2.5 bg-teal-50 text-teal-600 rounded-xl">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
         </div>
         <p class="text-xs text-gray-500 mt-3 flex items-center gap-1">
-          Fomento deportivo con respaldo MAE
+          Solicitudes con liquidación automática
         </p>
       </div>
     </div>
 
-    <!-- TAB 1: COTIZADOR & SIMULADOR EN TIEMPO REAL -->
+    <!-- TAB 0: CALENDARIO & RESERVAS (BLOQUE 1) -->
+    <div v-if="activeTab === 'calendario'" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 space-y-6">
+      
+      <!-- Encabezado y Filtros Responsivos -->
+      <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-gray-100 pb-4">
+        <div>
+          <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            Calendario Unificado de Ocupación & Reservas (Bloque 1)
+          </h2>
+          <p class="text-xs text-gray-500 mt-0.5">Seleccione el espacio deportivo para consultar su disponibilidad mensual e integrar la reserva al Tarifario.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 md:gap-3 w-full lg:w-auto">
+          <!-- Filtro Disciplina -->
+          <div class="flex-1 min-w-[130px] sm:min-w-[150px]">
+            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">1. Disciplina</label>
+            <select
+              v-model="filtroDisciplina"
+              @change="onDisciplinaFilterChange"
+              class="w-full rounded-xl border-gray-200 text-xs py-2 px-3 bg-gray-50 font-semibold focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option value="">Todas las Disciplinas</option>
+              <option value="Fútbol">⚽ Fútbol</option>
+              <option value="Atletismo">🏃 Atletismo</option>
+              <option value="Baloncesto">🏀 Baloncesto</option>
+              <option value="Voleibol">🏐 Voleibol</option>
+              <option value="Futsal">⚽ Futsal</option>
+              <option value="Ráquetbol">🎾 Ráquetbol</option>
+              <option value="Karate">🥋 Karate / Lucha</option>
+            </select>
+          </div>
+
+          <!-- Selector Espacio Específico -->
+          <div class="flex-1 min-w-[180px] sm:min-w-[220px]">
+            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">2. Espacio / Recinto Deportivo</label>
+            <select
+              v-model="espacioSeleccionadoClave"
+              class="w-full rounded-xl border-gray-200 text-xs py-2 px-3 bg-emerald-50 text-emerald-900 font-bold focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option value="TODOS">🏟️ Todos los Espacios Disponibles</option>
+              <option v-for="esp in listaEspaciosOpciones" :key="esp.clave" :value="esp.clave">
+                {{ esp.escenario_nombre }} - {{ esp.espacio }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Botón Solicitar Reserva -->
+          <div class="w-full sm:w-auto pt-1 sm:pt-0">
+            <button
+              @click="abrirModalNuevaReservaConEspacio()"
+              class="w-full sm:w-auto px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow flex items-center justify-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              + Solicitar Reserva
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra Navegación Mensual & Leyenda (Responsivo Mobile) -->
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
+        <!-- Navegación de Mes -->
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+          <button
+            @click="mesAnterior"
+            class="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+          >
+            ‹ Mes Anterior
+          </button>
+          
+          <div class="text-center px-3">
+            <span class="text-sm font-extrabold text-emerald-950 uppercase tracking-wide block">
+              {{ monthYearLabel }}
+            </span>
+            <span class="text-[10px] text-emerald-700 font-medium block" v-if="espacioSeleccionadoInfo">
+              {{ espacioSeleccionadoInfo.escenario_nombre }} ({{ espacioSeleccionadoInfo.espacio }})
+            </span>
+            <span class="text-[10px] text-gray-500 font-medium block" v-else>
+              Vista General de Ocupación
+            </span>
+          </div>
+
+          <button
+            @click="mesSiguiente"
+            class="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+          >
+            Mes Siguiente ›
+          </button>
+        </div>
+
+        <!-- Leyenda de Estados -->
+        <div class="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold text-gray-700">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span> Libre</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 shadow-sm"></span> Pendiente</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-500 shadow-sm"></span> Reservado</span>
+        </div>
+      </div>
+
+      <!-- CALENDARIO PRINCIPAL UNIFICADO (GRID 7 COLUMNAS RESPONSIVO MÓVIL) -->
+      <div class="border border-gray-200 rounded-2xl overflow-hidden shadow-sm bg-white">
+        <!-- Encabezados de días de la semana -->
+        <div class="grid grid-cols-7 bg-emerald-950 text-white text-center text-xs font-bold py-2.5 uppercase tracking-wider border-b border-emerald-900">
+          <div>Dom</div>
+          <div>Lun</div>
+          <div>Mar</div>
+          <div>Mié</div>
+          <div>Jue</div>
+          <div>Vie</div>
+          <div>Sáb</div>
+        </div>
+
+        <!-- Matriz de Días del Mes -->
+        <div class="grid grid-cols-7 divide-x divide-y divide-gray-100 bg-gray-50/50">
+          <!-- Celdas vacías previa al inicio del mes -->
+          <div
+            v-for="blank in firstDayIndex"
+            :key="'blank-' + blank"
+            class="min-h-[70px] sm:min-h-[100px] bg-gray-50/70 p-1 md:p-2 opacity-30 select-none"
+          ></div>
+
+          <!-- Días reales del mes -->
+          <div
+            v-for="dayObj in monthCalendarDays"
+            :key="dayObj.dateStr"
+            @click="onDayClick(dayObj)"
+            :class="[
+              'min-h-[75px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between group hover:shadow-md hover:z-10',
+              dayObj.isToday ? 'bg-emerald-50/70 ring-2 ring-emerald-500/50' : 'bg-white hover:bg-emerald-50/30'
+            ]"
+          >
+            <!-- Cabecera del día -->
+            <div class="flex justify-between items-start">
+              <span
+                :class="[
+                  'inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 text-xs sm:text-sm font-bold rounded-full transition-transform group-hover:scale-110',
+                  dayObj.isToday ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-800'
+                ]"
+              >
+                {{ dayObj.dayNumber }}
+              </span>
+
+              <!-- Badge indicador de estado -->
+              <span
+                :class="[
+                  'w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shadow-sm',
+                  dayObj.status === 'RESERVADO' ? 'bg-red-500 ring-2 ring-red-200' :
+                  dayObj.status === 'PENDIENTE' ? 'bg-amber-500 ring-2 ring-amber-200' :
+                  'bg-emerald-500 ring-2 ring-emerald-200'
+                ]"
+                :title="dayObj.status"
+              ></span>
+            </div>
+
+            <!-- Contenido / Eventos en el Día -->
+            <div class="mt-1 space-y-1 flex-1 overflow-hidden">
+              <div v-if="dayObj.reservas.length > 0" class="space-y-1">
+                <div
+                  v-for="res in dayObj.reservas.slice(0, 2)"
+                  :key="res.id"
+                  :class="[
+                    'p-1 sm:p-1.5 rounded-lg text-[9px] sm:text-[10px] leading-tight font-semibold border truncate',
+                    res.estado === 'CONFIRMADA' ? 'bg-red-50 border-red-200 text-red-900' : 'bg-amber-50 border-amber-200 text-amber-900'
+                  ]"
+                >
+                  <p class="font-bold truncate">{{ res.solicitante_nombre }}</p>
+                  <p class="text-[8px] sm:text-[9px] opacity-80">{{ res.hora_inicio }} - {{ res.hora_fin }}</p>
+                </div>
+                <p v-if="dayObj.reservas.length > 2" class="text-[9px] text-gray-500 font-bold px-1">
+                  +{{ dayObj.reservas.length - 2 }} más
+                </p>
+              </div>
+
+              <div v-else class="hidden sm:block text-[10px] text-emerald-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity pt-2">
+                + Reservar
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DETALLE DE PRÓXIMAS RESERVAS DEL ESPACIO SELECCIONADO -->
+      <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 space-y-3">
+        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+          <h3 class="font-bold text-gray-900 text-sm flex items-center gap-2">
+            <span>📋</span> Reservas Registradas en {{ monthYearLabel }}
+          </h3>
+          <span class="text-xs font-semibold text-emerald-700 bg-emerald-100/60 px-2.5 py-0.5 rounded-full">
+            {{ reservasDelMesFiltradas.length }} Solicitud(es)
+          </span>
+        </div>
+
+        <div v-if="reservasDelMesFiltradas.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div
+            v-for="res in reservasDelMesFiltradas"
+            :key="res.id"
+            class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm space-y-1.5 text-xs hover:border-emerald-400 transition-colors"
+          >
+            <div class="flex justify-between items-start">
+              <span class="font-bold text-gray-900">{{ res.solicitante_nombre }}</span>
+              <span
+                :class="[
+                  'px-2 py-0.5 text-[9px] font-bold rounded uppercase',
+                  res.estado === 'CONFIRMADA' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                ]"
+              >
+                {{ res.estado }}
+              </span>
+            </div>
+
+            <p class="text-emerald-700 font-medium text-[11px]">{{ res.escenario_nombre }} - {{ res.espacio }}</p>
+            <p class="text-gray-500 text-[10px]">
+              📅 {{ res.fecha_uso }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • ⚽ {{ res.disciplina }}
+            </p>
+            <p class="text-gray-600 italic text-[11px] border-t pt-1 mt-1">"{{ res.concepto }}"</p>
+          </div>
+        </div>
+
+        <p v-else class="text-xs text-gray-500 italic py-2 text-center">
+          No hay reservas programadas para este espacio en {{ monthYearLabel }}.
+        </p>
+      </div>
+    </div>
+
+    <!-- TAB 1: COTIZADOR EN TIEMPO REAL -->
     <div v-if="activeTab === 'cotizador'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-6">
         <div class="border-b border-gray-100 pb-4 flex justify-between items-center">
@@ -139,7 +404,7 @@
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               Calculadora & Cotizador Oficial (RAG 011/2024)
             </h2>
-            <p class="text-xs text-gray-500 mt-0.5">Seleccione las variables del uso de escenario para calcular automáticamente el canon y recargo CESSA.</p>
+            <p class="text-xs text-gray-500 mt-0.5">Seleccione las variables del uso de escenario para calcular automáticamente el canon y recargo de iluminación.</p>
           </div>
         </div>
 
@@ -257,7 +522,6 @@
           </div>
         </div>
 
-        <!-- Solicitante Form (para emisión directa) -->
         <div class="border-t border-gray-100 pt-4 space-y-3">
           <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider">Datos del Solicitante (para Orden de Liquidación)</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -293,7 +557,6 @@
         </div>
       </div>
 
-      <!-- Panel derecho resultado del cotizador -->
       <div class="bg-emerald-950 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between border border-emerald-800/50">
         <div class="space-y-4">
           <div class="flex justify-between items-center border-b border-emerald-800 pb-3">
@@ -324,7 +587,7 @@
                 <span class="font-mono">Bs. {{ formatMoney(calculoResultado.monto_subtotal) }}</span>
               </div>
               <div class="flex justify-between text-emerald-200">
-                <span>Recargo Iluminación CESSA:</span>
+                <span>Recargo Iluminación Nocturna:</span>
                 <span class="font-mono">Bs. {{ formatMoney(calculoResultado.monto_recargo_cessa) }}</span>
               </div>
               <div class="border-t border-emerald-700 pt-1.5 flex justify-between font-bold text-white text-sm">
@@ -509,6 +772,83 @@
       </div>
     </div>
 
+    <!-- MODAL NUEVA RESERVA POR ASOCIACIÓN (BLOQUE 1) -->
+    <div v-if="showModalNuevaReserva" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-emerald-100">
+        <h3 class="text-base font-bold text-gray-900 border-b pb-2 flex items-center gap-2">
+          <span>📅</span> Solicitud de Reserva de Espacio (Asociación / Club)
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Escenario Deportivo *</label>
+            <input type="text" v-model="reservaForm.escenario_nombre" readonly class="w-full rounded-xl border-gray-200 bg-gray-50 py-2 font-bold" />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Espacio Específico *</label>
+            <input type="text" v-model="reservaForm.espacio" readonly class="w-full rounded-xl border-gray-200 bg-gray-50 py-2 font-bold text-emerald-800" />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Solicitante (Asociación/Club) *</label>
+            <input type="text" v-model="reservaForm.solicitante_nombre" placeholder="Ej. Asociación Chuquisaqueña de Fútbol" class="w-full rounded-xl border-gray-200 py-2" />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Disciplina *</label>
+            <select v-model="reservaForm.disciplina" class="w-full rounded-xl border-gray-200 py-2 font-semibold">
+              <option value="Fútbol">Fútbol</option>
+              <option value="Atletismo">Atletismo</option>
+              <option value="Baloncesto">Baloncesto</option>
+              <option value="Voleibol">Voleibol</option>
+              <option value="Futsal">Futsal</option>
+              <option value="Ráquetbol">Ráquetbol</option>
+              <option value="Karate">Karate</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Fecha de Uso *</label>
+            <input type="date" v-model="reservaForm.fecha_uso" class="w-full rounded-xl border-gray-200 py-2" />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Turno Horario *</label>
+            <select v-model="reservaForm.turno" class="w-full rounded-xl border-gray-200 py-2 font-semibold">
+              <option value="Dia">☀️ Día (06:00 - 18:00)</option>
+              <option value="Noche">🌙 Noche (18:00 - 22:00) + Iluminación</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Hora Inicio *</label>
+            <input type="time" v-model="reservaForm.hora_inicio" class="w-full rounded-xl border-gray-200 py-2" />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-gray-700 mb-1">Hora Fin *</label>
+            <input type="time" v-model="reservaForm.hora_fin" class="w-full rounded-xl border-gray-200 py-2" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">Concepto / Motivo de Uso *</label>
+          <input type="text" v-model="reservaForm.concepto" placeholder="Ej. Partido Oficial Torneo Apertura" class="w-full rounded-xl border-gray-200 text-xs py-2" />
+        </div>
+
+        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-900">
+          <p class="font-bold">✔ Generación Automática de Liquidación:</p>
+          <p class="text-[11px] mt-0.5">Al registrar la reserva, el sistema aplicará la matriz RAG 011/2024 y generará automáticamente una Liquidación de Pago en estado PENDIENTE.</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t">
+          <button @click="showModalNuevaReserva = false" class="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl">Cancelar</button>
+          <button @click="confirmarNuevaReserva" class="px-5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-md">Confirmar Reserva & Liquidación</button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL DE PAGO / RECIBO -->
     <div v-if="showModalPago" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -603,7 +943,6 @@
           ✕
         </button>
 
-        <!-- Cabecera Oficial -->
         <div class="border-b-2 border-emerald-800 pb-4 text-center">
           <h2 class="text-sm font-bold uppercase tracking-wider text-emerald-900">GOBIERNO AUTÓNOMO DEPARTAMENTAL DE CHUQUISACA</h2>
           <h3 class="text-xs font-semibold text-gray-700 uppercase">SERVICIO DEPARTAMENTAL DE DEPORTES (SE.DE.DE)</h3>
@@ -646,7 +985,7 @@
               <tr>
                 <th class="p-2 border-b">Concepto</th>
                 <th class="p-2 border-b text-right">Subtotal</th>
-                <th class="p-2 border-b text-right">CESSA</th>
+                <th class="p-2 border-b text-right">Iluminación</th>
                 <th class="p-2 border-b text-right">Total</th>
               </tr>
             </thead>
@@ -687,10 +1026,13 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { tarifarioService } from '../services/tarifarioService'
+import { escenarioService } from '../services/escenarioService'
 
-const activeTab = ref('cotizador')
+const activeTab = ref('calendario')
 const tarifas = ref([])
 const liquidaciones = ref([])
+const escenarios = ref([])
+const reservas = ref([])
 const resumen = ref({
   total_recaudado: 0,
   total_pendiente: 0,
@@ -698,6 +1040,163 @@ const resumen = ref({
   total_liquidaciones: 0,
   cumplimiento_deposito_24h: 100,
 })
+
+const filtroDisciplina = ref('')
+const filtroEscenario = ref('')
+const filtroEstado = ref('')
+const busquedaTarifa = ref('')
+
+const currentYear = ref(2026)
+const currentMonth = ref(8) // 8 = Septiembre (0-indexed)
+const espacioSeleccionadoClave = ref('TODOS')
+
+const monthNames = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+]
+
+const monthYearLabel = computed(() => {
+  return `${monthNames[currentMonth.value]} ${currentYear.value}`
+})
+
+const listaEspaciosOpciones = computed(() => {
+  const options = []
+  escenarios.value.forEach(esc => {
+    let listDisc = esc.disciplinas || []
+    if (typeof listDisc === 'string') {
+      try { listDisc = JSON.parse(listDisc) } catch { listDisc = [listDisc] }
+    }
+    if (filtroDisciplina.value && listDisc.length > 0 && !listDisc.includes(filtroDisciplina.value)) {
+      return
+    }
+    const clave = `${esc.nombre} | ${esc.espacio}`
+    if (!options.some(o => o.clave === clave)) {
+      options.push({
+        clave,
+        escenario_nombre: esc.nombre,
+        espacio: esc.espacio,
+        id: esc.id,
+        disciplinaDefault: listDisc.length > 0 ? listDisc[0] : 'Fútbol'
+      })
+    }
+  })
+  return options
+})
+
+const espacioSeleccionadoInfo = computed(() => {
+  if (espacioSeleccionadoClave.value === 'TODOS') return null
+  return listaEspaciosOpciones.value.find(o => o.clave === espacioSeleccionadoClave.value) || null
+})
+
+const firstDayIndex = computed(() => {
+  const d = new Date(currentYear.value, currentMonth.value, 1)
+  return d.getDay()
+})
+
+const daysInCurrentMonthCount = computed(() => {
+  return new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
+})
+
+const monthCalendarDays = computed(() => {
+  const days = []
+  const todayStr = new Date().toISOString().split('T')[0]
+  const totalDays = daysInCurrentMonthCount.value
+
+  for (let day = 1; day <= totalDays; day++) {
+    const mm = String(currentMonth.value + 1).padStart(2, '0')
+    const dd = String(day).padStart(2, '0')
+    const dateStr = `${currentYear.value}-${mm}-${dd}`
+
+    const reservasEnDia = reservas.value.filter(r => {
+      if (!r.fecha_uso) return false
+      const rFecha = r.fecha_uso.split('T')[0]
+      if (rFecha !== dateStr) return false
+
+      if (espacioSeleccionadoClave.value !== 'TODOS') {
+        const info = espacioSeleccionadoInfo.value
+        if (info && (r.escenario_nombre !== info.escenario_nombre || r.espacio !== info.espacio)) {
+          return false
+        }
+      }
+      return true
+    })
+
+    let status = 'LIBRE'
+    if (reservasEnDia.some(r => r.estado === 'CONFIRMADA' || r.estado === 'LIQUIDADA')) {
+      status = 'RESERVADO'
+    } else if (reservasEnDia.some(r => r.estado === 'PENDIENTE')) {
+      status = 'PENDIENTE'
+    }
+
+    days.push({
+      dayNumber: day,
+      dateStr,
+      isToday: dateStr === todayStr,
+      status,
+      reservas: reservasEnDia
+    })
+  }
+  return days
+})
+
+const reservasDelMesFiltradas = computed(() => {
+  const mm = String(currentMonth.value + 1).padStart(2, '0')
+  const monthPrefix = `${currentYear.value}-${mm}`
+
+  return reservas.value.filter(r => {
+    if (!r.fecha_uso) return false
+    const rFecha = r.fecha_uso.split('T')[0]
+    if (!rFecha.startsWith(monthPrefix)) return false
+
+    if (espacioSeleccionadoClave.value !== 'TODOS') {
+      const info = espacioSeleccionadoInfo.value
+      if (info && (r.escenario_nombre !== info.escenario_nombre || r.espacio !== info.espacio)) {
+        return false
+      }
+    }
+    return true
+  })
+})
+
+function mesAnterior() {
+  if (currentMonth.value === 0) {
+    currentMonth.value = 11
+    currentYear.value--
+  } else {
+    currentMonth.value--
+  }
+}
+
+function mesSiguiente() {
+  if (currentMonth.value === 11) {
+    currentMonth.value = 0
+    currentYear.value++
+  } else {
+    currentMonth.value++
+  }
+}
+
+function onDisciplinaFilterChange() {
+  espacioSeleccionadoClave.value = 'TODOS'
+  fetchOcupacion()
+}
+
+function abrirModalNuevaReservaConEspacio(dayObj = null) {
+  if (espacioSeleccionadoInfo.value) {
+    reservaForm.value.escenario_id = espacioSeleccionadoInfo.value.id
+    reservaForm.value.escenario_nombre = espacioSeleccionadoInfo.value.escenario_nombre
+    reservaForm.value.espacio = espacioSeleccionadoInfo.value.espacio
+    reservaForm.value.disciplina = espacioSeleccionadoInfo.value.disciplinaDefault
+  }
+  if (dayObj) {
+    reservaForm.value.fecha_uso = dayObj.dateStr
+  }
+  showModalNuevaReserva.value = true
+}
+
+function onDayClick(dayObj) {
+  abrirModalNuevaReservaConEspacio(dayObj)
+}
 
 const cotizadorForm = ref({
   escenario_nombre: 'Estadio Patria',
@@ -712,13 +1211,12 @@ const cotizadorForm = ref({
 })
 
 const calculoResultado = ref(null)
-const filtroEstado = ref('')
-const busquedaTarifa = ref('')
 
 // Modales
 const showModalPago = ref(false)
 const showModalExencion = ref(false)
 const showModalReciboImprimible = ref(false)
+const showModalNuevaReserva = ref(false)
 const selectedLiquidacion = ref(null)
 
 const pagoForm = ref({
@@ -730,6 +1228,20 @@ const pagoForm = ref({
 const exencionForm = ref({
   exencion_motivo: '',
   exencion_autorizado_por: '',
+})
+
+const reservaForm = ref({
+  escenario_id: null,
+  escenario_nombre: 'Estadio Patria',
+  espacio: 'Óvalo Central',
+  solicitante_nombre: 'Asociación Chuquisaqueña de Fútbol',
+  disciplina: 'Fútbol',
+  concepto: 'Partido Oficial Torneo Apertura',
+  fecha_uso: new Date().toISOString().split('T')[0],
+  hora_inicio: '19:00',
+  hora_fin: '21:00',
+  duracion_horas: 2.0,
+  turno: 'Noche',
 })
 
 const mapaEspacios = {
@@ -748,10 +1260,48 @@ const esModalidadPorcentaje = computed(() => {
   return cotizadorForm.value.concepto.includes('Taquilla') || cotizadorForm.value.concepto.includes('Entrada')
 })
 
+const escenariosFiltrados = computed(() => {
+  if (!filtroDisciplina.value) return escenarios.value
+  return escenarios.value.filter(e => {
+    let listDisc = e.disciplinas || []
+    if (typeof listDisc === 'string') {
+      try { listDisc = JSON.parse(listDisc) } catch { listDisc = [listDisc] }
+    }
+    if (listDisc.length === 0) return true
+    return listDisc.includes(filtroDisciplina.value)
+  })
+})
+
 function onEscenarioChange() {
   const lista = espaciosDisponibles.value
   if (lista.length > 0) {
     cotizadorForm.value.espacio = lista[0]
+  }
+}
+
+function getReservasEscenario(nombreEscenario) {
+  return reservas.value.filter(r => r.escenario_nombre === nombreEscenario)
+}
+
+async function fetchOcupacion() {
+  try {
+    const res = await escenarioService.getOcupacion({
+      disciplina: filtroDisciplina.value,
+      escenario: filtroEscenario.value,
+    })
+    escenarios.value = (res.escenarios || []).map(e => {
+      if (typeof e.disciplinas === 'string') {
+        try {
+          e.disciplinas = JSON.parse(e.disciplinas)
+        } catch {
+          e.disciplinas = [e.disciplinas]
+        }
+      }
+      return e
+    })
+    reservas.value = res.reservas || []
+  } catch (err) {
+    console.error('Error al cargar ocupación:', err)
   }
 }
 
@@ -773,14 +1323,42 @@ async function fetchLiquidaciones() {
   }
 }
 
+const fechaDesdeResumen = ref('')
+const fechaHastaResumen = ref('')
+
+function setPresetFechaResumen(preset) {
+  const hoy = new Date()
+  if (preset === 'hoy') {
+    const str = hoy.toISOString().split('T')[0]
+    fechaDesdeResumen.value = str
+    fechaHastaResumen.value = str
+  } else if (preset === 'mes') {
+    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+    const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0)
+    fechaDesdeResumen.value = inicio.toISOString().split('T')[0]
+    fechaHastaResumen.value = fin.toISOString().split('T')[0]
+  } else if (preset === 'anio') {
+    fechaDesdeResumen.value = `${hoy.getFullYear()}-01-01`
+    fechaHastaResumen.value = `${hoy.getFullYear()}-12-31`
+  } else if (preset === 'todo') {
+    fechaDesdeResumen.value = ''
+    fechaHastaResumen.value = ''
+  }
+  fetchResumen()
+}
+
 async function fetchResumen() {
   try {
-    const res = await tarifarioService.getResumen()
+    const params = {}
+    if (fechaDesdeResumen.value) params.fecha_desde = fechaDesdeResumen.value
+    if (fechaHastaResumen.value) params.fecha_hasta = fechaHastaResumen.value
+    const res = await tarifarioService.getResumen(params)
     resumen.value = res
   } catch (err) {
     console.error('Error al cargar resumen:', err)
   }
 }
+
 
 async function calcular() {
   try {
@@ -788,6 +1366,31 @@ async function calcular() {
     calculoResultado.value = res
   } catch (err) {
     alert(err.response?.data?.message || 'Error al realizar el cálculo tarifario')
+  }
+}
+
+function abrirModalNuevaReserva(esc = null) {
+  if (esc) {
+    reservaForm.value.escenario_id = esc.id
+    reservaForm.value.escenario_nombre = esc.nombre
+    reservaForm.value.espacio = esc.espacio
+    if (esc.disciplinas && esc.disciplinas.length > 0) {
+      reservaForm.value.disciplina = esc.disciplinas[0]
+    }
+  }
+  showModalNuevaReserva.value = true
+}
+
+async function confirmarNuevaReserva() {
+  try {
+    await escenarioService.crearReserva(reservaForm.value)
+    showModalNuevaReserva.value = false
+    alert('Solicitud de reserva registrada exitosamente. Se ha emitido la liquidación tarifaria en estado PENDIENTE.')
+    fetchOcupacion()
+    fetchLiquidaciones()
+    fetchResumen()
+  } catch (err) {
+    alert(err.response?.data?.message || 'Error al registrar la reserva')
   }
 }
 
@@ -872,6 +1475,7 @@ function formatMoney(amount) {
 }
 
 onMounted(() => {
+  fetchOcupacion()
   fetchTarifas()
   fetchLiquidaciones()
   fetchResumen()

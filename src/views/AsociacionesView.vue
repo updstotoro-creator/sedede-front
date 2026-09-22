@@ -126,8 +126,8 @@ onMounted(() => {
   <section class="mt-8">
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h2 class="font-display text-xl font-bold text-ink">Padrón de Asociaciones</h2>
-        <p class="text-xs text-slate-500">Asociaciones deportivas registradas en el departamento de Chuquisaca</p>
+        <h2 class="font-display text-xl font-bold text-ink">Asociaciones</h2>
+        <p class="text-xs text-slate-500">Listado de asociaciones deportivas registradas.</p>
       </div>
       <button class="btn-primary" @click="openCreateModal">+ Nueva Asociación</button>
     </div>

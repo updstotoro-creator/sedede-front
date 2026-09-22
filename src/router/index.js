@@ -64,6 +64,11 @@ const routes = [
         name: 'dashboard-tarifario',
         component: () => import('../views/TarifarioView.vue'),
       },
+      {
+        path: 'calendario-anual',
+        name: 'dashboard-calendario-anual',
+        component: () => import('../views/CalendarioAnualView.vue'),
+      },
     ],
   },
 ]

@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL
-const prefix = import.meta.env.VITE_API_PREFIX ?? '/api/v1/core'
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/sedede/api'
+const prefix = import.meta.env.VITE_API_PREFIX || '/v1'
 
 // Cliente para el consumo de la API REST del backend (Laravel Sanctum,
 // autenticación por token Bearer — sin cookies, sin csrf-cookie).

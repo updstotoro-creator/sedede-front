@@ -98,10 +98,10 @@ onMounted(() => {
     <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div class="flex items-center gap-2">
-          <h1 class="font-display text-2xl font-bold text-brand-700">Tablero de Seguimiento y Cumplimiento de Equipo</h1>
-          <span class="rounded bg-brand-100 px-2.5 py-0.5 text-xs font-extrabold text-brand-800">Privado / Liderazgo</span>
+          <h1 class="font-display text-2xl font-bold text-brand-700">Seguimiento de Equipo</h1>
+          <span class="rounded bg-brand-100 px-2.5 py-0.5 text-xs font-extrabold text-brand-800">Privado</span>
         </div>
-        <p class="text-sm text-slate-500">Métricas de desempeño, trazabilidad de prórrogas y verificación de entregas en repositorio</p>
+        <p class="text-sm text-slate-500">Métricas de avance y prórrogas.</p>
       </div>
       <button class="btn-primary" @click="fetchResumen">Actualizar Métricas</button>
     </div>
