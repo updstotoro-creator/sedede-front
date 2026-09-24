@@ -11,9 +11,11 @@ const titles = {
   'dashboard-asociaciones': 'Padrón de Asociaciones',
   'dashboard-asociacion-detalle': 'Clubes de la Asociación',
   'dashboard-club-detalle': 'Deportistas del Club',
-  'dashboard-inventario-tipos-item': 'Tipos de Ítem',
-  'dashboard-inventario-almacenes': 'Almacenes',
-}
+      'dashboard-inventario-tipos-item': 'Tipos de Ítem',
+      'dashboard-inventario-almacenes': 'Almacenes',
+      'dashboard-inventario-lotes': 'Lotes',
+      'dashboard-inventario-lotes-nuevo': 'Nuevo Lote',
+    }
 </script>
 
 <template>

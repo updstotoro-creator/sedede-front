@@ -55,6 +55,26 @@ const routes = [
         component: () => import('../views/AlmacenesView.vue'),
       },
       {
+        path: 'inventario/lotes',
+        name: 'dashboard-inventario-lotes',
+        component: () => import('../views/LotesView.vue'),
+      },
+      {
+        path: 'inventario/lotes/nuevo',
+        name: 'dashboard-inventario-lotes-nuevo',
+        component: () => import('../views/LoteNuevoView.vue'),
+      },
+      {
+        path: 'inventario/movimientos',
+        name: 'dashboard-inventario-movimientos',
+        component: () => import('../views/MovimientosView.vue'),
+      },
+      {
+        path: 'inventario/existencias',
+        name: 'dashboard-inventario-existencias',
+        component: () => import('../views/ExistenciasView.vue'),
+      },
+      {
         path: 'poa',
         name: 'dashboard-poa',
         component: () => import('../views/PoaView.vue'),
