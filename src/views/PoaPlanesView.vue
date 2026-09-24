@@ -71,7 +71,9 @@ async function submitForm() {
     }
     showModal.value = false
     await store.fetchPlanes()
-  } catch {} finally {
+  } catch {
+    // Los errores del store ya quedan registrados en store.error
+  } finally {
     saving.value = false
   }
 }
