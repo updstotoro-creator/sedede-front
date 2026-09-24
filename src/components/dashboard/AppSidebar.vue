@@ -5,14 +5,13 @@ import logo from '../../assets/images/logo-sedede.png'
 
 const auth = useAuthStore()
 const poaOpen = ref(false)
+const inventarioOpen = ref(false)
 
 const mainLinks = [
   { to: '/dashboard', label: 'Resumen', exact: true },
   { to: '/dashboard/users', label: 'Usuarios' },
   { to: '/dashboard/roles', label: 'Roles' },
   { to: '/dashboard/asociaciones', label: 'Asociaciones' },
-  { to: '/dashboard/inventario/tipos-item', label: 'Tipos de Ítem' },
-  { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
 ]
 
 const poaSubmenu = [
@@ -22,14 +21,27 @@ const poaSubmenu = [
   { to: '/dashboard/poa/bitacora', label: 'Bitácora' },
 ]
 
+const inventarioSubmenu = [
+  { to: '/dashboard/inventario/tipos-item', label: 'Tipos de Ítem' },
+  { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
+  { to: '/dashboard/inventario/lotes', label: 'Lotes' },
+  { to: '/dashboard/inventario/movimientos', label: 'Movimientos (Kardex)' },
+  { to: '/dashboard/inventario/existencias', label: 'Existencias' },
+]
+
 function togglePoa() {
   poaOpen.value = !poaOpen.value
+}
+
+function toggleInventario() {
+  inventarioOpen.value = !inventarioOpen.value
 }
 
 function handleClickOutside(event) {
   const sidebar = document.querySelector('aside')
   if (sidebar && !sidebar.contains(event.target)) {
     poaOpen.value = false
+    inventarioOpen.value = false
   }
 }
 
@@ -95,6 +107,51 @@ function initials(name) {
         >
           <router-link
             v-for="sublink in poaSubmenu"
+            :key="sublink.to"
+            :to="sublink.to"
+            custom
+            v-slot="{ href, navigate, isActive }"
+          >
+            <a
+              :href="href"
+              class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors"
+              :class="isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-ink'"
+              @click="navigate"
+            >
+              <span class="h-1.5 w-1.5 rounded-full" :class="isActive ? 'bg-brand-600' : 'bg-transparent'"></span>
+              {{ sublink.label }}
+            </a>
+          </router-link>
+        </div>
+      </div>
+
+      <!-- Botón Activos e Inventario con submenú -->
+      <div class="relative">
+        <button
+          @click="toggleInventario"
+          class="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium transition-colors"
+          :class="inventarioOpen ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-ink'"
+        >
+          <span class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            Activos e Inventario
+          </span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform"
+               :class="inventarioOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        <!-- Submenú Activos e Inventario -->
+        <div
+          v-show="inventarioOpen"
+          class="absolute bottom-full left-0 mb-1 w-full rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          <router-link
+            v-for="sublink in inventarioSubmenu"
             :key="sublink.to"
             :to="sublink.to"
             custom

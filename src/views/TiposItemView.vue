@@ -6,9 +6,13 @@ const store = useInventarioStore()
 
 const naturalezas = [
   { value: 'consumible', label: 'Consumible' },
-  { value: 'activo_fijo', label: 'Activo fijo' },
+  { value: 'activo_fijo', label: 'Activo Fijo' },
   { value: 'herramienta', label: 'Herramienta' },
 ]
+
+const busqueda = ref('')
+const filtroNaturaleza = ref('')
+const filtroEstado = ref('')
 
 const showModal = ref(false)
 const editing = ref(null)
@@ -22,10 +26,26 @@ const form = reactive({
   controla_vencimiento: false,
 })
 
-// Para el <select> de "tipo padre", nunca puede ser el mismo que se edita
 const opcionesPadre = computed(() =>
   store.tiposItem.filter((t) => !editing.value || t.id !== editing.value.id)
 )
+
+const tiposFiltrados = computed(() => {
+  return store.tiposItem.filter((t) => {
+    const coincideBusqueda = !busqueda.value ||
+      t.codigo.toLowerCase().includes(busqueda.value.toLowerCase()) ||
+      t.nombre.toLowerCase().includes(busqueda.value.toLowerCase())
+    const coincideNaturaleza = !filtroNaturaleza.value || t.naturaleza === filtroNaturaleza.value
+    const coincideEstado = filtroEstado.value === '' ||
+      (filtroEstado.value === 'activo' && t.activo) ||
+      (filtroEstado.value === 'inactivo' && !t.activo)
+    return coincideBusqueda && coincideNaturaleza && coincideEstado
+  })
+})
+
+function esHijo(tipo) {
+  return tipo.padre_id !== null && tipo.padre_id !== undefined
+}
 
 function resetForm() {
   form.codigo = ''
@@ -70,60 +90,124 @@ function submitForm() {
   closeModal()
 }
 
+const naturalezaBadge = (value) => {
+  const map = {
+    consumible: 'bg-yellow-100 text-yellow-700',
+    activo_fijo: 'bg-blue-100 text-blue-700',
+    herramienta: 'bg-purple-100 text-purple-700',
+  }
+  return map[value] ?? 'bg-slate-100 text-slate-700'
+}
+
 const naturalezaLabel = (value) => naturalezas.find((n) => n.value === value)?.label ?? value
 </script>
 
 <template>
-  <section>
-    <div class="mb-6 flex items-center justify-between">
-      <p class="text-sm text-slate-500">Catálogo jerárquico de tipos de ítem del inventario.</p>
-      <button class="btn-primary" @click="openCreateModal">+ Nuevo tipo</button>
+  <div class="mx-auto max-w-7xl">
+    <div class="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">Catálogo de Tipos de Ítem</h1>
+        <p class="text-sm text-gray-500">Categorías para clasificar los bienes de la sede</p>
+      </div>
+      <button
+        class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white shadow transition hover:bg-blue-700"
+        @click="openCreateModal"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+        </svg>
+        Nuevo Tipo
+      </button>
     </div>
 
-    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th class="px-4 py-3">Código</th>
-            <th class="px-4 py-3">Nombre / Jerarquía</th>
-            <th class="px-4 py-3">Naturaleza</th>
-            <th class="px-4 py-3">Controla</th>
-            <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3 text-right">Acciones</th>
+    <div class="flex flex-col justify-between gap-4 rounded-t-lg border-b border-gray-200 bg-white p-4 shadow-sm md:flex-row">
+      <input
+        v-model="busqueda"
+        type="text"
+        placeholder="Buscar por código o nombre..."
+        class="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 md:w-1/3"
+      />
+      <div class="flex gap-2">
+        <select v-model="filtroNaturaleza" class="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none">
+          <option value="">Todas las naturalezas</option>
+          <option v-for="n in naturalezas" :key="n.value" :value="n.value">{{ n.label }}</option>
+        </select>
+        <select v-model="filtroEstado" class="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none">
+          <option value="">Todos los estados</option>
+          <option value="activo">Activos</option>
+          <option value="inactivo">Inactivos</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto rounded-b-lg bg-white shadow-md">
+      <table class="min-w-full leading-normal">
+        <thead>
+          <tr class="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-600">
+            <th class="px-4 py-3 text-left font-semibold">Código</th>
+            <th class="px-4 py-3 text-left font-semibold">Nombre</th>
+            <th class="px-4 py-3 text-left font-semibold">Naturaleza</th>
+            <th class="px-4 py-3 text-center font-semibold">Lote</th>
+            <th class="px-4 py-3 text-center font-semibold">Vencimiento</th>
+            <th class="px-4 py-3 text-center font-semibold">Estado</th>
+            <th class="px-4 py-3 text-center font-semibold">Acciones</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-for="tipo in store.tiposItem" :key="tipo.id">
-            <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ tipo.codigo }}</td>
-            <td class="px-4 py-3">
-              <p class="font-medium text-ink">{{ tipo.nombre }}</p>
-              <p class="text-xs text-slate-400">{{ store.tipoRutaCompleta(tipo.id) }}</p>
+        <tbody class="text-sm text-gray-700">
+          <tr
+            v-for="tipo in tiposFiltrados"
+            :key="tipo.id"
+            class="border-b border-gray-100 hover:bg-gray-50"
+            :class="[
+              esHijo(tipo) && 'bg-gray-50/50',
+              !tipo.activo && 'opacity-75',
+            ]"
+          >
+            <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ tipo.codigo }}</td>
+            <td
+              class="px-4 py-3 font-medium text-gray-900"
+              :class="esHijo(tipo) && 'border-l-2 border-blue-200 pl-8'"
+            >
+              <span v-if="esHijo(tipo)" class="mr-2 text-gray-400">↳</span>
+              {{ tipo.nombre }}
             </td>
-            <td class="px-4 py-3 text-slate-600">{{ naturalezaLabel(tipo.naturaleza) }}</td>
-            <td class="px-4 py-3 text-xs text-slate-500">
-              <span v-if="tipo.controla_lote">Lote</span>
-              <span v-if="tipo.controla_lote && tipo.controla_vencimiento"> · </span>
-              <span v-if="tipo.controla_vencimiento">Vencimiento</span>
-              <span v-if="!tipo.controla_lote && !tipo.controla_vencimiento">—</span>
-            </td>
             <td class="px-4 py-3">
-              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="tipo.activo ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'">
+              <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="naturalezaBadge(tipo.naturaleza)">
+                {{ naturalezaLabel(tipo.naturaleza) }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span v-if="tipo.controla_lote" class="text-lg font-bold text-green-500">✓</span>
+              <span v-else class="text-lg font-bold text-red-400">✗</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span v-if="tipo.controla_vencimiento" class="text-lg font-bold text-green-500">✓</span>
+              <span v-else class="text-lg font-bold text-red-400">✗</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span
+                class="rounded-full px-2 py-1 text-xs font-semibold"
+                :class="tipo.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+              >
                 {{ tipo.activo ? 'Activo' : 'Inactivo' }}
               </span>
             </td>
-            <td class="px-4 py-3 text-right">
-              <button class="mr-3 text-xs font-semibold text-slate-500 hover:underline" @click="openEditModal(tipo)">Editar</button>
+            <td class="px-4 py-3 text-center">
+              <button class="mr-2 text-xs font-medium text-blue-600 hover:text-blue-800" @click="openEditModal(tipo)">Editar</button>
               <button
-                class="text-xs font-semibold hover:underline"
-                :class="tipo.activo ? 'text-red-600' : 'text-teal-700'"
-                @click="store.toggleTipoItemActivo(tipo.id)"
+                class="text-xs font-medium"
+                :class="tipo.activo ? 'text-red-600 hover:text-red-800' : 'cursor-not-allowed text-gray-400'"
+                @click="tipo.activo && store.toggleTipoItemActivo(tipo.id)"
               >
-                {{ tipo.activo ? 'Inactivar' : 'Activar' }}
+                {{ tipo.activo ? 'Eliminar' : '—' }}
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+      <div class="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3">
+        <span class="text-xs text-gray-500">Mostrando {{ tiposFiltrados.length }} registros</span>
+      </div>
     </div>
 
     <p class="mt-4 text-xs text-slate-400">
@@ -179,5 +263,5 @@ const naturalezaLabel = (value) => naturalezas.find((n) => n.value === value)?.l
         </form>
       </div>
     </div>
-  </section>
+  </div>
 </template>
