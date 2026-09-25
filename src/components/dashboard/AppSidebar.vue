@@ -1,46 +1,69 @@
 <script setup>
+import { computed } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import logo from '../../assets/images/logo-sedede.png'
 
 const auth = useAuthStore()
 
-const groups = [
-  {
-    id: 'resumen',
-    standalone: true,
-    links: [
-      { to: '/dashboard', label: 'Resumen', exact: true },
+const groups = computed(() => {
+  const role = auth.user?.role?.nombre
+  if (role === 'deportista') {
+    return [
+      {
+        id: 'resumen-deportista',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Mi Panel & Perfil', exact: true },
+        ]
+      },
+      {
+        id: 'tramites-deportista',
+        links: [
+          { to: '/dashboard/tramites', label: 'Mis Solicitudes y Apoyos' },
+          { to: '/dashboard/calendario-anual', label: 'Eventos del Calendario' },
+        ]
+      },
     ]
-  },
-  {
-    id: 'gestion-sistema',
-    links: [
-      { to: '/dashboard/users', label: 'Usuarios' },
-      { to: '/dashboard/roles', label: 'Roles' },
-    ]
-  },
-  {
-    id: 'asociaciones-calendario',
-    links: [
-      { to: '/dashboard/asociaciones', label: 'Asociaciones' },
-      { to: '/dashboard/calendario-anual', label: 'Calendario Anual' },
-    ]
-  },
-  {
-    id: 'deportistas-tramites',
-    links: [
-      { to: '/dashboard/deportistas', label: 'Deportistas' },
-      { to: '/dashboard/tramites', label: 'Trámites' },
-    ]
-  },
-  {
-    id: 'escenarios-tarifario',
-    links: [
-      { to: '/dashboard/escenarios', label: 'Escenarios' },
-      { to: '/dashboard/tarifario', label: 'Tarifario' },
-    ]
-  },
-]
+  }
+
+  return [
+    {
+      id: 'resumen',
+      standalone: true,
+      links: [
+        { to: '/dashboard', label: 'Resumen', exact: true },
+      ]
+    },
+    {
+      id: 'gestion-sistema',
+      links: [
+        { to: '/dashboard/users', label: 'Usuarios' },
+        { to: '/dashboard/roles', label: 'Roles' },
+      ]
+    },
+    {
+      id: 'asociaciones-calendario',
+      links: [
+        { to: '/dashboard/asociaciones', label: 'Asociaciones' },
+        { to: '/dashboard/calendario-anual', label: 'Calendario Anual' },
+      ]
+    },
+    {
+      id: 'deportistas-tramites',
+      links: [
+        { to: '/dashboard/deportistas', label: 'Deportistas' },
+        { to: '/dashboard/tramites', label: 'Trámites' },
+      ]
+    },
+    {
+      id: 'escenarios-tarifario',
+      links: [
+        { to: '/dashboard/escenarios', label: 'Escenarios' },
+        { to: '/dashboard/tarifario', label: 'Tarifario' },
+      ]
+    },
+  ]
+})
 
 function initials(name) {
   if (!name) return '?'

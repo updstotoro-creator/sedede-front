@@ -6,6 +6,11 @@ export const tramiteService = {
     return { items: data.data, meta: data.meta }
   },
 
+  async misTramites() {
+    const { data } = await api.get('/tramites/mis-tramites')
+    return data
+  },
+
   async get(id) {
     const { data } = await api.get(`/tramites/${id}`)
     return data.data
@@ -17,7 +22,8 @@ export const tramiteService = {
   },
 
   async create(payload) {
-    const { data } = await api.post('/tramites', payload)
+    const headers = payload instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {}
+    const { data } = await api.post('/tramites', payload, { headers })
     return data.data
   },
 

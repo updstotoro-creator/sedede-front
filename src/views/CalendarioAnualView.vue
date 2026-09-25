@@ -1,8 +1,14 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useAuthStore } from '../stores/auth'
 import { calendarioAnualService } from '../services/calendarioAnualService'
 import { asociacionService } from '../services/asociacionService'
 import { escenarioService } from '../services/escenarioService'
+import { deportistaService } from '../services/deportistaService'
+
+const auth = useAuthStore()
+const isDeportista = computed(() => auth.user?.role?.nombre === 'deportista')
+const deportistaPerfil = ref(null)
 
 const eventos = ref([])
 const asociaciones = ref([])
@@ -206,12 +212,14 @@ async function loadAuxData() {
 }
 
 function openCreateModal(dateStr = null) {
+  if (isDeportista.value) return // Deportistas solo pueden consultar el calendario aprobado
   editingEvento.value = null
   resetForm(dateStr)
   showModal.value = true
 }
 
 function openEditModal(evt) {
+  if (isDeportista.value) return
   showDetailModal.value = false
   editingEvento.value = evt
   form.asociacion_id = evt.asociacion_id
@@ -242,6 +250,7 @@ function closeModal() {
 }
 
 async function saveEvento() {
+  if (isDeportista.value) return
   saving.value = true
   formError.value = ''
   try {
@@ -265,6 +274,7 @@ async function saveEvento() {
 }
 
 async function deleteEvento(evt) {
+  if (isDeportista.value) return
   if (!confirm(`¿Está seguro de eliminar el evento "${evt.nombre_evento}"?`)) return
   try {
     await calendarioAnualService.delete(evt.id)
@@ -275,9 +285,21 @@ async function deleteEvento(evt) {
   }
 }
 
-onMounted(() => {
-  fetchEventos()
-  loadAuxData()
+onMounted(async () => {
+  if (isDeportista.value) {
+    try {
+      const res = await deportistaService.getMiPerfil()
+      const dep = res.data || res.deportista
+      deportistaPerfil.value = dep
+      if (dep?.asociacion_id) {
+        filterAsociacion.value = Number(dep.asociacion_id)
+      }
+    } catch (e) {
+      console.error('Error al cargar perfil de deportista para calendario:', e)
+    }
+  }
+  await loadAuxData()
+  await fetchEventos()
 })
 </script>
 
@@ -287,7 +309,9 @@ onMounted(() => {
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="font-display text-2xl font-bold text-brand-700">Calendario Anual</h1>
-        <p class="text-sm text-slate-500">Eventos deportivos programados por las asociaciones.</p>
+        <p class="text-sm text-slate-500">
+          {{ isDeportista ? 'Consulta de eventos deportivos oficiales y aprobados de tu disciplina.' : 'Eventos deportivos programados y aprobados por las asociaciones.' }}
+        </p>
       </div>
 
       <div class="flex items-center gap-3">
@@ -309,22 +333,49 @@ onMounted(() => {
           </button>
         </div>
 
-        <button class="btn-primary flex items-center gap-1.5" @click="openCreateModal()">
+        <!-- Botón Programar Evento (SOLO PARA ASOCIACIONES / SEDEDE, NO PARA DEPORTISTAS) -->
+        <button v-if="!isDeportista" class="btn-primary flex items-center gap-1.5" @click="openCreateModal()">
           <span>+ Programar Evento</span>
         </button>
       </div>
     </div>
 
+    <!-- Banner Informativo para el Deportista -->
+    <div v-if="isDeportista" class="rounded-xl border border-brand-200 bg-brand-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">📅</span>
+        <div>
+          <p class="font-bold text-brand-900 text-sm">
+            Calendario Oficial Aprobado — {{ deportistaPerfil?.asociacion?.nombre || deportistaPerfil?.disciplina || 'Tu Disciplina Deportiva' }}
+          </p>
+          <p class="text-[11px] text-slate-600 mt-0.5">
+            Aquí puedes verificar las fechas aprobadas por el SEDEDE para tu disciplina. Recuerda que para solicitar apoyo debes hacerlo con al menos 15 días de anticipación.
+          </p>
+        </div>
+      </div>
+      <span class="rounded-lg bg-white px-3 py-1.5 font-bold text-brand-800 text-xs border border-brand-200 shadow-sm self-start sm:self-auto shrink-0">
+        {{ deportistaPerfil?.asociacion?.sigla || 'DISCIPLINA' }} · Aprobado
+      </span>
+    </div>
+
     <!-- Barra de Filtros -->
     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm grid gap-4 sm:grid-cols-3">
       <div>
-        <label class="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Asociación</label>
-        <select v-model="filterAsociacion" class="input-field text-xs font-semibold" @change="fetchEventos">
-          <option value="">Todas las Asociaciones</option>
+        <label class="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Asociación Deportiva</label>
+        <select
+          v-model="filterAsociacion"
+          class="input-field text-xs font-semibold bg-white"
+          :disabled="isDeportista"
+          @change="fetchEventos"
+        >
+          <option value="" v-if="!isDeportista">Todas las Asociaciones</option>
           <option v-for="a in asociaciones" :key="a.id" :value="a.id">
             {{ a.nombre }} ({{ a.sigla || 'ASOC' }})
           </option>
         </select>
+        <p v-if="isDeportista" class="text-[10px] text-brand-700 font-semibold mt-1">
+          ✓ Exclusivo eventos de tu asociación registrada
+        </p>
       </div>
 
       <div>
@@ -394,7 +445,7 @@ onMounted(() => {
                 'bg-white text-slate-900': day.isCurrentMonth,
                 'ring-2 ring-brand-500 ring-inset bg-brand-50/20': day.isToday
               }"
-              @click="openCreateModal(day.dateString)"
+              @click="isDeportista ? null : openCreateModal(day.dateString)"
             >
               <div class="flex items-center justify-between mb-1">
                 <span
@@ -409,6 +460,7 @@ onMounted(() => {
                 </span>
 
                 <button
+                  v-if="!isDeportista"
                   class="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-brand-600 hover:underline"
                   @click.stop="openCreateModal(day.dateString)"
                 >
@@ -500,8 +552,8 @@ onMounted(() => {
 
             <div class="flex items-center gap-2">
               <button class="text-xs font-semibold text-brand-600 hover:underline" @click="openDetailModal(evt)">Detalles</button>
-              <button class="text-xs font-semibold text-slate-600 hover:underline" @click="openEditModal(evt)">Editar</button>
-              <button class="text-xs font-semibold text-red-600 hover:underline" @click="deleteEvento(evt)">Eliminar</button>
+              <button v-if="!isDeportista" class="text-xs font-semibold text-slate-600 hover:underline" @click="openEditModal(evt)">Editar</button>
+              <button v-if="!isDeportista" class="text-xs font-semibold text-red-600 hover:underline" @click="deleteEvento(evt)">Eliminar</button>
             </div>
           </div>
         </div>
@@ -567,7 +619,7 @@ onMounted(() => {
 
         <div class="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-3">
           <button class="btn-secondary text-xs" @click="closeModal">Cerrar</button>
-          <button class="btn-primary text-xs bg-slate-800 hover:bg-slate-900" @click="openEditModal(selectedEventoDetail)">
+          <button v-if="!isDeportista" class="btn-primary text-xs bg-slate-800 hover:bg-slate-900" @click="openEditModal(selectedEventoDetail)">
             Editar
           </button>
         </div>

@@ -30,4 +30,14 @@ export const deportistaService = {
     const { data } = await api.post(`/deportistas/${id}/reactivar`)
     return data.data
   },
+
+  async getMiPerfil() {
+    const { data } = await api.get('/deportistas/me/perfil')
+    return data
+  },
+
+  async updateMiPerfil(payload) {
+    const { data } = await api.put('/deportistas/me/perfil', payload)
+    return data
+  },
 }

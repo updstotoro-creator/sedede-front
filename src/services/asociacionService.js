@@ -1,9 +1,9 @@
 import api from './api'
 
 export const asociacionService = {
-  async list() {
-    const { data } = await api.get('/asociaciones')
-    return data.data
+  async list(params = {}) {
+    const { data } = await api.get('/asociaciones', { params: { per_page: 100, ...params } })
+    return Array.isArray(data.data) ? data.data : (data.data?.data || [])
   },
 
   async get(id) {
@@ -33,8 +33,8 @@ export const asociacionService = {
 
   // Clubes
   async listClubes(asociacionId) {
-    const { data } = await api.get(`/asociaciones/${asociacionId}/clubes`)
-    return data.data
+    const { data } = await api.get(`/asociaciones/${asociacionId}/clubes`, { params: { per_page: 100 } })
+    return Array.isArray(data.data) ? data.data : (data.data?.data || [])
   },
 
   async createClub(asociacionId, payload) {
