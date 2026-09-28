@@ -7,9 +7,7 @@ const isLoading = ref(true)
 const errorMessage = ref('')
 
 const showEscenarioModal = ref(false)
-const showProgModal = ref(false)
 const editingEscenario = ref(null)
-const targetEscenario = ref(null)
 
 const formError = ref('')
 const saving = ref(false)
@@ -19,6 +17,34 @@ const listaDisciplinasDisponibles = [
   'Fútbol', 'Atletismo', 'Baloncesto', 'Voleibol', 'Futsal', 
   'Ráquetbol', 'Karate', 'Lucha Olímpica', 'Judo', 'Natación', 
   'Gimnasia', 'Tenis de Mesa', 'Ciclismo', 'Billar', 'Bádminton'
+]
+
+const opcionesTipoUsuario = [
+  'Club / Asociación',
+  'Particular / Escuela',
+  'Particular / Empresa',
+  'Particular / Promotor',
+  'Equipo Local Profesional',
+  'Equipo Nacional Profesional',
+  'Equipo Extranjero Profesional',
+  'Federación / Simón Bolívar',
+  'Asociación Chuquisaqueña de Fútbol',
+  'Arrendatario Permanente',
+  'Público General'
+]
+
+const opcionesConcepto = [
+  'Entrenamiento',
+  'Uso Deportivo',
+  'Uso Nocturno',
+  'Partido Oficial',
+  'Uso Particular',
+  'Partido Oficial con Taquilla',
+  'Evento No Deportivo con Entrada',
+  'Evento Extradeportivo',
+  'Kiosco / Alquiler Comercial',
+  'Parqueo Vehicular',
+  'Baño Público'
 ]
 
 const escenarioForm = reactive({
@@ -38,16 +64,42 @@ const escenarioForm = reactive({
   tarifa_partido_oficial: 200.00,
   estado_operativo: 'Habilitado',
   observaciones_tecnicas: '',
+  tarifas_valores: [],
 })
 
-const progForm = reactive({
-  dia_semana: 'Lunes',
-  hora_inicio: '14:00',
-  hora_fin: '16:00',
-  usuario_asignado: '',
-  tipo_evento: 'Entrenamiento',
-  turno: 'Día',
+const nuevaTarifaTemp = reactive({
+  tipo_usuario: 'Particular / Escuela',
+  concepto: 'Entrenamiento',
+  turno: 'Dia',
+  unidad: 'Hora',
+  modalidad: 'monto_fijo',
+  valor: 100.00,
+  recargo_cessa: false,
+  observaciones: '',
 })
+
+function agregarTarifaMatriz() {
+  if (!nuevaTarifaTemp.tipo_usuario || !nuevaTarifaTemp.concepto || nuevaTarifaTemp.valor === null || nuevaTarifaTemp.valor === '') {
+    alert('Por favor complete Tipo de Usuario, Concepto y Tarifa.')
+    return
+  }
+  escenarioForm.tarifas_valores.push({
+    tipo_usuario: nuevaTarifaTemp.tipo_usuario,
+    concepto: nuevaTarifaTemp.concepto,
+    turno: nuevaTarifaTemp.turno,
+    unidad: nuevaTarifaTemp.unidad,
+    modalidad: nuevaTarifaTemp.modalidad,
+    valor: Number(nuevaTarifaTemp.valor),
+    recargo_cessa: Boolean(nuevaTarifaTemp.recargo_cessa),
+    observaciones: nuevaTarifaTemp.observaciones || '',
+  })
+  nuevaTarifaTemp.valor = 100.00
+  nuevaTarifaTemp.observaciones = ''
+}
+
+function eliminarTarifaMatriz(index) {
+  escenarioForm.tarifas_valores.splice(index, 1)
+}
 
 function resetEscenarioForm() {
   escenarioForm.nombre = ''
@@ -66,6 +118,48 @@ function resetEscenarioForm() {
   escenarioForm.tarifa_partido_oficial = 200.00
   escenarioForm.estado_operativo = 'Habilitado'
   escenarioForm.observaciones_tecnicas = ''
+  escenarioForm.tarifas_valores = [
+    {
+      tipo_usuario: 'Club / Asociación',
+      concepto: 'Entrenamiento',
+      turno: 'Dia',
+      unidad: 'Hora',
+      modalidad: 'monto_fijo',
+      valor: 80.00,
+      recargo_cessa: false,
+      observaciones: 'Tarifa preferencial asociacionista'
+    },
+    {
+      tipo_usuario: 'Particular / Escuela',
+      concepto: 'Uso Deportivo',
+      turno: 'Dia',
+      unidad: 'Hora',
+      modalidad: 'monto_fijo',
+      valor: 120.00,
+      recargo_cessa: false,
+      observaciones: 'Horario diurno general'
+    },
+    {
+      tipo_usuario: 'Particular / Escuela',
+      concepto: 'Uso Nocturno',
+      turno: 'Noche',
+      unidad: 'Hora',
+      modalidad: 'monto_fijo',
+      valor: 180.00,
+      recargo_cessa: true,
+      observaciones: 'Horario nocturno con iluminación'
+    },
+    {
+      tipo_usuario: 'Asociación / Particular',
+      concepto: 'Partido Oficial',
+      turno: 'Ambos',
+      unidad: 'Evento',
+      modalidad: 'monto_fijo',
+      valor: 200.00,
+      recargo_cessa: true,
+      observaciones: 'Competencia o torneo homologado'
+    }
+  ]
   modalTab.value = 'general'
   formError.value = ''
 }
@@ -90,16 +184,6 @@ function toggleTurnoSelection(turno) {
   } else {
     escenarioForm.turnos_habilitados.push(turno)
   }
-}
-
-function resetProgForm() {
-  progForm.dia_semana = 'Lunes'
-  progForm.hora_inicio = '14:00'
-  progForm.hora_fin = '16:00'
-  progForm.usuario_asignado = ''
-  progForm.tipo_evento = 'Entrenamiento'
-  progForm.turno = 'Día'
-  formError.value = ''
 }
 
 async function fetchEscenarios() {
@@ -160,22 +244,74 @@ function openEditEscenarioModal(esc) {
   escenarioForm.estado_operativo = esc.estado_operativo || 'Habilitado'
   escenarioForm.observaciones_tecnicas = esc.observaciones_tecnicas || ''
 
+  // Cargar matriz de tarifas desde espacio_tarifario si existe
+  const valores = esc.espacio_tarifario?.valores || []
+  if (valores.length > 0) {
+    escenarioForm.tarifas_valores = valores.map(v => ({
+      id: v.id,
+      tipo_usuario: v.tipo_usuario,
+      concepto: v.concepto,
+      turno: v.turno || 'Dia',
+      unidad: v.unidad || 'Hora',
+      modalidad: v.modalidad || 'monto_fijo',
+      valor: Number(v.valor),
+      recargo_cessa: Boolean(v.recargo_cessa),
+      observaciones: v.observaciones || '',
+    }))
+  } else {
+    // Generar defaults si no tenía matriz
+    escenarioForm.tarifas_valores = [
+      {
+        tipo_usuario: 'Club / Asociación',
+        concepto: 'Entrenamiento',
+        turno: 'Dia',
+        unidad: 'Hora',
+        modalidad: 'monto_fijo',
+        valor: Number(esc.tarifa_entrenamiento || 80.00),
+        recargo_cessa: false,
+        observaciones: 'Tarifa preferencial asociacionista'
+      },
+      {
+        tipo_usuario: 'Particular / Escuela',
+        concepto: 'Uso Deportivo',
+        turno: 'Dia',
+        unidad: 'Hora',
+        modalidad: 'monto_fijo',
+        valor: Number(esc.tarifa_base_dia || 120.00),
+        recargo_cessa: false,
+        observaciones: 'Horario diurno general'
+      },
+      {
+        tipo_usuario: 'Particular / Escuela',
+        concepto: 'Uso Nocturno',
+        turno: 'Noche',
+        unidad: 'Hora',
+        modalidad: 'monto_fijo',
+        valor: Number(esc.tarifa_base_noche || 180.00),
+        recargo_cessa: Boolean(esc.tiene_iluminacion),
+        observaciones: 'Horario nocturno con iluminación'
+      },
+      {
+        tipo_usuario: 'Asociación / Particular',
+        concepto: 'Partido Oficial',
+        turno: 'Ambos',
+        unidad: 'Evento',
+        modalidad: 'monto_fijo',
+        valor: Number(esc.tarifa_partido_oficial || 200.00),
+        recargo_cessa: Boolean(esc.tiene_iluminacion),
+        observaciones: 'Competencia o torneo homologado'
+      }
+    ]
+  }
+
   modalTab.value = 'general'
   formError.value = ''
   showEscenarioModal.value = true
 }
 
-function openProgModal(esc) {
-  targetEscenario.value = esc
-  resetProgForm()
-  showProgModal.value = true
-}
-
 function closeModals() {
   showEscenarioModal.value = false
-  showProgModal.value = false
   editingEscenario.value = null
-  targetEscenario.value = null
 }
 
 async function submitEscenarioForm() {
@@ -196,25 +332,6 @@ async function submitEscenarioForm() {
       formError.value = errors ? Object.values(errors).flat().join(' ') : 'Campos requeridos vacíos o inválidos.'
     } else {
       formError.value = error.response?.data?.error || 'Error al guardar escenario.'
-    }
-  } finally {
-    saving.value = false
-  }
-}
-
-async function submitProgForm() {
-  saving.value = true
-  formError.value = ''
-  try {
-    await escenarioService.createProgramacion(targetEscenario.value.id, { ...progForm })
-    closeModals()
-    await fetchEscenarios()
-  } catch (error) {
-    if (error.response?.status === 422) {
-      const errors = error.response.data?.errors
-      formError.value = errors ? Object.values(errors).flat().join(' ') : 'Verifique los datos de la reserva.'
-    } else {
-      formError.value = error.response?.data?.error || 'Error al guardar la programación.'
     }
   } finally {
     saving.value = false
@@ -290,11 +407,8 @@ onMounted(fetchEscenarios)
             <span class="rounded-xl bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 border border-slate-200">
               {{ esc.tiene_iluminacion ? '💡 Iluminación Nocturna' : '☀️ Solo Día' }}
             </span>
-            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-sm transition-all" @click="openProgModal(esc)">
-              + Asignar Horario
-            </button>
             <button class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition-all" @click="openEditEscenarioModal(esc)">
-              ✏️ Editar Parámetros
+              ✏️ Editar Parámetros y Tarifas
             </button>
             <button
               class="px-2.5 py-1.5 text-xs font-semibold rounded-xl transition-all"
@@ -307,7 +421,7 @@ onMounted(fetchEscenarios)
         </div>
 
         <!-- Parámetros Clave: Disciplinas, Horarios y Tarifas RAG 011/2024 -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-xs mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-xs">
           <!-- Disciplinas -->
           <div>
             <span class="font-bold text-slate-500 uppercase tracking-wider text-[10px] block mb-1">Disciplinas Oficiales Aptas:</span>
@@ -327,33 +441,42 @@ onMounted(fetchEscenarios)
             </p>
           </div>
 
-          <!-- Cánones & Tarifas -->
+          <!-- Cánones & Tarifas RAG 011/2024 Normalizadas -->
           <div>
-            <span class="font-bold text-slate-500 uppercase tracking-wider text-[10px] block mb-1">Tarifario Aprobado (RAG 011/2024):</span>
-            <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-bold text-slate-500 uppercase tracking-wider text-[10px] block">Tarifario Aprobado (RAG 011/2024):</span>
+              <span class="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded">
+                {{ esc.espacio_tarifario?.valores?.length || 0 }} tarifas
+              </span>
+            </div>
+
+            <!-- Si tiene tarifas en la matriz normalizada -->
+            <div v-if="esc.espacio_tarifario?.valores && esc.espacio_tarifario.valores.length > 0" class="space-y-1">
+              <div
+                v-for="v in esc.espacio_tarifario.valores.slice(0, 3)"
+                :key="v.id"
+                class="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-slate-200/80 text-[11px]"
+              >
+                <div class="truncate max-w-[170px]" :title="`${v.tipo_usuario} - ${v.concepto}`">
+                  <span class="font-bold text-slate-800">{{ v.tipo_usuario }}:</span>
+                  <span class="text-slate-500 ml-1">{{ v.concepto }}</span>
+                </div>
+                <span class="font-mono font-bold text-emerald-800 whitespace-nowrap ml-1 text-xs">
+                  {{ v.modalidad === 'porcentaje' ? `${formatMoney(v.valor)}%` : `Bs. ${formatMoney(v.valor)}` }}
+                  <span class="text-[9px] font-normal text-slate-400">/{{ v.unidad }}</span>
+                </span>
+              </div>
+              <div v-if="esc.espacio_tarifario.valores.length > 3" class="text-[10px] text-emerald-700 font-semibold text-right pt-0.5">
+                + {{ esc.espacio_tarifario.valores.length - 3 }} tarifa(s) adicionales configuradas
+              </div>
+            </div>
+
+            <!-- Fallback a tarifas base si aún no tuviese matriz -->
+            <div v-else class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
               <div>Día: <span class="font-mono font-bold text-emerald-800">Bs. {{ formatMoney(esc.tarifa_base_dia || 120) }}</span></div>
               <div>Noche: <span class="font-mono font-bold text-emerald-800">Bs. {{ formatMoney(esc.tarifa_base_noche || 180) }}</span></div>
               <div>Entrenamiento: <span class="font-mono font-bold text-slate-800">Bs. {{ formatMoney(esc.tarifa_entrenamiento || 80) }}</span></div>
               <div>Oficial: <span class="font-mono font-bold text-slate-800">Bs. {{ formatMoney(esc.tarifa_partido_oficial || 200) }}</span></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Franjas horarias reservadas -->
-        <div v-if="!esc.programaciones || esc.programaciones.length === 0" class="text-xs text-slate-400 py-1 italic">
-          Sin reservas de franjas horarias fijas asignadas.
-        </div>
-
-        <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div v-for="p in esc.programaciones" :key="p.id" class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div class="mb-1 flex items-center justify-between text-xs font-bold text-slate-700">
-              <span>{{ p.dia_semana }}</span>
-              <span class="font-mono text-emerald-700">{{ p.hora_inicio }} - {{ p.hora_fin }}</span>
-            </div>
-            <p class="text-xs font-semibold text-slate-900">{{ p.usuario_asignado }}</p>
-            <div class="mt-2 flex items-center justify-between text-[11px]">
-              <span class="rounded bg-slate-100 px-2 py-0.5 text-slate-700 font-medium">{{ p.tipo_evento }}</span>
-              <span class="font-bold" :class="p.turno === 'Noche' ? 'text-indigo-600' : 'text-amber-600'">Turno {{ p.turno }}</span>
             </div>
           </div>
         </div>
@@ -521,34 +644,140 @@ onMounted(fetchEscenarios)
             </div>
           </div>
 
-          <!-- PESTAÑA 4: CÁNONES & TARIFARIO RAG 011/2024 -->
+          <!-- PESTAÑA 4: MATRIZ DE TARIFAS NORMALIZADA (RAG 011/2024) -->
           <div v-if="modalTab === 'tarifas'" class="space-y-4 text-xs">
-            <p class="font-semibold text-slate-700">Configure los valores oficiales aprobados en el Tarifario (RAG CH/N.º 011/2024):</p>
+            <div>
+              <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                <span>📋</span> Matriz Oficial de Tarifas Homologadas (RAG CH/N.º 011/2024)
+              </h4>
+              <p class="text-slate-500 text-[11px] mt-0.5">
+                Defina los cánones y tarifas aplicables según el Tipo de Usuario y Concepto para este recinto deportivo:
+              </p>
+            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Tarifa Base por Hora (Día) Bs. *</label>
-                <input v-model.number="escenarioForm.tarifa_base_dia" type="number" step="10" min="0" class="w-full rounded-xl border-slate-200 py-2 text-xs font-mono font-bold" required :disabled="saving" />
+            <!-- Tabla de Tarifas Actuales en el Escenario -->
+            <div class="overflow-x-auto max-h-56 rounded-xl border border-slate-200">
+              <table class="w-full text-left text-xs text-slate-700">
+                <thead class="bg-slate-100 text-slate-700 uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th class="py-2 px-2.5">Tipo de Usuario</th>
+                    <th class="py-2 px-2.5">Concepto de Uso</th>
+                    <th class="py-2 px-2">Turno</th>
+                    <th class="py-2 px-2">Tarifa</th>
+                    <th class="py-2 px-2">Unidad</th>
+                    <th class="py-2 px-2 text-center">CESSA</th>
+                    <th class="py-2 px-2 text-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-for="(tv, idx) in escenarioForm.tarifas_valores" :key="idx" class="hover:bg-slate-50">
+                    <td class="py-2 px-2.5 font-semibold text-slate-900">{{ tv.tipo_usuario }}</td>
+                    <td class="py-2 px-2.5 text-emerald-800 font-medium">{{ tv.concepto }}</td>
+                    <td class="py-2 px-2">
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100">
+                        {{ tv.turno }}
+                      </span>
+                    </td>
+                    <td class="py-2 px-2 font-mono font-bold text-emerald-700">
+                      {{ tv.modalidad === 'porcentaje' ? `${formatMoney(tv.valor)}%` : `Bs. ${formatMoney(tv.valor)}` }}
+                    </td>
+                    <td class="py-2 px-2 text-slate-500">{{ tv.unidad }}</td>
+                    <td class="py-2 px-2 text-center">
+                      <span v-if="tv.recargo_cessa" class="text-amber-600 font-bold text-[10px]">⚡ Sí</span>
+                      <span v-else class="text-slate-400 text-[10px]">No</span>
+                    </td>
+                    <td class="py-2 px-2 text-center">
+                      <button
+                        type="button"
+                        @click="eliminarTarifaMatriz(idx)"
+                        class="text-red-500 hover:text-red-700 font-bold p-1 rounded hover:bg-red-50"
+                        title="Eliminar tarifa"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-if="escenarioForm.tarifas_valores.length === 0">
+                    <td colspan="7" class="py-3 text-center text-slate-400 italic">
+                      No hay tarifas configuradas en la matriz para este escenario. Agregue al menos una tarifa a continuación.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Formulario Rápido para Agregar Tarifa a la Matriz -->
+            <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200/70 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-emerald-950 text-xs flex items-center gap-1.5">
+                  <span>➕</span> Agregar Nueva Tarifa a la Matriz
+                </span>
+                <span class="text-[11px] text-emerald-800 font-medium">Norma RAG 011/2024</span>
               </div>
 
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Tarifa Base por Hora (Noche) Bs. *</label>
-                <input v-model.number="escenarioForm.tarifa_base_noche" type="number" step="10" min="0" class="w-full rounded-xl border-slate-200 py-2 text-xs font-mono font-bold" required :disabled="saving" />
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Tipo de Usuario *</label>
+                  <select v-model="nuevaTarifaTemp.tipo_usuario" class="w-full rounded-lg border-slate-200 py-1.5 text-xs bg-white">
+                    <option v-for="tu in opcionesTipoUsuario" :key="tu" :value="tu">{{ tu }}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Concepto de Uso *</label>
+                  <select v-model="nuevaTarifaTemp.concepto" class="w-full rounded-lg border-slate-200 py-1.5 text-xs bg-white">
+                    <option v-for="c in opcionesConcepto" :key="c" :value="c">{{ c }}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Turno Horario</label>
+                  <select v-model="nuevaTarifaTemp.turno" class="w-full rounded-lg border-slate-200 py-1.5 text-xs bg-white">
+                    <option value="Dia">☀️ Día (06:00 - 18:00)</option>
+                    <option value="Noche">🌙 Noche (18:00 - 22:00)</option>
+                    <option value="Ambos">☀️🌙 Ambos Turnos</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Tarifa Oficial *</label>
+                  <input
+                    v-model.number="nuevaTarifaTemp.valor"
+                    type="number"
+                    step="5"
+                    min="0"
+                    class="w-full rounded-lg border-slate-200 py-1.5 text-xs font-mono font-bold"
+                    placeholder="ej. 150"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Unidad de Medida</label>
+                  <select v-model="nuevaTarifaTemp.unidad" class="w-full rounded-lg border-slate-200 py-1.5 text-xs bg-white">
+                    <option value="Hora">Hora</option>
+                    <option value="Evento">Evento</option>
+                    <option value="Mes">Mes</option>
+                    <option value="Día">Día</option>
+                    <option value="Porcentaje">Porcentaje (Taquilla)</option>
+                  </select>
+                </div>
+
+                <div class="flex items-center gap-2 pt-4">
+                  <input type="checkbox" id="tempCessa" v-model="nuevaTarifaTemp.recargo_cessa" class="rounded text-emerald-600" />
+                  <label for="tempCessa" class="text-[11px] font-semibold text-slate-700 cursor-pointer">
+                    Aplica Recargo CESSA (Noche)
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Recargo Hora Iluminación Nocturna Bs.</label>
-                <input v-model.number="escenarioForm.recargo_iluminacion_cessa" type="number" step="5" min="0" class="w-full rounded-xl border-slate-200 py-2 text-xs font-mono font-bold" :disabled="saving" />
-              </div>
-
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Tarifa Hora Entrenamiento Bs.</label>
-                <input v-model.number="escenarioForm.tarifa_entrenamiento" type="number" step="10" min="0" class="w-full rounded-xl border-slate-200 py-2 text-xs font-mono font-bold" :disabled="saving" />
-              </div>
-
-              <div class="md:col-span-2">
-                <label class="block font-semibold text-slate-700 mb-1">Tarifa Hora Partido Oficial / Evento Bs.</label>
-                <input v-model.number="escenarioForm.tarifa_partido_oficial" type="number" step="10" min="0" class="w-full rounded-xl border-slate-200 py-2 text-xs font-mono font-bold text-emerald-800" :disabled="saving" />
+              <div class="flex justify-end pt-1">
+                <button
+                  type="button"
+                  @click="agregarTarifaMatriz"
+                  class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all"
+                >
+                  + Agregar a la Matriz
+                </button>
               </div>
             </div>
           </div>
@@ -582,75 +811,9 @@ onMounted(fetchEscenarios)
                 Cancelar
               </button>
               <button type="submit" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md" :disabled="saving">
-                {{ saving ? 'Guardando…' : 'Guardar Parámetros' }}
+                {{ saving ? 'Guardando…' : 'Guardar Escenario & Tarifas' }}
               </button>
             </div>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- MODAL RESERVAR PROGRAMACIÓN HORARIA -->
-    <div v-if="showProgModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
-        <h3 class="mb-1 font-display text-lg font-bold text-slate-900">Reservar Franja Horaria</h3>
-        <p class="mb-2 text-xs text-slate-500">{{ targetEscenario?.nombre }} — {{ targetEscenario?.espacio }}</p>
-
-        <form class="space-y-4 text-xs" @submit.prevent="submitProgForm">
-          <div>
-            <label class="mb-1 block font-semibold text-slate-700">Entidad / Usuario Asignado *</label>
-            <input v-model="progForm.usuario_asignado" type="text" class="w-full rounded-xl border-slate-200 py-2 text-xs" placeholder="ej. Asociación Departamental de Fútbol" required :disabled="saving" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block font-semibold text-slate-700">Día de la semana *</label>
-              <select v-model="progForm.dia_semana" class="w-full rounded-xl border-slate-200 py-2 text-xs" required :disabled="saving">
-                <option value="Lunes">Lunes</option>
-                <option value="Martes">Martes</option>
-                <option value="Miércoles">Miércoles</option>
-                <option value="Jueves">Jueves</option>
-                <option value="Viernes">Viernes</option>
-                <option value="Sábado">Sábado</option>
-                <option value="Domingo">Domingo</option>
-              </select>
-            </div>
-            <div>
-              <label class="mb-1 block font-semibold text-slate-700">Turno *</label>
-              <select v-model="progForm.turno" class="w-full rounded-xl border-slate-200 py-2 text-xs" required :disabled="saving">
-                <option value="Día">Día</option>
-                <option value="Noche">Noche</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block font-semibold text-slate-700">Hora Inicio *</label>
-              <input v-model="progForm.hora_inicio" type="time" class="w-full rounded-xl border-slate-200 py-2 text-xs font-mono" required :disabled="saving" />
-            </div>
-            <div>
-              <label class="mb-1 block font-semibold text-slate-700">Hora Fin *</label>
-              <input v-model="progForm.hora_fin" type="time" class="w-full rounded-xl border-slate-200 py-2 text-xs font-mono" required :disabled="saving" />
-            </div>
-          </div>
-
-          <div>
-            <label class="mb-1 block font-semibold text-slate-700">Tipo de Evento *</label>
-            <input v-model="progForm.tipo_evento" type="text" class="w-full rounded-xl border-slate-200 py-2 text-xs" placeholder="ej. Entrenamiento / Competencia Oficial" required :disabled="saving" />
-          </div>
-
-          <div v-if="formError" role="alert" class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {{ formError }}
-          </div>
-
-          <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <button type="button" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl" :disabled="saving" @click="closeModals">
-              Cancelar
-            </button>
-            <button type="submit" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md" :disabled="saving">
-              {{ saving ? 'Guardando…' : 'Reservar Franja' }}
-            </button>
           </div>
         </form>
       </div>
