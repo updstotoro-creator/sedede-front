@@ -413,14 +413,10 @@
             <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Escenario Deportivo</label>
             <select
               v-model="cotizadorForm.escenario_nombre"
-              @change="onEscenarioChange"
-              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5"
+              @change="onEscenarioCotizadorChange"
+              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 font-medium"
             >
-              <option value="Estadio Patria">Estadio Patria</option>
-              <option value="Coliseo Tito Alfred">Coliseo Tito Alfred</option>
-              <option value="Coliseo Tercera Fase">Coliseo Tercera Fase</option>
-              <option value="Coliseo Jorge Revilla Aldana">Coliseo Jorge Revilla Aldana</option>
-              <option value="Campo de Tiro Santiago Arana">Campo de Tiro Santiago Arana</option>
+              <option v-for="esc in escenariosCotizador" :key="esc" :value="esc">{{ esc }}</option>
             </select>
           </div>
 
@@ -428,45 +424,38 @@
             <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Espacio Específico</label>
             <select
               v-model="cotizadorForm.espacio"
-              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5"
+              @change="onEspacioCotizadorChange"
+              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 font-medium"
             >
-              <option v-for="esp in espaciosDisponibles" :key="esp" :value="esp">{{ esp }}</option>
+              <option v-for="esp in espaciosCotizador" :key="esp" :value="esp">{{ esp }}</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Concepto de Uso</label>
-            <select
-              v-model="cotizadorForm.concepto"
-              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5"
-            >
-              <option value="Entrenamiento">Entrenamiento</option>
-              <option value="Partido Oficial">Partido Oficial</option>
-              <option value="Evento Extradeportivo">Evento Extradeportivo</option>
-              <option value="Partido Oficial con Taquilla">Partido Oficial con Taquilla (10% taquilla)</option>
-              <option value="Evento No Deportivo con Entrada">Evento No Deportivo con Entrada (20% taquilla)</option>
-              <option value="Kiosco 1m x 4m">Kiosco / Alquiler Comercial</option>
-              <option value="Parqueo Vehicular">Parqueo Vehicular</option>
-              <option value="Baño Público">Baño Público</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Tipo de Solicitante / Usuario</label>
+            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>1º Tipo de Solicitante / Usuario</span>
+              <span class="text-[10px] text-emerald-600 font-bold lowercase bg-emerald-50 px-1.5 py-0.5 rounded">variable</span>
+            </label>
             <select
               v-model="cotizadorForm.tipo_usuario"
-              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5"
+              @change="onTipoUsuarioCotizadorChange"
+              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 font-medium"
             >
-              <option value="Equipo Local Profesional">Equipo Local Profesional (LPFB)</option>
-              <option value="Equipo Nacional Profesional">Equipo Nacional Profesional</option>
-              <option value="Equipo Extranjero Profesional">Equipo Extranjero Profesional</option>
-              <option value="Federación / Simón Bolívar">Federación / Simón Bolívar</option>
-              <option value="Asociación Chuquisaqueña de Fútbol">Asociación Chuquisaqueña</option>
-              <option value="Club / Asociación">Club de Asociación</option>
-              <option value="Particular / Escuela">Particular / Escuela Deportiva</option>
-              <option value="Particular / Promotor">Empresa / Promotor Evento</option>
-              <option value="Arrendatario Permanente">Arrendatario Comercial</option>
-              <option value="Público General">Público General</option>
+              <option v-for="tu in tiposUsuarioCotizador" :key="tu" :value="tu">{{ tu }}</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>2º Concepto de Uso</span>
+              <span class="text-[10px] text-emerald-600 font-bold lowercase bg-emerald-50 px-1.5 py-0.5 rounded">según usuario</span>
+            </label>
+            <select
+              v-model="cotizadorForm.concepto"
+              @change="calcular"
+              class="w-full rounded-xl border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2.5 font-medium"
+            >
+              <option v-for="c in conceptosCotizador" :key="c" :value="c">{{ c }}</option>
             </select>
           </div>
 
@@ -720,55 +709,245 @@
       </div>
     </div>
 
-    <!-- TAB 3: CATÁLOGO OFICIAL -->
+    <!-- TAB 3: CATÁLOGO OFICIAL NORMALIZADO (AUDITABLE) -->
     <div v-if="activeTab === 'catalogo'" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
+      <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-gray-100 pb-4">
         <div>
-          <h2 class="text-lg font-bold text-gray-900">Catálogo Oficial de Tarifas (RAG CH/N.º 011/2024)</h2>
-          <p class="text-xs text-gray-500 mt-0.5">Matriz homologada de precios aprobados para alquiler de recintos deportivos.</p>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-gray-900">Catálogo Oficial de Tarifas (RAG CH/N.º 011/2024)</h2>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              Auditado & Normalizado
+            </span>
+          </div>
+          <p class="text-xs text-gray-500 mt-0.5">
+            Recintos homologados únicos. Seleccione el Tipo de Usuario y Concepto para auditar o cotizar la tarifa exacta.
+          </p>
         </div>
-        <div>
+
+        <div class="flex flex-wrap items-center gap-2">
           <input
             type="text"
             v-model="busquedaTarifa"
-            @input="fetchTarifas"
-            placeholder="Buscar por escenario o espacio..."
-            class="rounded-xl border-gray-200 text-xs py-2 px-3 w-64"
+            placeholder="Buscar por recinto o espacio..."
+            class="rounded-xl border-gray-200 text-xs py-2 px-3 w-56 focus:ring-emerald-500 focus:border-emerald-500"
           />
+
+          <select
+            v-model="filtroCatalogoTipoUsuario"
+            @change="onGlobalTipoUsuarioChange"
+            class="rounded-xl border-gray-200 text-xs py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+          >
+            <option value="">Todos los Tipos de Usuario</option>
+            <option v-for="tu in tiposUsuarioList" :key="tu" :value="tu">{{ tu }}</option>
+          </select>
+
+          <select
+            v-model="filtroCatalogoConcepto"
+            class="rounded-xl border-gray-200 text-xs py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+          >
+            <option value="">Todos los Conceptos</option>
+            <option v-for="c in conceptosList" :key="c" :value="c">{{ c }}</option>
+          </select>
         </div>
       </div>
 
+      <!-- Barra de Estado de Auditoría -->
+      <div class="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-900">
+        <div class="flex items-center gap-2">
+          <span class="font-bold">🏛️ {{ espaciosTarifario.length }} Espacios Deportivos Únicos Homologados</span>
+          <span class="text-gray-400">•</span>
+          <span class="text-emerald-700">Resolución RAG CH/N.º 011/2024 (Aprobada y Vigente)</span>
+        </div>
+        <div class="text-[11px] text-emerald-700 font-medium">
+          Mostrando <strong>{{ espaciosCatalogoFiltrados.length }}</strong> de {{ espaciosTarifario.length }} recintos
+        </div>
+      </div>
+
+      <!-- Tabla de Espacios Únicos con Selectores Dinámicos en Fila -->
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-gray-600">
           <thead class="bg-gray-50 text-gray-700 uppercase text-[10px] tracking-wider border-y border-gray-100">
             <tr>
-              <th class="py-3 px-4">Escenario</th>
-              <th class="py-3 px-4">Espacio</th>
-              <th class="py-3 px-4">Concepto</th>
-              <th class="py-3 px-4">Tipo Usuario</th>
+              <th class="py-3 px-4">Escenario Deportivo</th>
+              <th class="py-3 px-4">Espacio Único</th>
+              <th class="py-3 px-4">1º Tipo de Usuario</th>
+              <th class="py-3 px-4">2º Concepto de Uso</th>
               <th class="py-3 px-4">Turno</th>
-              <th class="py-3 px-4 text-right">Tarifa (Bs.)</th>
+              <th class="py-3 px-4 text-right">Tarifa Oficial (Bs.)</th>
               <th class="py-3 px-4">Unidad</th>
+              <th class="py-3 px-4 text-center">Acciones / Auditoría</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="t in tarifas" :key="t.id" class="hover:bg-gray-50 transition-colors">
-              <td class="py-3 px-4 font-semibold text-gray-900">{{ t.escenario_nombre }}</td>
-              <td class="py-3 px-4 text-emerald-800 font-medium">{{ t.espacio }}</td>
-              <td class="py-3 px-4">{{ t.concepto }}</td>
-              <td class="py-3 px-4">{{ t.tipo_usuario }}</td>
-              <td class="py-3 px-4">
-                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700">
-                  {{ t.turno }}
+            <tr
+              v-for="esp in espaciosCatalogoFiltrados"
+              :key="esp.id"
+              class="hover:bg-emerald-50/30 transition-colors"
+            >
+              <!-- Escenario -->
+              <td class="py-3 px-4 font-semibold text-gray-900 whitespace-nowrap">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-emerald-600">🏟️</span>
+                  <span>{{ esp.escenario_nombre }}</span>
+                </div>
+              </td>
+
+              <!-- Espacio -->
+              <td class="py-3 px-4 text-emerald-900 font-bold whitespace-nowrap">
+                {{ esp.espacio }}
+              </td>
+
+              <!-- Selector Tipo de Usuario -->
+              <td class="py-2 px-3">
+                <select
+                  :value="seleccionesEspacio[esp.id]?.tipo_usuario"
+                  @change="onRowTipoUsuarioChange(esp.id, $event.target.value)"
+                  class="rounded-lg border-gray-200 text-[11px] py-1 px-2 font-medium w-48 bg-white focus:border-emerald-500 focus:ring-emerald-500"
+                >
+                  <option
+                    v-for="tu in getTiposUsuarioDeEspacio(esp)"
+                    :key="tu"
+                    :value="tu"
+                  >
+                    {{ tu }}
+                  </option>
+                </select>
+              </td>
+
+              <!-- Selector Concepto -->
+              <td class="py-2 px-3">
+                <select
+                  v-model="seleccionesEspacio[esp.id].concepto"
+                  class="rounded-lg border-gray-200 text-[11px] py-1 px-2 font-medium w-44 bg-white focus:border-emerald-500 focus:ring-emerald-500"
+                >
+                  <option
+                    v-for="c in getConceptosDeEspacioYUsuario(esp, seleccionesEspacio[esp.id]?.tipo_usuario)"
+                    :key="c"
+                    :value="c"
+                  >
+                    {{ c }}
+                  </option>
+                </select>
+              </td>
+
+              <!-- Turno -->
+              <td class="py-3 px-4 whitespace-nowrap">
+                <span
+                  class="px-2 py-0.5 rounded text-[10px] font-semibold"
+                  :class="getTarifaActiva(esp)?.turno === 'Noche' ? 'bg-indigo-100 text-indigo-800' : 'bg-amber-100 text-amber-800'"
+                >
+                  {{ getTarifaActiva(esp)?.turno || 'Dia' }}
+                </span>
+                <span
+                  v-if="getTarifaActiva(esp)?.recargo_cessa"
+                  class="ml-1 text-[9px] text-amber-700 font-bold"
+                  title="Recargo Iluminación CESSA aplicable en noche"
+                >
+                  +⚡CESSA
                 </span>
               </td>
-              <td class="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                Bs. {{ formatMoney(t.valor) }}
+
+              <!-- Tarifa -->
+              <td class="py-3 px-4 text-right font-mono font-bold text-sm text-emerald-800 whitespace-nowrap">
+                <span v-if="getTarifaActiva(esp)?.modalidad === 'porcentaje'">
+                  {{ formatMoney(getTarifaActiva(esp)?.valor) }}%
+                </span>
+                <span v-else>
+                  Bs. {{ formatMoney(getTarifaActiva(esp)?.valor) }}
+                </span>
               </td>
-              <td class="py-3 px-4 font-medium text-gray-500">{{ t.unidad }}</td>
+
+              <!-- Unidad -->
+              <td class="py-3 px-4 font-medium text-gray-500 whitespace-nowrap">
+                {{ getTarifaActiva(esp)?.unidad }}
+              </td>
+
+              <!-- Acciones -->
+              <td class="py-3 px-4 text-center whitespace-nowrap">
+                <div class="flex items-center justify-center gap-1.5">
+                  <button
+                    @click="verMatrizEspacio(esp)"
+                    class="px-2.5 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200"
+                    title="Ver todas las tarifas homologadas para este espacio"
+                  >
+                    🔍 Ver Matriz ({{ esp.valores?.length || 0 }})
+                  </button>
+                  <button
+                    @click="cotizarDesdeCatalogo(esp)"
+                    class="px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors shadow-sm"
+                    title="Calcular en el cotizador con esta tarifa"
+                  >
+                    Cotizar
+                  </button>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- MODAL MATRIZ COMPLETA DE TARIFAS POR ESPACIO (AUDITORÍA OFICIAL) -->
+    <div v-if="showModalMatrizEspacio && espacioMatrizSeleccionado" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 border border-emerald-100">
+        <div class="flex justify-between items-start border-b pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🏟️</span>
+              <h3 class="text-base font-bold text-gray-900">
+                Matriz Homologada: {{ espacioMatrizSeleccionado.escenario_nombre }} - {{ espacioMatrizSeleccionado.espacio }}
+              </h3>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+              Resolución Administrativa RAG CH/N.º 011/2024 • Total de variaciones aprobadas: {{ espacioMatrizSeleccionado.valores?.length || 0 }}
+            </p>
+          </div>
+          <button @click="showModalMatrizEspacio = false" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+        </div>
+
+        <div class="overflow-x-auto max-h-96">
+          <table class="w-full text-left text-xs text-gray-600">
+            <thead class="bg-gray-50 text-gray-700 uppercase text-[10px] tracking-wider border-y">
+              <tr>
+                <th class="py-2.5 px-3">Tipo de Usuario</th>
+                <th class="py-2.5 px-3">Concepto</th>
+                <th class="py-2.5 px-3">Turno</th>
+                <th class="py-2.5 px-3">Modalidad</th>
+                <th class="py-2.5 px-3 text-right">Tarifa Oficial</th>
+                <th class="py-2.5 px-3">Unidad</th>
+                <th class="py-2.5 px-3">CESSA</th>
+                <th class="py-2.5 px-3">Observaciones / Respaldo</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="val in espacioMatrizSeleccionado.valores" :key="val.id" class="hover:bg-gray-50">
+                <td class="py-2.5 px-3 font-semibold text-gray-900">{{ val.tipo_usuario }}</td>
+                <td class="py-2.5 px-3 text-emerald-800 font-medium">{{ val.concepto }}</td>
+                <td class="py-2.5 px-3">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100">
+                    {{ val.turno }}
+                  </span>
+                </td>
+                <td class="py-2.5 px-3 text-[11px] text-gray-500">{{ val.modalidad }}</td>
+                <td class="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                  {{ val.modalidad === 'porcentaje' ? `${formatMoney(val.valor)}%` : `Bs. ${formatMoney(val.valor)}` }}
+                </td>
+                <td class="py-2.5 px-3 text-gray-500">{{ val.unidad }}</td>
+                <td class="py-2.5 px-3 text-[11px]">
+                  <span v-if="val.recargo_cessa" class="text-amber-600 font-bold">Sí (Nocturno)</span>
+                  <span v-else class="text-gray-400">No</span>
+                </td>
+                <td class="py-2.5 px-3 text-[11px] text-gray-500 italic">{{ val.observaciones || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-end pt-3 border-t">
+          <button @click="showModalMatrizEspacio = false" class="px-5 py-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl">
+            Cerrar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1041,6 +1220,17 @@ const resumen = ref({
   cumplimiento_deposito_24h: 100,
 })
 
+// Estado para Catálogo Normalizado y Auditoría
+const espaciosTarifario = ref([])
+const tiposUsuarioList = ref([])
+const conceptosList = ref([])
+const resolucionTarifario = ref(null)
+const filtroCatalogoTipoUsuario = ref('')
+const filtroCatalogoConcepto = ref('')
+const seleccionesEspacio = ref({})
+const showModalMatrizEspacio = ref(false)
+const espacioMatrizSeleccionado = ref(null)
+
 const filtroDisciplina = ref('')
 const filtroEscenario = ref('')
 const filtroEstado = ref('')
@@ -1252,9 +1442,195 @@ const mapaEspacios = {
   'Campo de Tiro Santiago Arana': ['Área de Tiro'],
 }
 
-const espaciosDisponibles = computed(() => {
-  return mapaEspacios[cotizadorForm.value.escenario_nombre] || ['Área General']
+// Inicializar selecciones por espacio para la tabla normalizada
+function initSeleccionesEspacio() {
+  espaciosTarifario.value.forEach(esp => {
+    if (!seleccionesEspacio.value[esp.id]) {
+      const primerValor = esp.valores?.[0]
+      seleccionesEspacio.value[esp.id] = {
+        tipo_usuario: primerValor ? primerValor.tipo_usuario : '',
+        concepto: primerValor ? primerValor.concepto : '',
+      }
+    }
+  })
+}
+
+// Catálogo filtrado por búsqueda y selectores globales
+const espaciosCatalogoFiltrados = computed(() => {
+  return espaciosTarifario.value.filter(esp => {
+    if (busquedaTarifa.value) {
+      const q = busquedaTarifa.value.toLowerCase()
+      const matchTexto = (esp.escenario_nombre && esp.escenario_nombre.toLowerCase().includes(q)) ||
+                         (esp.espacio && esp.espacio.toLowerCase().includes(q))
+      if (!matchTexto) return false
+    }
+
+    if (filtroCatalogoTipoUsuario.value) {
+      const tipos = getTiposUsuarioDeEspacio(esp)
+      if (!tipos.some(t => t.toLowerCase().includes(filtroCatalogoTipoUsuario.value.toLowerCase()))) {
+        return false
+      }
+    }
+
+    if (filtroCatalogoConcepto.value) {
+      const conceptos = esp.valores?.map(v => v.concepto) || []
+      if (!conceptos.some(c => c.toLowerCase().includes(filtroCatalogoConcepto.value.toLowerCase()))) {
+        return false
+      }
+    }
+
+    return true
+  })
 })
+
+function getTiposUsuarioDeEspacio(espacio) {
+  if (!espacio || !espacio.valores) return []
+  return [...new Set(espacio.valores.map(v => v.tipo_usuario))]
+}
+
+function getConceptosDeEspacioYUsuario(espacio, tipoUsuario) {
+  if (!espacio || !espacio.valores) return []
+  const filtrados = tipoUsuario
+    ? espacio.valores.filter(v => v.tipo_usuario === tipoUsuario)
+    : espacio.valores
+  return [...new Set(filtrados.map(v => v.concepto))]
+}
+
+function getTarifaActiva(espacio) {
+  if (!espacio || !espacio.valores || espacio.valores.length === 0) return null
+  const sel = seleccionesEspacio.value[espacio.id]
+  if (!sel) return espacio.valores[0]
+
+  let match = espacio.valores.find(v => v.tipo_usuario === sel.tipo_usuario && v.concepto === sel.concepto)
+  if (!match) {
+    match = espacio.valores.find(v => v.tipo_usuario === sel.tipo_usuario)
+  }
+  return match || espacio.valores[0]
+}
+
+function onRowTipoUsuarioChange(espacioId, nuevoTipo) {
+  const espacio = espaciosTarifario.value.find(e => e.id === espacioId)
+  if (!espacio) return
+  if (!seleccionesEspacio.value[espacioId]) {
+    seleccionesEspacio.value[espacioId] = {}
+  }
+  seleccionesEspacio.value[espacioId].tipo_usuario = nuevoTipo
+  const conceptos = getConceptosDeEspacioYUsuario(espacio, nuevoTipo)
+  seleccionesEspacio.value[espacioId].concepto = conceptos[0] || ''
+}
+
+function onGlobalTipoUsuarioChange() {
+  if (!filtroCatalogoTipoUsuario.value) return
+  espaciosTarifario.value.forEach(esp => {
+    const tipos = getTiposUsuarioDeEspacio(esp)
+    if (tipos.includes(filtroCatalogoTipoUsuario.value)) {
+      onRowTipoUsuarioChange(esp.id, filtroCatalogoTipoUsuario.value)
+    }
+  })
+}
+
+function verMatrizEspacio(espacio) {
+  espacioMatrizSeleccionado.value = espacio
+  showModalMatrizEspacio.value = true
+}
+
+function cotizarDesdeCatalogo(espacio) {
+  const tarifa = getTarifaActiva(espacio)
+  cotizadorForm.value.escenario_nombre = espacio.escenario_nombre
+  cotizadorForm.value.espacio = espacio.espacio
+  if (tarifa) {
+    cotizadorForm.value.tipo_usuario = tarifa.tipo_usuario
+    cotizadorForm.value.concepto = tarifa.concepto
+    cotizadorForm.value.turno = (tarifa.turno === 'Noche') ? 'Noche' : 'Dia'
+  }
+  activeTab.value = 'cotizador'
+  calcular()
+}
+
+// Cascada Dinámica para el Cotizador
+const escenariosCotizador = computed(() => {
+  if (espaciosTarifario.value.length === 0) {
+    return ['Estadio Patria', 'Coliseo Tito Alfred', 'Coliseo Tercera Fase', 'Coliseo Jorge Revilla Aldana', 'Campo de Tiro Santiago Arana']
+  }
+  return [...new Set(espaciosTarifario.value.map(e => e.escenario_nombre))]
+})
+
+const espaciosCotizador = computed(() => {
+  const filtered = espaciosTarifario.value.filter(e => e.escenario_nombre === cotizadorForm.value.escenario_nombre)
+  if (filtered.length === 0) {
+    return mapaEspacios[cotizadorForm.value.escenario_nombre] || ['Área General']
+  }
+  return filtered.map(e => e.espacio)
+})
+
+const espacioActualCotizador = computed(() => {
+  return espaciosTarifario.value.find(e =>
+    e.escenario_nombre === cotizadorForm.value.escenario_nombre &&
+    e.espacio === cotizadorForm.value.espacio
+  ) || null
+})
+
+const tiposUsuarioCotizador = computed(() => {
+  if (!espacioActualCotizador.value || !espacioActualCotizador.value.valores || espacioActualCotizador.value.valores.length === 0) {
+    return [
+      'Equipo Local Profesional',
+      'Equipo Nacional Profesional',
+      'Equipo Extranjero Profesional',
+      'Federación / Simón Bolívar',
+      'Asociación Chuquisaqueña de Fútbol',
+      'Club / Asociación',
+      'Particular / Escuela',
+      'Particular / Promotor',
+      'Particular / Empresa',
+      'Arrendatario Permanente',
+      'Público General'
+    ]
+  }
+  return [...new Set(espacioActualCotizador.value.valores.map(v => v.tipo_usuario))]
+})
+
+const conceptosCotizador = computed(() => {
+  if (!espacioActualCotizador.value || !espacioActualCotizador.value.valores || espacioActualCotizador.value.valores.length === 0) {
+    return [
+      'Entrenamiento',
+      'Partido Oficial',
+      'Uso Particular',
+      'Partido Oficial con Taquilla',
+      'Evento No Deportivo con Entrada',
+      'Kiosco 1m x 4m',
+      'Parqueo Vehicular',
+      'Baño Público'
+    ]
+  }
+  const filtrados = cotizadorForm.value.tipo_usuario
+    ? espacioActualCotizador.value.valores.filter(v => v.tipo_usuario === cotizadorForm.value.tipo_usuario)
+    : espacioActualCotizador.value.valores
+  return [...new Set(filtrados.map(v => v.concepto))]
+})
+
+function onEscenarioCotizadorChange() {
+  const lista = espaciosCotizador.value
+  if (lista.length > 0) {
+    cotizadorForm.value.espacio = lista[0]
+  }
+  onEspacioCotizadorChange()
+}
+
+function onEspacioCotizadorChange() {
+  const listaTipos = tiposUsuarioCotizador.value
+  if (listaTipos.length > 0 && !listaTipos.includes(cotizadorForm.value.tipo_usuario)) {
+    cotizadorForm.value.tipo_usuario = listaTipos[0]
+  }
+  onTipoUsuarioCotizadorChange()
+}
+
+function onTipoUsuarioCotizadorChange() {
+  const listaConceptos = conceptosCotizador.value
+  if (listaConceptos.length > 0 && !listaConceptos.includes(cotizadorForm.value.concepto)) {
+    cotizadorForm.value.concepto = listaConceptos[0]
+  }
+  calcular()
+}
 
 const esModalidadPorcentaje = computed(() => {
   return cotizadorForm.value.concepto.includes('Taquilla') || cotizadorForm.value.concepto.includes('Entrada')
@@ -1271,13 +1647,6 @@ const escenariosFiltrados = computed(() => {
     return listDisc.includes(filtroDisciplina.value)
   })
 })
-
-function onEscenarioChange() {
-  const lista = espaciosDisponibles.value
-  if (lista.length > 0) {
-    cotizadorForm.value.espacio = lista[0]
-  }
-}
 
 function getReservasEscenario(nombreEscenario) {
   return reservas.value.filter(r => r.escenario_nombre === nombreEscenario)
@@ -1307,8 +1676,17 @@ async function fetchOcupacion() {
 
 async function fetchTarifas() {
   try {
-    const res = await tarifarioService.getTarifas({ escenario: busquedaTarifa.value })
-    tarifas.value = res.data || []
+    const res = await tarifarioService.getTarifas({
+      escenario: busquedaTarifa.value,
+      tipo_usuario: filtroCatalogoTipoUsuario.value,
+      concepto: filtroCatalogoConcepto.value,
+    })
+    espaciosTarifario.value = res.espacios || res.data || []
+    tiposUsuarioList.value = res.tipos_usuario || []
+    conceptosList.value = res.conceptos || []
+    resolucionTarifario.value = res.resolucion || null
+    tarifas.value = res.tarifas_planas || []
+    initSeleccionesEspacio()
   } catch (err) {
     console.error('Error al cargar tarifas:', err)
   }
