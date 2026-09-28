@@ -296,10 +296,11 @@
           <div
             v-for="dayObj in monthCalendarDays"
             :key="dayObj.dateStr"
-            @click="onDayClick(dayObj)"
+            @click="seleccionarDiaCalendario(dayObj)"
             :class="[
               'min-h-[75px] sm:min-h-[105px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between group hover:shadow-md hover:z-10',
-              dayObj.isToday ? 'bg-emerald-50/70 ring-2 ring-emerald-500/50' : 'bg-white hover:bg-emerald-50/30'
+              diaSeleccionado === dayObj.dateStr ? 'bg-emerald-100/70 ring-2 ring-emerald-600 shadow-md z-10' :
+              dayObj.isToday ? 'bg-emerald-50/70 ring-1 ring-emerald-500/50' : 'bg-white hover:bg-emerald-50/30'
             ]"
           >
             <!-- Cabecera del día -->
@@ -307,6 +308,7 @@
               <span
                 :class="[
                   'inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 text-xs sm:text-sm font-bold rounded-full transition-transform group-hover:scale-110',
+                  diaSeleccionado === dayObj.dateStr ? 'bg-emerald-800 text-white shadow-sm' :
                   dayObj.isToday ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-800'
                 ]"
               >
@@ -345,25 +347,140 @@
               </div>
 
               <div v-else class="hidden sm:block text-[10px] text-emerald-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity pt-2">
-                + Reservar
+                Ver Horarios
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- DETALLE DE PRÓXIMAS RESERVAS DEL ESPACIO SELECCIONADO -->
-      <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 space-y-3">
-        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
-          <h3 class="font-bold text-gray-900 text-sm flex items-center gap-2">
-            <span>📋</span> Reservas Registradas en {{ monthYearLabel }}
-          </h3>
-          <span class="text-xs font-semibold text-emerald-700 bg-emerald-100/60 px-2.5 py-0.5 rounded-full">
-            {{ reservasDelMesFiltradas.length }} Solicitud(es)
-          </span>
+      <!-- CRONOGRAMA DE HORARIOS DEL DÍA SELECCIONADO Y PRÓXIMAS RESERVAS -->
+      <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-gray-200 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-base">📅</span>
+              <h3 class="font-bold text-gray-900 text-sm">
+                Cronograma y Disponibilidad: <span class="text-emerald-800">{{ fechaSeleccionadaFormateada }}</span>
+              </h3>
+            </div>
+            <p class="text-[11px] text-gray-500 mt-0.5">
+              Recinto: <strong class="text-gray-700">{{ espacioSeleccionadoInfo ? espacioSeleccionadoInfo.escenario_nombre + ' — ' + espacioSeleccionadoInfo.espacio : 'Todos los Espacios Deportivos' }}</strong>
+              • Horario operativo de 06:00 a 22:00
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Botón para solicitar reserva directa en este día -->
+            <button
+              @click="abrirModalReservaParaDia(diaSeleccionado)"
+              class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <span>+</span> Solicitar Reserva en este Día
+            </button>
+
+            <!-- Selector de Pestañas: Horarios vs Próximas -->
+            <div class="flex bg-white rounded-xl p-0.5 border border-gray-200 text-xs font-semibold shadow-2xs">
+              <button
+                @click="vistaSubCalendario = 'horarios'"
+                :class="['px-3 py-1 rounded-lg transition-colors', vistaSubCalendario === 'horarios' ? 'bg-emerald-100/80 text-emerald-900 font-bold' : 'text-gray-600 hover:text-gray-900']"
+              >
+                🕒 Horarios del Día (06:00 - 22:00)
+              </button>
+              <button
+                @click="vistaSubCalendario = 'proximas'"
+                :class="['px-3 py-1 rounded-lg transition-colors', vistaSubCalendario === 'proximas' ? 'bg-emerald-100/80 text-emerald-900 font-bold' : 'text-gray-600 hover:text-gray-900']"
+              >
+                📋 Reservas del Mes ({{ reservasDelMesFiltradas.length }})
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div v-if="reservasDelMesFiltradas.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <!-- VISTA 1: TABLA / TIMELINE DE FRANJAS HORARIAS DEL DÍA -->
+        <div v-if="vistaSubCalendario === 'horarios'" class="space-y-3">
+          <div class="flex justify-between items-center text-xs text-gray-600 px-1">
+            <span class="font-medium">
+              Mostrando franjas horarias operativas reglamentadas para este día:
+            </span>
+            <div class="flex items-center gap-3 text-[11px] font-semibold">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Horario Libre</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Horario Ocupado / Reservado</span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-2xs">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/80 text-[10px] uppercase font-bold text-gray-600 border-b border-gray-200">
+                <tr>
+                  <th class="py-2.5 px-3">Franja Horaria</th>
+                  <th class="py-2.5 px-3">Turno</th>
+                  <th class="py-2.5 px-3">Estado de Ocupación</th>
+                  <th class="py-2.5 px-3">Entidad / Solicitante</th>
+                  <th class="py-2.5 px-3">Concepto & Disciplina</th>
+                  <th class="py-2.5 px-3 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr
+                  v-for="franja in franjasDiaSeleccionado"
+                  :key="franja.hora_inicio"
+                  :class="franja.disponible ? 'hover:bg-emerald-50/40' : 'bg-red-50/20 hover:bg-red-50/30'"
+                >
+                  <td class="py-2.5 px-3 font-mono font-bold text-gray-800 whitespace-nowrap">
+                    {{ franja.hora_inicio }} - {{ franja.hora_fin }}
+                  </td>
+                  <td class="py-2.5 px-3 whitespace-nowrap">
+                    <span :class="franja.turno === 'Dia' ? 'text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded font-semibold text-[10px]' : 'text-indigo-800 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded font-semibold text-[10px]'">
+                      {{ franja.turno === 'Dia' ? '☀️ Día (06-18)' : '🌙 Noche (18-22)' }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3 whitespace-nowrap">
+                    <span v-if="franja.disponible" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      <span class="w-2 h-2 rounded-full bg-emerald-500"></span> DISPONIBLE
+                    </span>
+                    <span v-else-if="franja.reserva?.estado === 'CONFIRMADA'" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">
+                      <span class="w-2 h-2 rounded-full bg-red-500"></span> RESERVADO (CONFIRMADO)
+                    </span>
+                    <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      <span class="w-2 h-2 rounded-full bg-amber-500"></span> PENDIENTE DE PAGO
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3 font-medium text-gray-800">
+                    <span v-if="!franja.disponible" class="font-bold text-gray-900">
+                      {{ franja.reserva?.solicitante_nombre }}
+                    </span>
+                    <span v-else class="text-gray-400 italic text-[11px]">
+                      Sin reservas — Horario disponible
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3 text-gray-600">
+                    <span v-if="!franja.disponible">
+                      <span class="font-medium text-gray-800">"{{ franja.reserva?.concepto }}"</span>
+                      <span v-if="franja.reserva?.disciplina" class="text-gray-500 text-[10px] ml-1">({{ franja.reserva?.disciplina }})</span>
+                    </span>
+                    <span v-else class="text-gray-400 text-[11px]">—</span>
+                  </td>
+                  <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                    <button
+                      v-if="franja.disponible"
+                      @click="reservarFranjaEspecifica(franja)"
+                      class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-all shadow-2xs"
+                    >
+                      + Reservar
+                    </button>
+                    <span v-else class="text-[10px] font-mono text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded">
+                      {{ franja.reserva?.codigo_reserva }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- VISTA 2: LISTADO DE PRÓXIMAS RESERVAS DEL MES -->
+        <div v-else-if="reservasDelMesFiltradas.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <div
             v-for="res in reservasDelMesFiltradas"
             :key="res.id"
@@ -953,67 +1070,188 @@
 
     <!-- MODAL NUEVA RESERVA POR ASOCIACIÓN (BLOQUE 1) -->
     <div v-if="showModalNuevaReserva" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-emerald-100">
+      <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-emerald-100 max-h-[92vh] overflow-y-auto">
         <h3 class="text-base font-bold text-gray-900 border-b pb-2 flex items-center gap-2">
-          <span>📅</span> Solicitud de Reserva de Espacio (Asociación / Club)
+          <span>📅</span> Solicitud de Reserva de Espacio Deportivo
         </h3>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <!-- 1. Escenario Deportivo (Selector dinámico de todos los recintos) -->
           <div>
             <label class="block font-semibold text-gray-700 mb-1">Escenario Deportivo *</label>
-            <input type="text" v-model="reservaForm.escenario_nombre" readonly class="w-full rounded-xl border-gray-200 bg-gray-50 py-2 font-bold" />
+            <select
+              v-model="reservaForm.escenario_nombre"
+              @change="onEscenarioReservaModalChange"
+              class="w-full rounded-xl border-gray-200 py-2 text-xs font-bold bg-white focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option v-for="esc in listaEscenariosNombres" :key="esc" :value="esc">
+                🏟️ {{ esc }}
+              </option>
+            </select>
           </div>
 
+          <!-- 2. Espacio Específico (Selector dinámico dependiente del escenario) -->
           <div>
             <label class="block font-semibold text-gray-700 mb-1">Espacio Específico *</label>
-            <input type="text" v-model="reservaForm.espacio" readonly class="w-full rounded-xl border-gray-200 bg-gray-50 py-2 font-bold text-emerald-800" />
+            <select
+              v-model="reservaForm.espacio"
+              @change="onEspacioReservaModalChange"
+              class="w-full rounded-xl border-gray-200 py-2 text-xs font-bold text-emerald-800 bg-white focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option v-for="esp in espaciosDisponiblesModal" :key="esp" :value="esp">
+                📍 {{ esp }}
+              </option>
+            </select>
           </div>
 
-          <div>
-            <label class="block font-semibold text-gray-700 mb-1">Solicitante (Asociación/Club) *</label>
-            <input type="text" v-model="reservaForm.solicitante_nombre" placeholder="Ej. Asociación Chuquisaqueña de Fútbol" class="w-full rounded-xl border-gray-200 py-2" />
+          <!-- 3. Solicitante (Asociación, Club o Particular) -->
+          <div class="md:col-span-2">
+            <label class="block font-semibold text-gray-700 mb-1">Solicitante (Asociación / Club / Particular) *</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select
+                v-model="solicitanteTipoSeleccion"
+                @change="onSolicitanteTipoChange"
+                class="rounded-xl border-gray-200 py-2 text-xs font-semibold bg-gray-50"
+              >
+                <option value="ASOCIACION">Asociación Departamental Afiliada</option>
+                <option value="OTRO">Otro Club / Escuela / Particular</option>
+              </select>
+
+              <select
+                v-if="solicitanteTipoSeleccion === 'ASOCIACION'"
+                v-model="asociacionSeleccionadaModal"
+                @change="onAsociacionSeleccionadaModalChange"
+                class="rounded-xl border-gray-200 py-2 text-xs font-medium"
+              >
+                <option value="">-- Seleccionar Asociación --</option>
+                <option v-for="aso in asociacionesLista" :key="aso.id" :value="aso.nombre">
+                  {{ aso.nombre }} ({{ aso.sigla || aso.disciplina }})
+                </option>
+              </select>
+
+              <input
+                v-else
+                type="text"
+                v-model="reservaForm.solicitante_nombre"
+                placeholder="Nombre de la Institución o Particular"
+                class="rounded-xl border-gray-200 py-2 text-xs"
+                required
+              />
+            </div>
           </div>
 
+          <!-- 4. Disciplina Deportiva -->
           <div>
             <label class="block font-semibold text-gray-700 mb-1">Disciplina *</label>
-            <select v-model="reservaForm.disciplina" class="w-full rounded-xl border-gray-200 py-2 font-semibold">
+            <select v-model="reservaForm.disciplina" class="w-full rounded-xl border-gray-200 py-2 font-semibold bg-white">
               <option value="Fútbol">Fútbol</option>
               <option value="Atletismo">Atletismo</option>
               <option value="Baloncesto">Baloncesto</option>
               <option value="Voleibol">Voleibol</option>
               <option value="Futsal">Futsal</option>
               <option value="Ráquetbol">Ráquetbol</option>
-              <option value="Karate">Karate</option>
+              <option value="Karate">Karate / Lucha</option>
+              <option value="Tenis de Mesa">Tenis de Mesa / Billar</option>
+              <option value="Gimnasia">Gimnasia</option>
+              <option value="Deporte General">Deporte General / Extradeportivo</option>
             </select>
           </div>
 
+          <!-- 5. Fecha de Uso -->
           <div>
             <label class="block font-semibold text-gray-700 mb-1">Fecha de Uso *</label>
-            <input type="date" v-model="reservaForm.fecha_uso" class="w-full rounded-xl border-gray-200 py-2" />
+            <input
+              type="date"
+              v-model="reservaForm.fecha_uso"
+              :min="todayStr"
+              @change="cargarDisponibilidadModal"
+              class="w-full rounded-xl border-gray-200 py-2 font-semibold bg-white"
+            />
           </div>
 
+          <!-- 6. Turno Horario Operativo -->
+          <div class="md:col-span-2">
+            <label class="block font-semibold text-gray-700 mb-1">Turno Horario Operativo *</label>
+            <select v-model="reservaForm.turno" @change="onTurnoChange" class="w-full rounded-xl border-gray-200 py-2 font-semibold bg-white">
+              <option value="Dia">☀️ Turno Día (06:00 - 18:00)</option>
+              <option value="Noche">🌙 Turno Noche (18:00 - 22:00) + Iluminación CESSA</option>
+            </select>
+          </div>
+
+          <!-- 7. Franjas Disponibles Interactivas (Solo aparecen las disponibles) -->
+          <div class="md:col-span-2 p-3 bg-emerald-50/70 rounded-xl border border-emerald-100 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-[11px] text-emerald-950 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Horarios Disponibles para Reserva ({{ reservaForm.turno === 'Dia' ? '06:00 - 18:00' : '18:00 - 22:00' }}):
+              </span>
+              <span class="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded-full border border-emerald-200">
+                {{ franjasDisponiblesModal.length }} franja(s) libre(s)
+              </span>
+            </div>
+
+            <!-- Botones interactivos de franjas libres -->
+            <div v-if="franjasDisponiblesModal.length > 0" class="flex flex-wrap gap-1.5 pt-1">
+              <button
+                type="button"
+                v-for="franja in franjasDisponiblesModal"
+                :key="franja.hora_inicio"
+                @click="seleccionarFranjaRapida(franja)"
+                :class="[
+                  'px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer',
+                  reservaForm.hora_inicio === franja.hora_inicio
+                    ? 'bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-400'
+                    : 'bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-200'
+                ]"
+              >
+                <span>⚡</span> {{ franja.hora_inicio }} - {{ franja.hora_fin }}
+              </button>
+            </div>
+            <div v-else class="text-[11px] text-amber-800 font-semibold p-2 bg-amber-50 rounded-lg border border-amber-200">
+              ⚠️ No hay horarios disponibles para este espacio en la fecha y turno seleccionados. Todos los horarios se encuentran reservados.
+            </div>
+          </div>
+
+          <!-- 8. Selectores de Hora Inicio y Hora Fin (Excluyen reservados y madrugada) -->
           <div>
-            <label class="block font-semibold text-gray-700 mb-1">Turno Horario *</label>
-            <select v-model="reservaForm.turno" class="w-full rounded-xl border-gray-200 py-2 font-semibold">
-              <option value="Dia">☀️ Día (06:00 - 18:00)</option>
-              <option value="Noche">🌙 Noche (18:00 - 22:00) + Iluminación</option>
+            <label class="block font-semibold text-gray-700 mb-1">Hora Inicio *</label>
+            <select
+              v-model="reservaForm.hora_inicio"
+              @change="onHoraInicioModalChange"
+              class="w-full rounded-xl border-gray-200 py-2 text-xs font-mono font-bold text-gray-900 bg-white"
+              :disabled="franjasDisponiblesModal.length === 0"
+            >
+              <option value="" disabled>-- Seleccione horario libre --</option>
+              <option v-for="franja in franjasDisponiblesModal" :key="franja.hora_inicio" :value="franja.hora_inicio">
+                {{ franja.hora_inicio }} (Disponible)
+              </option>
             </select>
           </div>
 
           <div>
-            <label class="block font-semibold text-gray-700 mb-1">Hora Inicio *</label>
-            <input type="time" v-model="reservaForm.hora_inicio" class="w-full rounded-xl border-gray-200 py-2" />
-          </div>
-
-          <div>
-            <label class="block font-semibold text-gray-700 mb-1">Hora Fin *</label>
-            <input type="time" v-model="reservaForm.hora_fin" class="w-full rounded-xl border-gray-200 py-2" />
+            <label class="block font-semibold text-gray-700 mb-1">Hora Fin / Duración *</label>
+            <select
+              v-model="reservaForm.hora_fin"
+              @change="onHoraFinModalChange"
+              class="w-full rounded-xl border-gray-200 py-2 text-xs font-mono font-bold text-gray-900 bg-white"
+              :disabled="!reservaForm.hora_inicio || opcionesHoraFinModal.length === 0"
+            >
+              <option v-for="opt in opcionesHoraFinModal" :key="opt.hora_fin" :value="opt.hora_fin">
+                {{ opt.label }}
+              </option>
+            </select>
           </div>
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-gray-700 mb-1">Concepto / Motivo de Uso *</label>
-          <input type="text" v-model="reservaForm.concepto" placeholder="Ej. Partido Oficial Torneo Apertura" class="w-full rounded-xl border-gray-200 text-xs py-2" />
+          <input
+            type="text"
+            v-model="reservaForm.concepto"
+            placeholder="Ej. Partido Oficial Torneo Apertura / Entrenamiento"
+            class="w-full rounded-xl border-gray-200 text-xs py-2"
+            required
+          />
         </div>
 
         <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-900">
@@ -1023,7 +1261,13 @@
 
         <div class="flex justify-end gap-2 pt-2 border-t">
           <button @click="showModalNuevaReserva = false" class="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl">Cancelar</button>
-          <button @click="confirmarNuevaReserva" class="px-5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-md">Confirmar Reserva & Liquidación</button>
+          <button
+            @click="confirmarNuevaReserva"
+            class="px-5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="!reservaForm.hora_inicio || !reservaForm.hora_fin || franjasDisponiblesModal.length === 0"
+          >
+            Confirmar Reserva & Liquidación
+          </button>
         </div>
       </div>
     </div>
@@ -1203,9 +1447,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { tarifarioService } from '../services/tarifarioService'
 import { escenarioService } from '../services/escenarioService'
+import { asociacionService } from '../services/asociacionService'
 
 const activeTab = ref('calendario')
 const tarifas = ref([])
@@ -1348,6 +1593,230 @@ const reservasDelMesFiltradas = computed(() => {
   })
 })
 
+const todayStr = new Date().toISOString().split('T')[0]
+const diaSeleccionado = ref(todayStr)
+const vistaSubCalendario = ref('horarios')
+const franjasDiaSeleccionado = ref([])
+const loadingFranjasDia = ref(false)
+
+const asociacionesLista = ref([])
+const solicitanteTipoSeleccion = ref('ASOCIACION')
+const asociacionSeleccionadaModal = ref('')
+const franjasOcupacionModal = ref([])
+const loadingDisponibilidadModal = ref(false)
+
+const fechaSeleccionadaFormateada = computed(() => {
+  if (!diaSeleccionado.value) return ''
+  const parts = diaSeleccionado.value.split('-')
+  if (parts.length < 3) return diaSeleccionado.value
+  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
+  const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+  return `${diasSemana[d.getDay()]}, ${parts[2]} de ${monthNames[parseInt(parts[1], 10) - 1]} de ${parts[0]}`
+})
+
+const listaEscenariosNombres = computed(() => {
+  const set = new Set()
+  escenarios.value.forEach(e => {
+    if (e.nombre) set.add(e.nombre)
+  })
+  if (set.size === 0) {
+    return [
+      'Estadio Patria',
+      'Coliseo Tito Alfred',
+      'Coliseo Tercera Fase',
+      'Coliseo Jorge Revilla Aldana',
+      'Coliseo Evo Morales Ayma I',
+      'Coliseo Evo Morales Ayma II',
+      'Coliseo Esteban Urquizu Cuéllar',
+      'Campo de Tiro Santiago Arana',
+      'Complejo Tenis La Madona',
+      'Frontones Departamentales'
+    ]
+  }
+  return Array.from(set)
+})
+
+const espaciosDisponiblesModal = computed(() => {
+  const match = escenarios.value.filter(e => e.nombre === reservaForm.value.escenario_nombre)
+  const espSet = new Set()
+  match.forEach(e => {
+    if (e.espacio) espSet.add(e.espacio)
+  })
+  if (espSet.size === 0) {
+    return ['Óvalo Central', 'Cancha Principal']
+  }
+  return Array.from(espSet)
+})
+
+const franjasDisponiblesModal = computed(() => {
+  return franjasOcupacionModal.value.filter(f => f.disponible)
+})
+
+const opcionesHoraFinModal = computed(() => {
+  if (!reservaForm.value.hora_inicio) return []
+  const startHour = parseInt(reservaForm.value.hora_inicio.split(':')[0], 10)
+  const maxHour = reservaForm.value.turno === 'Dia' ? 18 : 22
+  const options = []
+
+  for (let h = startHour + 1; h <= maxHour; h++) {
+    const prevHourStr = String(h - 1).padStart(2, '0') + ':00'
+    const slot = franjasOcupacionModal.value.find(f => f.hora_inicio === prevHourStr)
+    if (slot && !slot.disponible) {
+      break
+    }
+    const endStr = String(h).padStart(2, '0') + ':00'
+    const duration = h - startHour
+    options.push({
+      hora_fin: endStr,
+      duration,
+      label: `${endStr} (${duration} hora${duration > 1 ? 's' : ''})`
+    })
+  }
+  return options
+})
+
+function onHoraInicioModalChange() {
+  if (opcionesHoraFinModal.value.length > 0) {
+    reservaForm.value.hora_fin = opcionesHoraFinModal.value[0].hora_fin
+    reservaForm.value.duracion_horas = opcionesHoraFinModal.value[0].duration
+  }
+}
+
+function onHoraFinModalChange() {
+  const match = opcionesHoraFinModal.value.find(o => o.hora_fin === reservaForm.value.hora_fin)
+  if (match) {
+    reservaForm.value.duracion_horas = match.duration
+  }
+}
+
+function seleccionarFranjaRapida(franja) {
+  reservaForm.value.hora_inicio = franja.hora_inicio
+  reservaForm.value.hora_fin = franja.hora_fin
+  reservaForm.value.duracion_horas = 1.0
+}
+
+function onEscenarioReservaModalChange() {
+  const disponibles = espaciosDisponiblesModal.value
+  if (disponibles.length > 0) {
+    reservaForm.value.espacio = disponibles[0]
+  }
+  const matchEsc = escenarios.value.find(e => e.nombre === reservaForm.value.escenario_nombre && e.espacio === reservaForm.value.espacio)
+  if (matchEsc) {
+    reservaForm.value.escenario_id = matchEsc.id
+    if (matchEsc.disciplinas && matchEsc.disciplinas.length > 0) {
+      reservaForm.value.disciplina = matchEsc.disciplinas[0]
+    }
+  }
+  cargarDisponibilidadModal()
+}
+
+function onEspacioReservaModalChange() {
+  const matchEsc = escenarios.value.find(e => e.nombre === reservaForm.value.escenario_nombre && e.espacio === reservaForm.value.espacio)
+  if (matchEsc) {
+    reservaForm.value.escenario_id = matchEsc.id
+    if (matchEsc.disciplinas && matchEsc.disciplinas.length > 0) {
+      reservaForm.value.disciplina = matchEsc.disciplinas[0]
+    }
+  }
+  cargarDisponibilidadModal()
+}
+
+function onTurnoChange() {
+  cargarDisponibilidadModal()
+}
+
+async function fetchAsociaciones() {
+  try {
+    const list = await asociacionService.list()
+    asociacionesLista.value = list
+    if (list.length > 0 && !reservaForm.value.solicitante_nombre) {
+      asociacionSeleccionadaModal.value = list[0].nombre
+      onAsociacionSeleccionadaModalChange()
+    }
+  } catch (err) {
+    console.error('Error al cargar asociaciones:', err)
+  }
+}
+
+function onAsociacionSeleccionadaModalChange() {
+  const aso = asociacionesLista.value.find(a => a.nombre === asociacionSeleccionadaModal.value)
+  if (aso) {
+    reservaForm.value.asociacion_id = aso.id
+    reservaForm.value.solicitante_nombre = aso.nombre
+    if (aso.disciplina) {
+      reservaForm.value.disciplina = aso.disciplina
+    }
+  }
+}
+
+function onSolicitanteTipoChange() {
+  if (solicitanteTipoSeleccion.value === 'OTRO') {
+    reservaForm.value.asociacion_id = null
+    reservaForm.value.solicitante_nombre = ''
+  } else if (asociacionesLista.value.length > 0) {
+    asociacionSeleccionadaModal.value = asociacionesLista.value[0].nombre
+    onAsociacionSeleccionadaModalChange()
+  }
+}
+
+function seleccionarDiaCalendario(dayObj) {
+  diaSeleccionado.value = dayObj.dateStr
+  vistaSubCalendario.value = 'horarios'
+  cargarFranjasDiaSeleccionado()
+}
+
+async function cargarFranjasDiaSeleccionado() {
+  loadingFranjasDia.value = true
+  try {
+    const params = {
+      fecha: diaSeleccionado.value,
+    }
+    if (espacioSeleccionadoInfo.value) {
+      params.escenario_nombre = espacioSeleccionadoInfo.value.escenario_nombre
+      params.espacio = espacioSeleccionadoInfo.value.espacio
+      params.escenario_id = espacioSeleccionadoInfo.value.id
+    }
+    const res = await escenarioService.getDisponibilidad(params)
+    franjasDiaSeleccionado.value = res.franjas || []
+  } catch (err) {
+    console.error('Error al cargar franjas del día:', err)
+  } finally {
+    loadingFranjasDia.value = false
+  }
+}
+
+async function cargarDisponibilidadModal() {
+  if (!reservaForm.value.fecha_uso || !reservaForm.value.escenario_nombre || !reservaForm.value.espacio) return
+  loadingDisponibilidadModal.value = true
+  try {
+    const res = await escenarioService.getDisponibilidad({
+      fecha: reservaForm.value.fecha_uso,
+      escenario_nombre: reservaForm.value.escenario_nombre,
+      espacio: reservaForm.value.espacio,
+      turno: reservaForm.value.turno,
+    })
+    franjasOcupacionModal.value = res.franjas || []
+
+    const libres = res.franjas.filter(f => f.disponible)
+    if (libres.length > 0) {
+      const match = libres.find(f => f.hora_inicio === reservaForm.value.hora_inicio)
+      if (!match) {
+        reservaForm.value.hora_inicio = libres[0].hora_inicio
+        reservaForm.value.hora_fin = libres[0].hora_fin
+        reservaForm.value.duracion_horas = 1.0
+      }
+    } else {
+      reservaForm.value.hora_inicio = ''
+      reservaForm.value.hora_fin = ''
+      reservaForm.value.duracion_horas = 0
+    }
+  } catch (err) {
+    console.error('Error al cargar disponibilidad modal:', err)
+  } finally {
+    loadingDisponibilidadModal.value = false
+  }
+}
+
 function mesAnterior() {
   if (currentMonth.value === 0) {
     currentMonth.value = 11
@@ -1355,6 +1824,7 @@ function mesAnterior() {
   } else {
     currentMonth.value--
   }
+  fetchOcupacion()
 }
 
 function mesSiguiente() {
@@ -1364,6 +1834,7 @@ function mesSiguiente() {
   } else {
     currentMonth.value++
   }
+  fetchOcupacion()
 }
 
 function onDisciplinaFilterChange() {
@@ -1377,15 +1848,44 @@ function abrirModalNuevaReservaConEspacio(dayObj = null) {
     reservaForm.value.escenario_nombre = espacioSeleccionadoInfo.value.escenario_nombre
     reservaForm.value.espacio = espacioSeleccionadoInfo.value.espacio
     reservaForm.value.disciplina = espacioSeleccionadoInfo.value.disciplinaDefault
+  } else if (!reservaForm.value.escenario_nombre && listaEscenariosNombres.value.length > 0) {
+    reservaForm.value.escenario_nombre = listaEscenariosNombres.value[0]
+    const espList = espaciosDisponiblesModal.value
+    if (espList.length > 0) reservaForm.value.espacio = espList[0]
   }
+
   if (dayObj) {
     reservaForm.value.fecha_uso = dayObj.dateStr
+  } else if (!reservaForm.value.fecha_uso) {
+    reservaForm.value.fecha_uso = diaSeleccionado.value || todayStr
   }
+
+  cargarDisponibilidadModal()
+  showModalNuevaReserva.value = true
+}
+
+function abrirModalReservaParaDia(fecha) {
+  reservaForm.value.fecha_uso = fecha
+  abrirModalNuevaReservaConEspacio()
+}
+
+function reservarFranjaEspecifica(franja) {
+  reservaForm.value.fecha_uso = diaSeleccionado.value
+  reservaForm.value.turno = franja.turno
+  if (espacioSeleccionadoInfo.value) {
+    reservaForm.value.escenario_id = espacioSeleccionadoInfo.value.id
+    reservaForm.value.escenario_nombre = espacioSeleccionadoInfo.value.escenario_nombre
+    reservaForm.value.espacio = espacioSeleccionadoInfo.value.espacio
+  }
+  reservaForm.value.hora_inicio = franja.hora_inicio
+  reservaForm.value.hora_fin = franja.hora_fin
+  reservaForm.value.duracion_horas = 1.0
+  cargarDisponibilidadModal()
   showModalNuevaReserva.value = true
 }
 
 function onDayClick(dayObj) {
-  abrirModalNuevaReservaConEspacio(dayObj)
+  seleccionarDiaCalendario(dayObj)
 }
 
 const cotizadorForm = ref({
@@ -1424,14 +1924,15 @@ const reservaForm = ref({
   escenario_id: null,
   escenario_nombre: 'Estadio Patria',
   espacio: 'Óvalo Central',
+  asociacion_id: null,
   solicitante_nombre: 'Asociación Chuquisaqueña de Fútbol',
   disciplina: 'Fútbol',
   concepto: 'Partido Oficial Torneo Apertura',
-  fecha_uso: new Date().toISOString().split('T')[0],
-  hora_inicio: '19:00',
-  hora_fin: '21:00',
-  duracion_horas: 2.0,
-  turno: 'Noche',
+  fecha_uso: todayStr,
+  hora_inicio: '18:00',
+  hora_fin: '19:00',
+  duracion_horas: 1.0,
+  turno: 'Dia',
 })
 
 const mapaEspacios = {
@@ -1764,7 +2265,8 @@ async function confirmarNuevaReserva() {
     await escenarioService.crearReserva(reservaForm.value)
     showModalNuevaReserva.value = false
     alert('Solicitud de reserva registrada exitosamente. Se ha emitido la liquidación tarifaria en estado PENDIENTE.')
-    fetchOcupacion()
+    await fetchOcupacion()
+    await cargarFranjasDiaSeleccionado()
     fetchLiquidaciones()
     fetchResumen()
   } catch (err) {
@@ -1852,11 +2354,17 @@ function formatMoney(amount) {
   return Number(amount || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-onMounted(() => {
-  fetchOcupacion()
-  fetchTarifas()
-  fetchLiquidaciones()
-  fetchResumen()
+watch(espacioSeleccionadoClave, () => {
+  cargarFranjasDiaSeleccionado()
+})
+
+onMounted(async () => {
+  await fetchOcupacion()
+  await fetchTarifas()
+  await fetchLiquidaciones()
+  await fetchResumen()
+  await fetchAsociaciones()
   calcular()
+  cargarFranjasDiaSeleccionado()
 })
 </script>

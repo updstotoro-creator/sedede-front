@@ -57,6 +57,11 @@ export const escenarioService = {
     return response.data
   },
 
+  async getDisponibilidad(params = {}) {
+    const response = await api.get('/escenarios/disponibilidad', { params })
+    return response.data
+  },
+
   async actualizarEstadoReserva(id, payload) {
     const response = await api.patch(`/escenarios/reservas/${id}/estado`, payload)
     return response.data
