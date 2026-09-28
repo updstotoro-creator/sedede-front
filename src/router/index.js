@@ -69,6 +69,68 @@ const routes = [
         name: 'dashboard-calendario-anual',
         component: () => import('../views/CalendarioAnualView.vue'),
       },
+      // Inventario
+      {
+        path: 'inventario/tipos-item',
+        name: 'dashboard-inventario-tipos-item',
+        component: () => import('../views/TiposItemView.vue'),
+      },
+      {
+        path: 'inventario/almacenes',
+        name: 'dashboard-inventario-almacenes',
+        component: () => import('../views/AlmacenesView.vue'),
+      },
+      {
+        path: 'inventario/lotes',
+        name: 'dashboard-inventario-lotes',
+        component: () => import('../views/LotesView.vue'),
+      },
+      {
+        path: 'inventario/lotes/nuevo',
+        name: 'dashboard-inventario-lotes-nuevo',
+        component: () => import('../views/LoteNuevoView.vue'),
+      },
+      {
+        path: 'inventario/movimientos',
+        name: 'dashboard-inventario-movimientos',
+        component: () => import('../views/MovimientosView.vue'),
+      },
+      {
+        path: 'inventario/existencias',
+        name: 'dashboard-inventario-existencias',
+        component: () => import('../views/ExistenciasView.vue'),
+      },
+      // POA
+      {
+        path: 'poa',
+        name: 'dashboard-poa',
+        component: () => import('../views/PoaView.vue'),
+      },
+      {
+        path: 'poa/dashboard',
+        name: 'dashboard-poa-dashboard',
+        component: () => import('../views/PoaDashboard.vue'),
+      },
+      {
+        path: 'poa/planes',
+        name: 'dashboard-poa-planes',
+        component: () => import('../views/PoaPlanesView.vue'),
+      },
+      {
+        path: 'poa/actividad/:id',
+        name: 'dashboard-poa-actividad',
+        component: () => import('../views/PoaActividadDetail.vue'),
+      },
+      {
+        path: 'poa/techos',
+        name: 'dashboard-poa-techos',
+        component: () => import('../views/PoaTechosView.vue'),
+      },
+      {
+        path: 'poa/bitacora',
+        name: 'dashboard-poa-bitacora',
+        component: () => import('../views/PoaBitacoraView.vue'),
+      },
     ],
   },
 ]

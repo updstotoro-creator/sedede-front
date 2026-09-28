@@ -62,6 +62,26 @@ const groups = computed(() => {
         { to: '/dashboard/tarifario', label: 'Tarifario' },
       ]
     },
+    {
+      id: 'poa-gestion',
+      links: [
+        { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
+        { to: '/dashboard/poa/planes', label: 'Planes POA' },
+        { to: '/dashboard/poa', label: 'Estructura POA' },
+        { to: '/dashboard/poa/techos', label: 'Techos Presupuestarios' },
+        { to: '/dashboard/poa/bitacora', label: 'Bitácora POA' },
+      ]
+    },
+    {
+      id: 'inventario-almacenes',
+      links: [
+        { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
+        { to: '/dashboard/inventario/tipos-item', label: 'Familias de Ítems' },
+        { to: '/dashboard/inventario/existencias', label: 'Existencias' },
+        { to: '/dashboard/inventario/lotes', label: 'Lotes de Inventario' },
+        { to: '/dashboard/inventario/movimientos', label: 'Movimientos (Kardex)' },
+      ]
+    },
   ]
 })
 
