@@ -192,13 +192,14 @@
               class="w-full rounded-xl border-gray-200 text-xs py-2 px-3 bg-gray-50 font-semibold focus:ring-emerald-500 focus:border-emerald-500"
             >
               <option value="">Todas las Disciplinas</option>
-              <option value="Fútbol">⚽ Fútbol</option>
-              <option value="Atletismo">🏃 Atletismo</option>
-              <option value="Baloncesto">🏀 Baloncesto</option>
-              <option value="Voleibol">🏐 Voleibol</option>
-              <option value="Futsal">⚽ Futsal</option>
-              <option value="Ráquetbol">🎾 Ráquetbol</option>
-              <option value="Karate">🥋 Karate / Lucha</option>
+              <option value="Deporte General">Deporte General</option>
+              <option value="Fútbol">Fútbol</option>
+              <option value="Atletismo">Atletismo</option>
+              <option value="Baloncesto">Baloncesto</option>
+              <option value="Voleibol">Voleibol</option>
+              <option value="Futsal">Futsal</option>
+              <option value="Ráquetbol">Ráquetbol</option>
+              <option value="Karate">Karate / Lucha</option>
             </select>
           </div>
 
@@ -500,7 +501,7 @@
 
             <p class="text-emerald-700 font-medium text-[11px]">{{ res.escenario_nombre }} - {{ res.espacio }}</p>
             <p class="text-gray-500 text-[10px]">
-              📅 {{ res.fecha_uso }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • ⚽ {{ res.disciplina }}
+              📅 {{ res.fecha_uso }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • {{ res.disciplina }}
             </p>
             <p class="text-gray-600 italic text-[11px] border-t pt-1 mt-1">"{{ res.concepto }}"</p>
           </div>

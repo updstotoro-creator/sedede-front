@@ -14,6 +14,7 @@ const saving = ref(false)
 const modalTab = ref('general') // 'general' | 'disciplinas' | 'horarios' | 'tarifas'
 
 const listaDisciplinasDisponibles = [
+  'Deporte General',
   'Fútbol', 'Atletismo', 'Baloncesto', 'Voleibol', 'Futsal', 
   'Ráquetbol', 'Karate', 'Lucha Olímpica', 'Judo', 'Natación', 
   'Gimnasia', 'Tenis de Mesa', 'Ciclismo', 'Billar', 'Bádminton'
@@ -426,8 +427,8 @@ onMounted(fetchEscenarios)
           <div>
             <span class="font-bold text-slate-500 uppercase tracking-wider text-[10px] block mb-1">Disciplinas Oficiales Aptas:</span>
             <div class="flex flex-wrap gap-1">
-              <span v-for="disc in (esc.disciplinas || ['Fútbol'])" :key="disc" class="px-2 py-0.5 bg-emerald-50 text-emerald-900 font-semibold rounded border border-emerald-100 text-[10px]">
-                ⚽ {{ disc }}
+              <span v-for="disc in (esc.disciplinas || ['Deporte General'])" :key="disc" class="px-2 py-0.5 bg-emerald-50 text-emerald-900 font-semibold rounded border border-emerald-100 text-[10px]">
+                {{ disc }}
               </span>
             </div>
           </div>
@@ -594,7 +595,7 @@ onMounted(fetchEscenarios)
                   :checked="escenarioForm.disciplinas.includes(disc)"
                   class="rounded text-emerald-600 pointer-events-none"
                 />
-                ⚽ {{ disc }}
+                <span>{{ disc }}</span>
               </label>
             </div>
           </div>
