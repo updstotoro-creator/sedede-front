@@ -57,7 +57,7 @@ const form = reactive({
   observaciones: '',
 })
 
-const errores = reactive({ item: '', almacen: '', cantidad: '', destino: '' })
+const errores = reactive({ item: '', almacen: '', cantidad: '', destino: '', costo: '' })
 
 watch(
   [() => form.item_nombre, () => form.almacen_nombre, () => form.cantidad, () => form.almacen_destino],
@@ -68,8 +68,12 @@ watch(
   },
 )
 
-watch(() => form.cantidad, () => {
+watch([() => form.cantidad, () => form.tipo], () => {
   errores.cantidad = ''
+})
+
+watch(() => form.costo_unitario, () => {
+  errores.costo = ''
 })
 
 watch(
@@ -106,7 +110,11 @@ function submitForm() {
     form.tipo !== 'transferencia' || form.almacen_destino
       ? ''
       : 'Selecciona el almacén destino.'
-  if (errores.item || errores.almacen || errores.cantidad || errores.destino) return
+  const costo =
+    form.costo_unitario === '' || form.costo_unitario === null ? null : Number(form.costo_unitario)
+  errores.costo =
+    costo !== null && (Number.isNaN(costo) || costo < 0) ? 'El costo unitario no puede ser negativo.' : ''
+  if (errores.item || errores.almacen || errores.cantidad || errores.destino || errores.costo) return
 
   store.addMovimiento({
     fecha: (form.fecha || ahoraLocal()).replace('T', ' '),
@@ -116,10 +124,7 @@ function submitForm() {
     almacen_destino: form.tipo === 'transferencia' ? form.almacen_destino : null,
     lote: form.lote || null,
     cantidad: Number(form.cantidad),
-    costo_unitario:
-      form.costo_unitario !== null && form.costo_unitario !== ''
-        ? Number(form.costo_unitario)
-        : null,
+    costo_unitario: costo,
     tipo_documento: form.tipo_documento || null,
     numero_documento: form.numero_documento.trim() || null,
     documento: null,
@@ -230,7 +235,7 @@ function cancelar() {
             placeholder="0.00"
             class="input-field"
           />
-          <p class="mt-1 text-xs text-gray-500">Se registrará con el signo según el tipo de movimiento.</p>
+          <p class="mt-1 text-xs text-gray-500">Según el tipo: ingreso (+), salida/baja/transferencia (−); en Ajuste se conserva el signo indicado.</p>
           <p v-if="errores.cantidad" class="mt-1 text-xs font-semibold text-red-600">{{ errores.cantidad }}</p>
         </div>
         <div>
@@ -244,6 +249,7 @@ function cancelar() {
             class="input-field"
           />
           <p class="mt-1 text-xs text-gray-500">Opcional. Para valorización del inventario.</p>
+          <p v-if="errores.costo" class="mt-1 text-xs font-semibold text-red-600">{{ errores.costo }}</p>
         </div>
       </div>
 

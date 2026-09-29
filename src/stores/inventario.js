@@ -250,7 +250,7 @@ export const useInventarioStore = defineStore('inventario', {
         id: 7,
         fecha: '2026-09-23 17:20',
         tipo: 'baja',
-        item_nombre: 'Sillas Giratorias (deterioradas)',
+        item_nombre: 'Sillas Giratorias',
         almacen_nombre: 'Depósito de Activos Fijos',
         almacen_destino: null,
         cantidad: -3,
