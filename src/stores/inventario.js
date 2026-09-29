@@ -180,7 +180,7 @@ export const useInventarioStore = defineStore('inventario', {
         id: 2,
         fecha: '2026-09-16 14:15',
         tipo: 'salida',
-        item_nombre: 'Resma Papel Bond A4',
+        item_nombre: 'Papelería - Resma Papel Bond A4',
         almacen_nombre: 'Almacén Central de la Sede',
         almacen_destino: null,
         cantidad: -20,
@@ -222,7 +222,7 @@ export const useInventarioStore = defineStore('inventario', {
         id: 5,
         fecha: '2026-09-20 11:00',
         tipo: 'salida',
-        item_nombre: 'Balones de Fútbol',
+        item_nombre: 'Implementos Deportivos - Balones Fútbol',
         almacen_nombre: 'Depósito para Entrega a Asociaciones',
         almacen_destino: null,
         cantidad: -6,
@@ -236,7 +236,7 @@ export const useInventarioStore = defineStore('inventario', {
         id: 6,
         fecha: '2026-09-22 16:45',
         tipo: 'ajuste',
-        item_nombre: 'Desinfectante 5L',
+        item_nombre: 'Material de Limpieza - Desinfectante',
         almacen_nombre: 'Depósito de Papelería y Limpieza',
         almacen_destino: null,
         cantidad: -2,
@@ -266,9 +266,9 @@ export const useInventarioStore = defineStore('inventario', {
       { id: 1, codigo: 'MOB-002', item_nombre: 'Escritorios de Oficina', almacen_nombre: 'Almacén Central de la Sede', lote: null, stock: 10, minimo: 5 },
       { id: 2, codigo: 'EQP-001', item_nombre: 'Computadoras de Escritorio', almacen_nombre: 'Almacén Central de la Sede', lote: null, stock: 15, minimo: 10 },
       { id: 3, codigo: 'EQP-001', item_nombre: 'Computadoras de Escritorio', almacen_nombre: 'Sub Sede Cochabamba', lote: null, stock: 5, minimo: 3 },
-      { id: 4, codigo: 'PAP-001', item_nombre: 'Resma Papel Bond A4', almacen_nombre: 'Almacén Central de la Sede', lote: 'L-2026-014', stock: 100, minimo: 50 },
-      { id: 5, codigo: 'LIM-001', item_nombre: 'Desinfectante 5L', almacen_nombre: 'Depósito de Papelería y Limpieza', lote: 'L-2026-001', stock: 46, minimo: 20 },
-      { id: 6, codigo: 'DEP-001', item_nombre: 'Balones de Fútbol', almacen_nombre: 'Depósito para Entrega a Asociaciones', lote: 'L-2025-088', stock: 9, minimo: 15 },
+      { id: 4, codigo: 'PAP-001', item_nombre: 'Papelería - Resma Papel Bond A4', almacen_nombre: 'Almacén Central de la Sede', lote: 'L-2026-014', stock: 100, minimo: 50 },
+      { id: 5, codigo: 'LIM-001', item_nombre: 'Material de Limpieza - Desinfectante', almacen_nombre: 'Depósito de Papelería y Limpieza', lote: 'L-2026-001', stock: 46, minimo: 20 },
+      { id: 6, codigo: 'DEP-001', item_nombre: 'Implementos Deportivos - Balones Fútbol', almacen_nombre: 'Depósito para Entrega a Asociaciones', lote: 'L-2025-088', stock: 9, minimo: 15 },
       { id: 7, codigo: 'MOB-003', item_nombre: 'Sillas Giratorias', almacen_nombre: 'Depósito de Activos Fijos', lote: null, stock: 0, minimo: 5 },
     ],
   }),
@@ -346,8 +346,13 @@ export const useInventarioStore = defineStore('inventario', {
 
     // --- Movimientos ---
     addMovimiento(payload) {
-      const signo = ['salida', 'baja', 'transferencia'].includes(payload.tipo) ? -1 : 1
-      const cantidadFirmada = Math.abs(payload.cantidad) * signo
+      const abs = Math.abs(payload.cantidad)
+      const signo = ['salida', 'baja', 'transferencia'].includes(payload.tipo)
+        ? -1
+        : payload.tipo === 'ajuste'
+          ? (payload.cantidad < 0 ? -1 : 1)
+          : 1
+      const cantidadFirmada = abs * signo
       const anteriores = this.movimientos.filter((m) => m.item_nombre === payload.item_nombre)
       const ultimo = anteriores.length ? anteriores[anteriores.length - 1] : null
       this.movimientos.push({

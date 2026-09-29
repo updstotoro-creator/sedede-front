@@ -64,8 +64,25 @@ watch(
   () => {
     errores.item = ''
     errores.almacen = ''
-    errores.cantidad = ''
     errores.destino = ''
+  },
+)
+
+watch(() => form.cantidad, () => {
+  errores.cantidad = ''
+})
+
+watch(
+  () => form.item_nombre,
+  () => {
+    form.lote = ''
+  },
+)
+
+watch(
+  () => form.almacen_nombre,
+  () => {
+    form.almacen_destino = ''
   },
 )
 
@@ -78,7 +95,13 @@ const lotesDelItem = computed(() =>
 function submitForm() {
   errores.item = form.item_nombre ? '' : 'Selecciona un ítem.'
   errores.almacen = form.almacen_nombre ? '' : 'Selecciona un almacén.'
-  errores.cantidad = Number(form.cantidad) > 0 ? '' : 'La cantidad debe ser mayor a 0.'
+  const cant = Number(form.cantidad)
+  errores.cantidad =
+    !form.cantidad || Number.isNaN(cant) || cant === 0
+      ? 'La cantidad debe ser distinta de 0.'
+      : cant < 0 && form.tipo !== 'ajuste'
+        ? 'Solo el tipo Ajuste admite valores negativos.'
+        : ''
   errores.destino =
     form.tipo !== 'transferencia' || form.almacen_destino
       ? ''
@@ -122,7 +145,11 @@ function cancelar() {
       </p>
     </div>
 
-    <form class="space-y-5 rounded-xl border border-gray-100 bg-white p-6 shadow-sm" @submit.prevent="submitForm">
+    <form
+      novalidate
+      class="space-y-5 rounded-xl border border-gray-100 bg-white p-6 shadow-sm"
+      @submit.prevent="submitForm"
+    >
       <!-- Tipo de movimiento -->
       <div>
         <label class="mb-2 block text-sm font-semibold text-gray-700">
@@ -200,7 +227,6 @@ function cancelar() {
             v-model.number="form.cantidad"
             type="number"
             step="0.01"
-            min="0"
             placeholder="0.00"
             class="input-field"
           />
@@ -248,7 +274,7 @@ function cancelar() {
       <!-- Fecha -->
       <div>
         <label class="mb-1 block text-sm font-semibold text-gray-700">
-          Fecha del Movimiento <span class="text-red-600">*</span>
+          Fecha del Movimiento
         </label>
         <input v-model="form.fecha" type="datetime-local" class="input-field" />
       </div>
