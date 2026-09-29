@@ -293,6 +293,15 @@ export const useInventarioStore = defineStore('inventario', {
       }
       return camino.join(' > ')
     },
+    itemsDisponibles: (state) => {
+      const nombres = [
+        ...state.lotes.map((l) => l.item_nombre),
+        ...state.existencias.map((e) => e.item_nombre),
+      ].filter(Boolean)
+      return [...new Set(nombres)].sort()
+    },
+    lotesPorItem: (state) => (itemNombre) =>
+      state.lotes.filter((l) => l.activo && l.item_nombre === itemNombre),
   },
 
   actions: {
@@ -337,7 +346,16 @@ export const useInventarioStore = defineStore('inventario', {
 
     // --- Movimientos ---
     addMovimiento(payload) {
-      this.movimientos.push({ id: nextMovimientoId++, ...payload })
+      const signo = ['salida', 'baja', 'transferencia'].includes(payload.tipo) ? -1 : 1
+      const cantidadFirmada = Math.abs(payload.cantidad) * signo
+      const anteriores = this.movimientos.filter((m) => m.item_nombre === payload.item_nombre)
+      const ultimo = anteriores.length ? anteriores[anteriores.length - 1] : null
+      this.movimientos.push({
+        ...payload,
+        id: nextMovimientoId++,
+        cantidad: cantidadFirmada,
+        saldo: (ultimo ? ultimo.saldo : 0) + cantidadFirmada,
+      })
     },
   },
 })
