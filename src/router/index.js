@@ -70,6 +70,11 @@ const routes = [
         component: () => import('../views/MovimientosView.vue'),
       },
       {
+        path: 'inventario/movimientos/nuevo',
+        name: 'dashboard-inventario-movimientos-nuevo',
+        component: () => import('../views/MovimientoNuevoView.vue'),
+      },
+      {
         path: 'inventario/existencias',
         name: 'dashboard-inventario-existencias',
         component: () => import('../views/ExistenciasView.vue'),

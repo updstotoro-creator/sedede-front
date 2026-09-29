@@ -11,11 +11,20 @@ const titles = {
   'dashboard-asociaciones': 'Padrón de Asociaciones',
   'dashboard-asociacion-detalle': 'Clubes de la Asociación',
   'dashboard-club-detalle': 'Deportistas del Club',
-      'dashboard-inventario-tipos-item': 'Tipos de Ítem',
-      'dashboard-inventario-almacenes': 'Almacenes',
-      'dashboard-inventario-lotes': 'Lotes',
-      'dashboard-inventario-lotes-nuevo': 'Nuevo Lote',
-    }
+  'dashboard-inventario-tipos-item': 'Tipos de Ítem',
+  'dashboard-inventario-almacenes': 'Almacenes',
+  'dashboard-inventario-lotes': 'Lotes',
+  'dashboard-inventario-lotes-nuevo': 'Nuevo Lote',
+  'dashboard-inventario-movimientos': 'Movimientos (Kardex)',
+  'dashboard-inventario-movimientos-nuevo': 'Nuevo Movimiento',
+  'dashboard-inventario-existencias': 'Existencias',
+  'dashboard-poa': 'Estructura POA',
+  'dashboard-poa-dashboard': 'Dashboard POA',
+  'dashboard-poa-planes': 'Planes POA',
+  'dashboard-poa-actividad': 'Actividad POA',
+  'dashboard-poa-techos': 'Techos Presupuestarios',
+  'dashboard-poa-bitacora': 'Bitácora de Metas',
+}
 </script>
 
 <template>
