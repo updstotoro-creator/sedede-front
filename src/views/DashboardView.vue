@@ -25,6 +25,7 @@ const titles = {
   'dashboard-escenarios': 'Escenarios',
   'dashboard-tarifario': 'Tarifario',
   'dashboard-calendario-anual': 'Calendario Anual',
+  'dashboard-comunidades': 'Mancomunidades y Comunidades',
 }
 
 const isLoading = ref(true)

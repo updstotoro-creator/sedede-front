@@ -66,4 +66,9 @@ export const escenarioService = {
     const response = await api.patch(`/escenarios/reservas/${id}/estado`, payload)
     return response.data
   },
+
+  async cotizarReserva(params = {}) {
+    const response = await api.get('/escenarios/reservas/cotizar', { params })
+    return response.data
+  },
 }

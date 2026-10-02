@@ -58,6 +58,11 @@ export const tramiteService = {
     return data.data
   },
 
+  async guardarDatosEtapa(id, payload) {
+    const { data } = await api.post(`/tramites/${id}/guardar-etapa`, payload)
+    return data
+  },
+
   async delete(id) {
     const { data } = await api.delete(`/tramites/${id}`)
     return data.data

@@ -487,11 +487,31 @@
             :key="res.id"
             class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm space-y-1.5 text-xs hover:border-emerald-400 transition-colors"
           >
-            <div class="flex justify-between items-start">
-              <span class="font-bold text-gray-900">{{ res.solicitante_nombre }}</span>
+            <div class="flex justify-between items-start gap-2">
+              <div>
+                <span class="font-bold text-gray-900 block">{{ res.solicitante_nombre }}</span>
+                <span
+                  v-if="res.tipo_solicitante === 'Particular'"
+                  class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-900 border border-sky-200"
+                >
+                  👤 Particular <span v-if="res.solicitante_ci">• CI: {{ res.solicitante_ci }}</span><span v-if="res.solicitante_telefono"> • Cel: {{ res.solicitante_telefono }}</span>
+                </span>
+                <span
+                  v-else-if="res.tipo_solicitante === 'Club'"
+                  class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-200"
+                >
+                  ⚽ Club Deportivo
+                </span>
+                <span
+                  v-else
+                  class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-200"
+                >
+                  🏛️ Asociación Oficial
+                </span>
+              </div>
               <span
                 :class="[
-                  'px-2 py-0.5 text-[9px] font-bold rounded uppercase',
+                  'px-2 py-0.5 text-[9px] font-bold rounded uppercase shrink-0',
                   res.estado === 'CONFIRMADA' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                 ]"
               >
@@ -503,6 +523,12 @@
             <p class="text-gray-500 text-[10px]">
               📅 {{ res.fecha_uso }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • {{ res.disciplina }}
             </p>
+
+            <div v-if="res.liquidacion" class="flex justify-between items-center text-[10px] bg-slate-50 px-2 py-1 rounded border border-slate-100 font-mono">
+              <span class="text-slate-500">{{ res.liquidacion.codigo_liquidacion }}</span>
+              <strong class="text-emerald-700 font-bold">Bs. {{ formatMoney(res.liquidacion.monto_total) }}</strong>
+            </div>
+
             <p class="text-gray-600 italic text-[11px] border-t pt-1 mt-1">"{{ res.concepto }}"</p>
           </div>
         </div>
@@ -1105,39 +1131,92 @@
             </select>
           </div>
 
-          <!-- 3. Solicitante (Asociación, Club o Particular) -->
-          <div class="md:col-span-2">
-            <label class="block font-semibold text-gray-700 mb-1">Solicitante (Asociación / Club / Particular) *</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <!-- 3. Tipo de Solicitante y Datos -->
+          <div class="md:col-span-2 space-y-2">
+            <div>
+              <label class="block font-semibold text-gray-700 mb-1">Tipo de Solicitante *</label>
               <select
-                v-model="solicitanteTipoSeleccion"
+                v-model="reservaForm.tipo_solicitante"
                 @change="onSolicitanteTipoChange"
-                class="rounded-xl border-gray-200 py-2 text-xs font-semibold bg-gray-50"
+                class="w-full rounded-xl border-gray-200 py-2 text-xs font-bold text-gray-900 bg-gray-50 focus:ring-emerald-500 focus:border-emerald-500"
               >
-                <option value="ASOCIACION">Asociación Departamental Afiliada</option>
-                <option value="OTRO">Otro Club / Escuela / Particular</option>
+                <option value="Particular">👤 Ciudadano / Particular / Público General (Tarifa Plena RAG 011/2024)</option>
+                <option value="Asociacion">🏛️ Asociación Departamental Afiliada (Tarifa Formativa Subvencionada)</option>
+                <option value="Club">⚽ Club Deportivo Afiliado</option>
               </select>
+            </div>
 
+            <!-- Campos específicos para Particular -->
+            <div v-if="reservaForm.tipo_solicitante === 'Particular'" class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-sky-50/70 p-3 rounded-xl border border-sky-200">
+              <div>
+                <label class="block text-[11px] font-bold text-sky-900 mb-1">Nombre del Ciudadano *</label>
+                <input
+                  type="text"
+                  v-model="reservaForm.solicitante_nombre"
+                  placeholder="Ej. Juan Carlos Pérez"
+                  class="w-full rounded-lg border-sky-300 py-1.5 text-xs bg-white"
+                  required
+                />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-sky-900 mb-1">Cédula de Identidad (CI) *</label>
+                <input
+                  type="text"
+                  v-model="reservaForm.solicitante_ci"
+                  placeholder="Ej. 10394822 CH"
+                  class="w-full rounded-lg border-sky-300 py-1.5 text-xs bg-white"
+                  required
+                />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-sky-900 mb-1">Celular / WhatsApp *</label>
+                <input
+                  type="text"
+                  v-model="reservaForm.solicitante_telefono"
+                  placeholder="Ej. 71234567"
+                  class="w-full rounded-lg border-sky-300 py-1.5 text-xs bg-white"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Campos para Asociación -->
+            <div v-else-if="reservaForm.tipo_solicitante === 'Asociacion'" class="bg-purple-50/70 p-3 rounded-xl border border-purple-200">
+              <label class="block text-[11px] font-bold text-purple-900 mb-1">Seleccionar Asociación Departamental Oficial *</label>
               <select
-                v-if="solicitanteTipoSeleccion === 'ASOCIACION'"
                 v-model="asociacionSeleccionadaModal"
                 @change="onAsociacionSeleccionadaModalChange"
-                class="rounded-xl border-gray-200 py-2 text-xs font-medium"
+                class="w-full rounded-lg border-purple-300 py-1.5 text-xs font-semibold bg-white"
               >
                 <option value="">-- Seleccionar Asociación --</option>
                 <option v-for="aso in asociacionesLista" :key="aso.id" :value="aso.nombre">
                   {{ aso.nombre }} ({{ aso.sigla || aso.disciplina }})
                 </option>
               </select>
+            </div>
 
-              <input
-                v-else
-                type="text"
-                v-model="reservaForm.solicitante_nombre"
-                placeholder="Nombre de la Institución o Particular"
-                class="rounded-xl border-gray-200 py-2 text-xs"
-                required
-              />
+            <!-- Campos para Club -->
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-emerald-50/70 p-3 rounded-xl border border-emerald-200">
+              <div>
+                <label class="block text-[11px] font-bold text-emerald-900 mb-1">Nombre del Club *</label>
+                <input
+                  type="text"
+                  v-model="reservaForm.solicitante_nombre"
+                  placeholder="Ej. Club Deportivo San Lorenzo"
+                  class="w-full rounded-lg border-emerald-300 py-1.5 text-xs bg-white"
+                  required
+                />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-emerald-900 mb-1">Teléfono de Contacto *</label>
+                <input
+                  type="text"
+                  v-model="reservaForm.solicitante_telefono"
+                  placeholder="Ej. 76543210"
+                  class="w-full rounded-lg border-emerald-300 py-1.5 text-xs bg-white"
+                  required
+                />
+              </div>
             </div>
           </div>
 
@@ -1255,7 +1334,33 @@
           />
         </div>
 
-        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-900">
+        <!-- Resumen de Liquidación Automática Tarifario RAG 011/2024 -->
+        <div v-if="cotizacionReserva" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5 shadow-2xs">
+          <div class="flex justify-between items-center font-bold text-slate-800">
+            <span class="flex items-center gap-1">
+              <span>🧾</span>
+              Tarifa {{ cotizacionReserva.tipo_solicitante === 'Particular' ? 'Particular / Público General' : 'Asociativa Formativa' }}:
+            </span>
+            <span class="text-emerald-700 font-mono text-sm">Bs. {{ formatMoney(cotizacionReserva.valor_por_hora) }} / hora</span>
+          </div>
+
+          <div class="flex justify-between text-slate-600">
+            <span>Subtotal ({{ cotizacionReserva.horas }} hora/s calculadas):</span>
+            <span class="font-mono font-medium">Bs. {{ formatMoney(cotizacionReserva.subtotal) }}</span>
+          </div>
+
+          <div v-if="cotizacionReserva.recargo_cessa > 0" class="flex justify-between text-amber-800 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-200">
+            <span>🌙 Iluminación Nocturna CESSA (06:00 a 22:00):</span>
+            <span class="font-mono font-bold">+ Bs. {{ formatMoney(cotizacionReserva.recargo_cessa) }}</span>
+          </div>
+
+          <div class="flex justify-between items-center font-extrabold text-sm text-emerald-950 border-t border-slate-200 pt-1.5 mt-1">
+            <span>Total Liquidación a Pagar:</span>
+            <span class="font-mono text-base text-emerald-700">Bs. {{ formatMoney(cotizacionReserva.total) }}</span>
+          </div>
+        </div>
+
+        <div v-else class="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-900">
           <p class="font-bold">✔ Generación Automática de Liquidación:</p>
           <p class="text-[11px] mt-0.5">Al registrar la reserva, el sistema aplicará la matriz RAG 011/2024 y generará automáticamente una Liquidación de Pago en estado PENDIENTE.</p>
         </div>
@@ -1681,6 +1786,7 @@ function onHoraInicioModalChange() {
     reservaForm.value.hora_fin = opcionesHoraFinModal.value[0].hora_fin
     reservaForm.value.duracion_horas = opcionesHoraFinModal.value[0].duration
   }
+  actualizarCotizacionReserva()
 }
 
 function onHoraFinModalChange() {
@@ -1688,12 +1794,14 @@ function onHoraFinModalChange() {
   if (match) {
     reservaForm.value.duracion_horas = match.duration
   }
+  actualizarCotizacionReserva()
 }
 
 function seleccionarFranjaRapida(franja) {
   reservaForm.value.hora_inicio = franja.hora_inicio
   reservaForm.value.hora_fin = franja.hora_fin
   reservaForm.value.duracion_horas = 1.0
+  actualizarCotizacionReserva()
 }
 
 function onEscenarioReservaModalChange() {
@@ -1709,6 +1817,7 @@ function onEscenarioReservaModalChange() {
     }
   }
   cargarDisponibilidadModal()
+  actualizarCotizacionReserva()
 }
 
 function onEspacioReservaModalChange() {
@@ -1720,17 +1829,19 @@ function onEspacioReservaModalChange() {
     }
   }
   cargarDisponibilidadModal()
+  actualizarCotizacionReserva()
 }
 
 function onTurnoChange() {
   cargarDisponibilidadModal()
+  actualizarCotizacionReserva()
 }
 
 async function fetchAsociaciones() {
   try {
     const list = await asociacionService.list()
     asociacionesLista.value = list
-    if (list.length > 0 && !reservaForm.value.solicitante_nombre) {
+    if (list.length > 0 && !reservaForm.value.solicitante_nombre && reservaForm.value.tipo_solicitante === 'Asociacion') {
       asociacionSeleccionadaModal.value = list[0].nombre
       onAsociacionSeleccionadaModalChange()
     }
@@ -1748,16 +1859,24 @@ function onAsociacionSeleccionadaModalChange() {
       reservaForm.value.disciplina = aso.disciplina
     }
   }
+  actualizarCotizacionReserva()
 }
 
 function onSolicitanteTipoChange() {
-  if (solicitanteTipoSeleccion.value === 'OTRO') {
+  if (reservaForm.value.tipo_solicitante === 'Asociacion') {
+    if (asociacionesLista.value.length > 0) {
+      asociacionSeleccionadaModal.value = asociacionesLista.value[0].nombre
+      onAsociacionSeleccionadaModalChange()
+    }
+  } else {
     reservaForm.value.asociacion_id = null
-    reservaForm.value.solicitante_nombre = ''
-  } else if (asociacionesLista.value.length > 0) {
-    asociacionSeleccionadaModal.value = asociacionesLista.value[0].nombre
-    onAsociacionSeleccionadaModalChange()
+    if (reservaForm.value.tipo_solicitante === 'Particular') {
+      reservaForm.value.concepto = 'Práctica Recreativa / Uso Particular'
+    } else {
+      reservaForm.value.concepto = 'Entrenamiento de Club Deportivo'
+    }
   }
+  actualizarCotizacionReserva()
 }
 
 function seleccionarDiaCalendario(dayObj) {
@@ -1862,6 +1981,7 @@ function abrirModalNuevaReservaConEspacio(dayObj = null) {
   }
 
   cargarDisponibilidadModal()
+  actualizarCotizacionReserva()
   showModalNuevaReserva.value = true
 }
 
@@ -1882,6 +2002,7 @@ function reservarFranjaEspecifica(franja) {
   reservaForm.value.hora_fin = franja.hora_fin
   reservaForm.value.duracion_horas = 1.0
   cargarDisponibilidadModal()
+  actualizarCotizacionReserva()
   showModalNuevaReserva.value = true
 }
 
@@ -1925,16 +2046,40 @@ const reservaForm = ref({
   escenario_id: null,
   escenario_nombre: 'Estadio Patria',
   espacio: 'Óvalo Central',
+  tipo_solicitante: 'Particular',
   asociacion_id: null,
-  solicitante_nombre: 'Asociación Chuquisaqueña de Fútbol',
+  solicitante_nombre: '',
+  solicitante_ci: '',
+  solicitante_telefono: '',
   disciplina: 'Fútbol',
-  concepto: 'Partido Oficial Torneo Apertura',
+  concepto: 'Práctica Recreativa / Uso Particular',
   fecha_uso: todayStr,
   hora_inicio: '18:00',
   hora_fin: '19:00',
   duracion_horas: 1.0,
   turno: 'Dia',
 })
+
+const cotizacionReserva = ref(null)
+
+async function actualizarCotizacionReserva() {
+  if (!reservaForm.value.escenario_nombre || !reservaForm.value.espacio) {
+    cotizacionReserva.value = null
+    return
+  }
+  try {
+    const res = await escenarioService.cotizarReserva({
+      escenario_nombre: reservaForm.value.escenario_nombre,
+      espacio: reservaForm.value.espacio,
+      tipo_solicitante: reservaForm.value.tipo_solicitante || 'Particular',
+      duracion_horas: reservaForm.value.duracion_horas || 1.0,
+      turno: reservaForm.value.turno || 'Dia',
+    })
+    cotizacionReserva.value = res
+  } catch (err) {
+    console.error('Error al cotizar reserva:', err)
+  }
+}
 
 const mapaEspacios = {
   'Estadio Patria': ['Óvalo Central', 'Sintética Pequeña', 'Frontis Estadio Patria', 'JRA (Óvalo)'],
@@ -2262,10 +2407,30 @@ function abrirModalNuevaReserva(esc = null) {
 }
 
 async function confirmarNuevaReserva() {
+  if (reservaForm.value.tipo_solicitante === 'Particular') {
+    if (!reservaForm.value.solicitante_nombre?.trim()) {
+      alert('Por favor ingrese el Nombre Completo del Ciudadano / Solicitante.')
+      return
+    }
+    if (!reservaForm.value.solicitante_ci?.trim()) {
+      alert('Por favor ingrese la Cédula de Identidad (CI) del Solicitante.')
+      return
+    }
+    if (!reservaForm.value.solicitante_telefono?.trim()) {
+      alert('Por favor ingrese el Celular / WhatsApp de Contacto.')
+      return
+    }
+  } else if (reservaForm.value.tipo_solicitante === 'Asociacion') {
+    if (!reservaForm.value.solicitante_nombre?.trim()) {
+      alert('Por favor seleccione una Asociación Departamental Oficial.')
+      return
+    }
+  }
+
   try {
     await escenarioService.crearReserva(reservaForm.value)
     showModalNuevaReserva.value = false
-    alert('Solicitud de reserva registrada exitosamente. Se ha emitido la liquidación tarifaria en estado PENDIENTE.')
+    alert('¡Solicitud de reserva registrada exitosamente! Se ha emitido la liquidación tarifaria en estado PENDIENTE con la tarifa reglamentaria RAG 011/2024.')
     await fetchOcupacion()
     await cargarFranjasDiaSeleccionado()
     fetchLiquidaciones()

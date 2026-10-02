@@ -26,6 +26,26 @@ const groups = computed(() => {
     ]
   }
 
+  if (role === 'representante_mancomunidad' || role === 'comunidades') {
+    return [
+      {
+        id: 'resumen-comunidades',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Mi Panel Comunitario', exact: true },
+        ]
+      },
+      {
+        id: 'gestion-comunidades',
+        links: [
+          { to: '/dashboard/comunidades', label: 'Mancomunidad & Solicitudes' },
+          { to: '/dashboard/calendario-anual', label: 'Calendario Deportivo' },
+          { to: '/dashboard/escenarios', label: 'Escenarios Deportivos' },
+        ]
+      }
+    ]
+  }
+
   return [
     {
       id: 'resumen',
@@ -53,6 +73,12 @@ const groups = computed(() => {
       links: [
         { to: '/dashboard/deportistas', label: 'Deportistas' },
         { to: '/dashboard/tramites', label: 'Trámites' },
+      ]
+    },
+    {
+      id: 'mancomunidades-rural',
+      links: [
+        { to: '/dashboard/comunidades', label: 'Mancomunidades Rurales' },
       ]
     },
     {

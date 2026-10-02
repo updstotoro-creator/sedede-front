@@ -8,6 +8,8 @@ import { deportistaService } from '../services/deportistaService'
 
 const auth = useAuthStore()
 const isDeportista = computed(() => auth.user?.role?.nombre === 'deportista')
+const isSededeOrAdmin = computed(() => ['admin', 'sedede'].includes(auth.user?.role?.nombre))
+const isAsociacion = computed(() => auth.user?.role?.nombre === 'asociacion')
 const deportistaPerfil = ref(null)
 
 const eventos = ref([])
@@ -15,10 +17,12 @@ const asociaciones = ref([])
 const escenarios = ref([])
 const isLoading = ref(true)
 const errorMessage = ref('')
+const actionSuccessMsg = ref('')
 
 const filterAsociacion = ref('')
 const filterEscenario = ref('')
 const filterTipo = ref('')
+const filterEstado = ref('')
 const viewMode = ref('calendario') // 'calendario' | 'lista'
 
 // Control de fecha del calendario mensual
@@ -139,10 +143,17 @@ const eventosByDate = computed(() => {
 
 const showModal = ref(false)
 const showDetailModal = ref(false)
+const showReacomodoModal = ref(false)
+const showObservarModal = ref(false)
+
 const selectedEventoDetail = ref(null)
 const editingEvento = ref(null)
 const saving = ref(false)
 const formError = ref('')
+
+// Diagnóstico de conflictos en tiempo real
+const conflictosDetectados = ref(null)
+const comprobandoConflictos = ref(false)
 
 const form = reactive({
   asociacion_id: '',
@@ -155,6 +166,21 @@ const form = reactive({
   fecha_fin: '',
   nivel_prioridad: 'Alta (Reserva Garantizada)',
   presupuesto_estimado: 0,
+  observaciones: '',
+  estado_evento: 'Postulado',
+})
+
+// Formulario de Reacomodo técnico por SEDEDE
+const formReacomodo = reactive({
+  escenario_id: '',
+  fecha_inicio: '',
+  fecha_fin: '',
+  motivo_reacomodo: '',
+  aprobar_inmediatamente: true,
+})
+
+// Formulario de Observación
+const formObservacion = reactive({
   observaciones: '',
 })
 
@@ -174,6 +200,7 @@ function resetForm(initialDateStr = null) {
   form.nivel_prioridad = 'Alta (Reserva Garantizada)'
   form.presupuesto_estimado = 5000
   form.observaciones = ''
+  form.estado_evento = isSededeOrAdmin.value ? 'Oficializado' : 'Postulado'
   formError.value = ''
 }
 
@@ -188,6 +215,7 @@ async function fetchEventos() {
     if (filterAsociacion.value) params.asociacion_id = filterAsociacion.value
     if (filterEscenario.value) params.escenario_id = filterEscenario.value
     if (filterTipo.value) params.tipo_evento = filterTipo.value
+    if (filterEstado.value) params.estado_evento = filterEstado.value
 
     const res = await calendarioAnualService.list(params)
     eventos.value = res.items || res
@@ -212,7 +240,7 @@ async function loadAuxData() {
 }
 
 function openCreateModal(dateStr = null) {
-  if (isDeportista.value) return // Deportistas solo pueden consultar el calendario aprobado
+  if (isDeportista.value) return
   editingEvento.value = null
   resetForm(dateStr)
   showModal.value = true
@@ -233,20 +261,45 @@ function openEditModal(evt) {
   form.nivel_prioridad = evt.nivel_prioridad
   form.presupuesto_estimado = evt.presupuesto_estimado || 0
   form.observaciones = evt.observaciones || ''
+  form.estado_evento = evt.estado_evento
   formError.value = ''
   showModal.value = true
 }
 
-function openDetailModal(evt) {
+async function openDetailModal(evt) {
   selectedEventoDetail.value = evt
   showDetailModal.value = true
+  conflictosDetectados.value = null
+
+  // Si tiene escenario asignado, comprobar conflictos en segundo plano
+  if (evt.escenario_id) {
+    comprobandoConflictos.value = true
+    try {
+      const fIni = evt.fecha_inicio ? evt.fecha_inicio.split('T')[0] : ''
+      const fFin = evt.fecha_fin ? evt.fecha_fin.split('T')[0] : fIni
+      const res = await calendarioAnualService.verificarConflictos({
+        escenario_id: evt.escenario_id,
+        fecha_inicio: fIni,
+        fecha_fin: fFin,
+        evento_id: evt.id,
+      })
+      conflictosDetectados.value = res
+    } catch (e) {
+      console.error('Error al verificar conflictos:', e)
+    } finally {
+      comprobandoConflictos.value = false
+    }
+  }
 }
 
 function closeModal() {
   showModal.value = false
   showDetailModal.value = false
+  showReacomodoModal.value = false
+  showObservarModal.value = false
   editingEvento.value = null
   selectedEventoDetail.value = null
+  conflictosDetectados.value = null
 }
 
 async function saveEvento() {
@@ -256,11 +309,16 @@ async function saveEvento() {
   try {
     if (editingEvento.value) {
       await calendarioAnualService.update(editingEvento.value.id, { ...form })
+      actionSuccessMsg.value = 'Evento actualizado correctamente.'
     } else {
       await calendarioAnualService.create({ ...form })
+      actionSuccessMsg.value = isSededeOrAdmin.value 
+        ? 'Evento programado y oficializado en el calendario institucional.'
+        : 'Propuesta de evento postulada con éxito para revisión del SEDEDE.'
     }
     closeModal()
     await fetchEventos()
+    setTimeout(() => { actionSuccessMsg.value = '' }, 4000)
   } catch (e) {
     if (e.response?.status === 422) {
       const errors = e.response.data?.errors
@@ -273,13 +331,86 @@ async function saveEvento() {
   }
 }
 
+// Acción SEDEDE: Oficializar directo si no hay conflicto
+async function handleOficializar(evt) {
+  if (!confirm(`¿Desea OFICIALIZAR el evento "${evt.nombre_evento}"? Se bloqueará la reserva del escenario deportivo.`)) return
+  saving.value = true
+  try {
+    await calendarioAnualService.oficializar(evt.id)
+    actionSuccessMsg.value = `¡Evento "${evt.nombre_evento}" oficializado con éxito! Reserva garantizada.`
+    closeModal()
+    await fetchEventos()
+    setTimeout(() => { actionSuccessMsg.value = '' }, 4000)
+  } catch (e) {
+    alert(e.response?.data?.error || 'Error al oficializar el evento')
+  } finally {
+    saving.value = false
+  }
+}
+
+// Acción SEDEDE: Abrir modal de reacomodo
+function openReacomodoModal(evt) {
+  formReacomodo.escenario_id = evt.escenario_id || ''
+  formReacomodo.fecha_inicio = evt.fecha_inicio ? evt.fecha_inicio.split('T')[0] : ''
+  formReacomodo.fecha_fin = evt.fecha_fin ? evt.fecha_fin.split('T')[0] : ''
+  formReacomodo.motivo_reacomodo = evt.motivo_reacomodo || 'Reacomodación técnica por colisión de disciplinas en el escenario deportivo.'
+  formReacomodo.aprobar_inmediatamente = true
+  showDetailModal.value = false
+  showReacomodoModal.value = true
+}
+
+// Acción SEDEDE: Guardar reacomodo
+async function saveReacomodo() {
+  if (!selectedEventoDetail.value) return
+  saving.value = true
+  try {
+    await calendarioAnualService.reacomodar(selectedEventoDetail.value.id, { ...formReacomodo })
+    actionSuccessMsg.value = formReacomodo.aprobar_inmediatamente
+      ? 'Evento reacomodado y oficializado con éxito en el calendario.'
+      : 'Evento reacomodado técnicamente con notificación a la asociación.'
+    closeModal()
+    await fetchEventos()
+    setTimeout(() => { actionSuccessMsg.value = '' }, 4000)
+  } catch (e) {
+    alert(e.response?.data?.error || 'Error al procesar el reacomodo')
+  } finally {
+    saving.value = false
+  }
+}
+
+// Acción SEDEDE: Abrir modal de observación
+function openObservarModal(evt) {
+  formObservacion.observaciones = evt.observaciones || ''
+  showDetailModal.value = false
+  showObservarModal.value = true
+}
+
+// Acción SEDEDE: Guardar observación
+async function saveObservacion() {
+  if (!selectedEventoDetail.value) return
+  saving.value = true
+  try {
+    await calendarioAnualService.observar(selectedEventoDetail.value.id, { ...formObservacion })
+    actionSuccessMsg.value = 'Solicitud de evento observada y devuelta a la asociación.'
+    closeModal()
+    await fetchEventos()
+    setTimeout(() => { actionSuccessMsg.value = '' }, 4000)
+  } catch (e) {
+    alert(e.response?.data?.error || 'Error al registrar observación')
+  } finally {
+    saving.value = false
+  }
+}
+
 async function deleteEvento(evt) {
   if (isDeportista.value) return
   if (!confirm(`¿Está seguro de eliminar el evento "${evt.nombre_evento}"?`)) return
   try {
     await calendarioAnualService.delete(evt.id)
+    actionSuccessMsg.value = 'Evento retirado del calendario deportivo.'
     closeModal()
     await fetchEventos()
+    setTimeout(() => { actionSuccessMsg.value = '' }, 4000)
   } catch (e) {
     alert(e.response?.data?.error || 'Error al dar de baja el evento')
   }
@@ -308,9 +439,19 @@ onMounted(async () => {
     <!-- Encabezado del Módulo -->
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 class="font-display text-2xl font-bold text-brand-700">Calendario Anual</h1>
-        <p class="text-sm text-slate-500">
-          {{ isDeportista ? 'Consulta de eventos deportivos oficiales y aprobados de tu disciplina.' : 'Eventos deportivos programados y aprobados por las asociaciones.' }}
+        <div class="flex items-center gap-2">
+          <h1 class="font-display text-2xl font-bold text-brand-700">Calendario Deportivo Anual</h1>
+          <span class="rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-bold text-brand-800">
+            {{ isSededeOrAdmin ? 'Gestión SEDEDE' : isAsociacion ? 'Postulación de Asociación' : 'Consulta Oficial' }}
+          </span>
+        </div>
+        <p class="text-sm text-slate-500 mt-1">
+          {{ isSededeOrAdmin 
+            ? 'Revisión técnica de colisiones, reacomodación de escenarios y oficialización anual.'
+            : isDeportista
+            ? 'Consulta de campeonatos y torneos oficiales garantizados por el SEDEDE.'
+            : 'Registro y seguimiento de propuestas de campeonatos para aprobación del SEDEDE.' 
+          }}
         </p>
       </div>
 
@@ -333,11 +474,17 @@ onMounted(async () => {
           </button>
         </div>
 
-        <!-- Botón Programar Evento (SOLO PARA ASOCIACIONES / SEDEDE, NO PARA DEPORTISTAS) -->
+        <!-- Botón Programar Evento -->
         <button v-if="!isDeportista" class="btn-primary flex items-center gap-1.5" @click="openCreateModal()">
-          <span>+ Programar Evento</span>
+          <span>+ {{ isSededeOrAdmin ? 'Programar / Oficializar' : 'Postular Evento Anual' }}</span>
         </button>
       </div>
+    </div>
+
+    <!-- Mensaje de Éxito Flotante -->
+    <div v-if="actionSuccessMsg" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm flex items-center justify-between">
+      <span>✓ {{ actionSuccessMsg }}</span>
+      <button class="text-emerald-700 font-bold hover:text-emerald-900" @click="actionSuccessMsg = ''">✕</button>
     </div>
 
     <!-- Banner Informativo para el Deportista -->
@@ -349,19 +496,30 @@ onMounted(async () => {
             Calendario Oficial Aprobado — {{ deportistaPerfil?.asociacion?.nombre || deportistaPerfil?.disciplina || 'Tu Disciplina Deportiva' }}
           </p>
           <p class="text-[11px] text-slate-600 mt-0.5">
-            Aquí puedes verificar las fechas aprobadas por el SEDEDE para tu disciplina. Recuerda que para solicitar apoyo debes hacerlo con al menos 15 días de anticipación.
+            Aquí puedes verificar las fechas oficiales aprobadas por el SEDEDE. Para solicitar apoyo institucional debes postular con al menos 15 días de anticipación.
           </p>
         </div>
       </div>
       <span class="rounded-lg bg-white px-3 py-1.5 font-bold text-brand-800 text-xs border border-brand-200 shadow-sm self-start sm:self-auto shrink-0">
-        {{ deportistaPerfil?.asociacion?.sigla || 'DISCIPLINA' }} · Aprobado
+        {{ deportistaPerfil?.asociacion?.sigla || 'OFICIAL' }} · Aprobado
       </span>
     </div>
 
-    <!-- Barra de Filtros -->
-    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm grid gap-4 sm:grid-cols-3">
+    <!-- Banner de Guía para SEDEDE -->
+    <div v-if="isSededeOrAdmin" class="rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs text-blue-900 flex items-center gap-3">
+      <span class="text-2xl">🏛️</span>
       <div>
-        <label class="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Asociación Deportiva</label>
+        <p class="font-bold">Protocolo de Revisión SEDEDE:</p>
+        <p class="text-blue-800 mt-0.5">
+          Revise los eventos en estado <strong>Postulado</strong>. Si dos o más disciplinas solicitan el mismo escenario en fechas compartidas, pulse <strong>Reacomodar</strong> para redistribuir el recinto o fecha. Si no hay colisiones, pulse <strong>Oficializar</strong> para garantizar la reserva.
+        </p>
+      </div>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm grid gap-4 sm:grid-cols-4">
+      <div>
+        <label class="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Asociación</label>
         <select
           v-model="filterAsociacion"
           class="input-field text-xs font-semibold bg-white"
@@ -373,9 +531,6 @@ onMounted(async () => {
             {{ a.nombre }} ({{ a.sigla || 'ASOC' }})
           </option>
         </select>
-        <p v-if="isDeportista" class="text-[10px] text-brand-700 font-semibold mt-1">
-          ✓ Exclusivo eventos de tu asociación registrada
-        </p>
       </div>
 
       <div>
@@ -393,6 +548,17 @@ onMounted(async () => {
           <option value="Departamental">Departamental</option>
           <option value="Nacional">Nacional</option>
           <option value="Internacional">Internacional</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Estado del Flujo</label>
+        <select v-model="filterEstado" class="input-field text-xs font-semibold" @change="fetchEventos">
+          <option value="">Todos los Estados</option>
+          <option value="Postulado">⏳ Postulado (En Revisión)</option>
+          <option value="Reacomodado">⚙ Reacomodado SEDEDE</option>
+          <option value="Oficializado">✓ Oficializado (Garantizado)</option>
+          <option value="Observado">✕ Observado</option>
         </select>
       </div>
     </div>
@@ -416,10 +582,11 @@ onMounted(async () => {
           {{ currentMonthLabel }}
         </h2>
 
-        <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 justify-end">
-          <span class="inline-block h-3 w-3 rounded-full bg-emerald-500"></span> <span>Departamental</span>
-          <span class="inline-block h-3 w-3 rounded-full bg-purple-600"></span> <span>Nacional</span>
-          <span class="inline-block h-3 w-3 rounded-full bg-amber-500"></span> <span>Internacional</span>
+        <div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500 justify-end">
+          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Oficializado</span>
+          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-sky-500"></span> Postulado</span>
+          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Reacomodado</span>
+          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-rose-500"></span> Observado</span>
         </div>
       </div>
 
@@ -472,15 +639,21 @@ onMounted(async () => {
                 <div
                   v-for="evt in (eventosByDate[day.dateString] || []).slice(0, 3)"
                   :key="evt.id"
-                  class="rounded px-1.5 py-1 text-[11px] font-bold shadow-sm cursor-pointer truncate flex items-center justify-between gap-1"
+                  class="rounded px-1.5 py-1 text-[11px] font-bold shadow-sm cursor-pointer truncate flex items-center justify-between gap-1 border"
                   :class="{
-                    'bg-emerald-100 text-emerald-900 border border-emerald-300': evt.tipo_evento === 'Departamental',
-                    'bg-purple-100 text-purple-900 border border-purple-300': evt.tipo_evento === 'Nacional',
-                    'bg-amber-100 text-amber-900 border border-amber-300': evt.tipo_evento === 'Internacional'
+                    'bg-emerald-50 text-emerald-900 border-emerald-300': evt.estado_evento === 'Oficializado' || evt.estado_evento === 'Programado',
+                    'bg-sky-50 text-sky-900 border-sky-300': evt.estado_evento === 'Postulado',
+                    'bg-amber-50 text-amber-900 border-amber-300': evt.estado_evento === 'Reacomodado',
+                    'bg-rose-50 text-rose-900 border-rose-300': evt.estado_evento === 'Observado'
                   }"
                   @click.stop="openDetailModal(evt)"
                 >
-                  <span class="truncate">{{ evt.asociacion?.sigla || evt.disciplina }}: {{ evt.nombre_evento }}</span>
+                  <span class="truncate">
+                    <span v-if="evt.estado_evento === 'Oficializado'">✓</span>
+                    <span v-else-if="evt.estado_evento === 'Reacomodado'">⚙</span>
+                    <span v-else>⏳</span>
+                    {{ evt.asociacion?.sigla || evt.disciplina }}: {{ evt.nombre_evento }}
+                  </span>
                 </div>
 
                 <div
@@ -517,13 +690,16 @@ onMounted(async () => {
                 {{ evt.tipo_evento }}
               </span>
 
-              <span class="rounded px-2 py-0.5 text-[11px] font-bold"
+              <!-- Badge de Estado de Flujo -->
+              <span class="rounded px-2 py-0.5 text-[11px] font-bold border"
                 :class="{
-                  'bg-emerald-100 text-emerald-800': evt.nivel_prioridad.includes('Alta'),
-                  'bg-slate-100 text-slate-700': !evt.nivel_prioridad.includes('Alta')
+                  'bg-emerald-100 text-emerald-800 border-emerald-300': evt.estado_evento === 'Oficializado' || evt.estado_evento === 'Programado',
+                  'bg-sky-100 text-sky-800 border-sky-300': evt.estado_evento === 'Postulado',
+                  'bg-amber-100 text-amber-900 border-amber-300': evt.estado_evento === 'Reacomodado',
+                  'bg-rose-100 text-rose-800 border-rose-300': evt.estado_evento === 'Observado'
                 }"
               >
-                {{ evt.nivel_prioridad.includes('Alta') ? '★ Prioridad Alta' : evt.nivel_prioridad }}
+                {{ evt.estado_evento === 'Oficializado' ? '✓ Oficializado' : evt.estado_evento === 'Reacomodado' ? '⚙ Reacomodado' : evt.estado_evento === 'Observado' ? '✕ Observado' : '⏳ Postulado' }}
               </span>
             </div>
 
@@ -531,7 +707,12 @@ onMounted(async () => {
             <h3 class="mt-1 font-display text-base font-bold text-slate-900">{{ evt.nombre_evento }}</h3>
             <p class="text-xs text-slate-500">Categoría: <strong class="text-slate-700">{{ evt.categoria }}</strong> | Disciplina: {{ evt.disciplina }}</p>
 
-            <div class="mt-4 rounded-lg bg-slate-50 p-3 text-xs space-y-1">
+            <!-- Alerta de Reacomodo en la tarjeta si aplica -->
+            <div v-if="evt.motivo_reacomodo" class="mt-2 rounded bg-amber-50 p-2 text-[11px] text-amber-900 border border-amber-200">
+              <span class="font-bold">Ajuste técnico SEDEDE:</span> {{ evt.motivo_reacomodo }}
+            </div>
+
+            <div class="mt-3 rounded-lg bg-slate-50 p-3 text-xs space-y-1">
               <div class="flex justify-between text-slate-600">
                 <span>Fechas:</span>
                 <strong class="text-slate-800">{{ new Date(evt.fecha_inicio).toLocaleDateString('es-BO') }} al {{ new Date(evt.fecha_fin).toLocaleDateString('es-BO') }}</strong>
@@ -548,10 +729,12 @@ onMounted(async () => {
           </div>
 
           <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-            <span class="rounded bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{{ evt.estado_evento }}</span>
+            <span class="text-xs text-slate-500">Prioridad: <strong>{{ evt.nivel_prioridad }}</strong></span>
 
             <div class="flex items-center gap-2">
               <button class="text-xs font-semibold text-brand-600 hover:underline" @click="openDetailModal(evt)">Detalles</button>
+              <button v-if="isSededeOrAdmin && evt.estado_evento !== 'Oficializado'" class="text-xs font-bold text-emerald-700 hover:underline" @click="handleOficializar(evt)">Oficializar</button>
+              <button v-if="isSededeOrAdmin" class="text-xs font-bold text-amber-700 hover:underline" @click="openReacomodoModal(evt)">Reacomodar</button>
               <button v-if="!isDeportista" class="text-xs font-semibold text-slate-600 hover:underline" @click="openEditModal(evt)">Editar</button>
               <button v-if="!isDeportista" class="text-xs font-semibold text-red-600 hover:underline" @click="deleteEvento(evt)">Eliminar</button>
             </div>
@@ -559,21 +742,63 @@ onMounted(async () => {
         </div>
 
         <div v-if="!eventos.length" class="col-span-full p-8 text-center text-slate-400 border border-dashed rounded-xl">
-          No hay eventos programados.
+          No se encontraron eventos con los filtros seleccionados.
         </div>
       </div>
     </div>
 
-    <!-- MODAL DE DETALLES -->
-    <div v-if="showDetailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+    <!-- MODAL DE DETALLES Y ACCIONES DE FLUJO -->
+    <div v-if="showDetailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl my-8">
         <div class="flex items-start justify-between border-b border-slate-100 pb-3">
           <div>
-            <span class="rounded bg-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-brand-800">{{ selectedEventoDetail?.asociacion?.sigla || 'ASOCIACIÓN' }}</span>
+            <div class="flex items-center gap-2">
+              <span class="rounded bg-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-brand-800">{{ selectedEventoDetail?.asociacion?.sigla || 'ASOCIACIÓN' }}</span>
+              <span class="rounded px-2 py-0.5 text-xs font-bold border"
+                :class="{
+                  'bg-emerald-100 text-emerald-800 border-emerald-300': selectedEventoDetail?.estado_evento === 'Oficializado' || selectedEventoDetail?.estado_evento === 'Programado',
+                  'bg-sky-100 text-sky-800 border-sky-300': selectedEventoDetail?.estado_evento === 'Postulado',
+                  'bg-amber-100 text-amber-900 border-amber-300': selectedEventoDetail?.estado_evento === 'Reacomodado',
+                  'bg-rose-100 text-rose-800 border-rose-300': selectedEventoDetail?.estado_evento === 'Observado'
+                }"
+              >
+                Estado: {{ selectedEventoDetail?.estado_evento }}
+              </span>
+            </div>
             <h2 class="mt-1 font-display text-xl font-bold text-slate-900">{{ selectedEventoDetail?.nombre_evento }}</h2>
             <p class="text-xs text-slate-500">Organiza: {{ selectedEventoDetail?.asociacion?.nombre }}</p>
           </div>
           <button class="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200" @click="closeModal">✕</button>
+        </div>
+
+        <!-- Banner de Conflicto Técnico en Tiempo Real -->
+        <div v-if="comprobandoConflictos" class="mt-3 p-3 rounded-lg bg-slate-50 text-xs text-slate-500 flex items-center gap-2">
+          <span class="animate-spin">🔄</span> Verificando disponibilidad técnica y colisiones en escenario...
+        </div>
+        <div v-else-if="conflictosDetectados?.tiene_conflictos" class="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-900">
+          <p class="font-bold flex items-center gap-1.5 text-amber-800">
+            <span>⚠️</span> ¡Alerta de Cruce de Disciplinas en este Escenario!
+          </p>
+          <p class="mt-1">
+            Se encontraron {{ conflictosDetectados.eventos_cruzados?.length || 0 }} evento(s) o reservas en las mismas fechas:
+          </p>
+          <ul class="list-disc pl-4 mt-1 space-y-0.5">
+            <li v-for="c in conflictosDetectados.eventos_cruzados" :key="c.id">
+              <strong>{{ c.nombre_evento }}</strong> ({{ c.asociacion?.sigla || c.disciplina }}): {{ new Date(c.fecha_inicio).toLocaleDateString('es-BO') }} al {{ new Date(c.fecha_fin).toLocaleDateString('es-BO') }}
+            </li>
+          </ul>
+          <p class="mt-2 text-[11px] font-semibold text-amber-950">
+            💡 Sugerencia SEDEDE: Utilice el botón <strong>"Reacomodar"</strong> para asignar otro escenario o ajustar las fechas.
+          </p>
+        </div>
+        <div v-else-if="conflictosDetectados && !conflictosDetectados.tiene_conflictos" class="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+          <span>✓</span> Escenario disponible sin colisiones en las fechas seleccionadas.
+        </div>
+
+        <!-- Alerta de Reacomodo previo si existe -->
+        <div v-if="selectedEventoDetail?.motivo_reacomodo" class="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-900">
+          <strong class="block text-blue-800">⚙ Reacomodación Técnica por SEDEDE:</strong>
+          <p class="mt-1 italic">"{{ selectedEventoDetail.motivo_reacomodo }}"</p>
         </div>
 
         <div class="mt-4 space-y-3 text-xs">
@@ -589,40 +814,174 @@ onMounted(async () => {
           </div>
 
           <div class="rounded-lg bg-slate-50 p-3">
-            <span class="block text-slate-500 font-semibold">Fechas</span>
+            <span class="block text-slate-500 font-semibold">Fechas Programadas</span>
             <strong class="text-slate-800 text-sm">
               {{ new Date(selectedEventoDetail?.fecha_inicio).toLocaleDateString('es-BO') }} al {{ new Date(selectedEventoDetail?.fecha_fin).toLocaleDateString('es-BO') }}
             </strong>
           </div>
 
           <div class="rounded-lg bg-slate-50 p-3">
-            <span class="block text-slate-500 font-semibold">Escenario</span>
+            <span class="block text-slate-500 font-semibold">Escenario Deportivo Asignado</span>
             <strong class="text-slate-800 text-sm">{{ selectedEventoDetail?.escenario?.nombre || 'A Confirmar' }}</strong>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div class="rounded-lg bg-emerald-50 p-3 border border-emerald-200">
-              <span class="block text-emerald-800 font-semibold">Presupuesto</span>
+              <span class="block text-emerald-800 font-semibold">Presupuesto Estimado</span>
               <strong class="font-mono text-base font-bold text-emerald-900">Bs {{ Number(selectedEventoDetail?.presupuesto_estimado).toLocaleString('es-BO', {minimumFractionDigits: 2}) }}</strong>
             </div>
             <div class="rounded-lg bg-blue-50 p-3 border border-blue-200">
-              <span class="block text-blue-800 font-semibold">Prioridad</span>
+              <span class="block text-blue-800 font-semibold">Nivel de Prioridad</span>
               <strong class="text-blue-900 font-bold">{{ selectedEventoDetail?.nivel_prioridad }}</strong>
             </div>
           </div>
 
           <div v-if="selectedEventoDetail?.observaciones" class="rounded-lg bg-slate-50 p-3">
-            <span class="block text-slate-500 font-semibold">Observaciones</span>
+            <span class="block text-slate-500 font-semibold">Observaciones / Requerimientos</span>
             <p class="text-slate-700 mt-1 italic">"{{ selectedEventoDetail.observaciones }}"</p>
+          </div>
+
+          <div v-if="selectedEventoDetail?.fecha_oficializacion" class="rounded-lg bg-emerald-50/70 p-3 border border-emerald-200 text-emerald-900">
+            <span class="block font-bold">Oficializado por SEDEDE:</span>
+            <p class="mt-0.5">{{ new Date(selectedEventoDetail.fecha_oficializacion).toLocaleString('es-BO') }}</p>
           </div>
         </div>
 
-        <div class="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-3">
+        <!-- Botones de Acción según Rol -->
+        <div class="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <button class="btn-secondary text-xs" @click="closeModal">Cerrar</button>
-          <button v-if="!isDeportista" class="btn-primary text-xs bg-slate-800 hover:bg-slate-900" @click="openEditModal(selectedEventoDetail)">
-            Editar
-          </button>
+
+          <!-- Acciones Exclusivas de SEDEDE -->
+          <div v-if="isSededeOrAdmin" class="flex flex-wrap items-center gap-2">
+            <button
+              v-if="selectedEventoDetail?.estado_evento !== 'Oficializado'"
+              class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 shadow-sm"
+              @click="openReacomodoModal(selectedEventoDetail)"
+            >
+              ⚙ Reacomodar Escenario / Fechas
+            </button>
+
+            <button
+              v-if="selectedEventoDetail?.estado_evento !== 'Observado'"
+              class="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-300"
+              @click="openObservarModal(selectedEventoDetail)"
+            >
+              Observar
+            </button>
+
+            <button
+              v-if="selectedEventoDetail?.estado_evento !== 'Oficializado'"
+              class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm"
+              :disabled="saving"
+              @click="handleOficializar(selectedEventoDetail)"
+            >
+              ✓ Oficializar y Garantizar Reserva
+            </button>
+          </div>
+
+          <div v-else-if="!isDeportista" class="flex items-center gap-2">
+            <button class="btn-primary text-xs bg-slate-800 hover:bg-slate-900" @click="openEditModal(selectedEventoDetail)">
+              Editar Solicitud
+            </button>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- MODAL REACOMODAR (EXCLUSIVO SEDEDE) -->
+    <div v-if="showReacomodoModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+      <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl my-8">
+        <div class="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
+          <div>
+            <span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">Mesa Técnica SEDEDE</span>
+            <h3 class="mt-1 font-display text-lg font-bold text-slate-900">Reacomodar Calendario Deportivo</h3>
+            <p class="text-xs text-slate-500">Ajuste de escenario o fechas por colisión entre disciplinas.</p>
+          </div>
+          <button class="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200" @click="showReacomodoModal = false">✕</button>
+        </div>
+
+        <form class="space-y-4 text-xs" @submit.prevent="saveReacomodo">
+          <div>
+            <label class="mb-1 block font-bold text-slate-700">Evento:</label>
+            <p class="font-semibold text-slate-900 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-sm">
+              {{ selectedEventoDetail?.nombre_evento }} ({{ selectedEventoDetail?.asociacion?.nombre }})
+            </p>
+          </div>
+
+          <div>
+            <label class="mb-1 block font-bold text-slate-700">Reasignar Escenario Deportivo *</label>
+            <select v-model="formReacomodo.escenario_id" class="input-field text-xs font-semibold" required :disabled="saving">
+              <option value="" disabled>Seleccione escenario alternativo...</option>
+              <option v-for="e in escenarios" :key="e.id" :value="e.id">{{ e.nombre }} ({{ e.espacio || 'Pista Principal' }})</option>
+            </select>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block font-bold text-slate-700">Nueva Fecha Inicio *</label>
+              <input v-model="formReacomodo.fecha_inicio" type="date" class="input-field text-xs font-semibold" required :disabled="saving" />
+            </div>
+            <div>
+              <label class="mb-1 block font-bold text-slate-700">Nueva Fecha Fin *</label>
+              <input v-model="formReacomodo.fecha_fin" type="date" class="input-field text-xs font-semibold" required :disabled="saving" />
+            </div>
+          </div>
+
+          <div>
+            <label class="mb-1 block font-bold text-slate-700">Motivo del Reacomodo Técnico *</label>
+            <textarea
+              v-model="formReacomodo.motivo_reacomodo"
+              rows="3"
+              class="input-field text-xs"
+              placeholder="Explique el motivo del ajuste técnico (ej: Se reprograma fecha por cruce en Polideportivo Garcilazo con Torneo Nacional de Voleibol)..."
+              required
+              :disabled="saving"
+            ></textarea>
+          </div>
+
+          <div class="rounded-lg bg-emerald-50 p-3 border border-emerald-200 flex items-center gap-2">
+            <input id="chkAprobar" v-model="formReacomodo.aprobar_inmediatamente" type="checkbox" class="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500" />
+            <label for="chkAprobar" class="text-xs font-bold text-emerald-900 cursor-pointer">
+              Oficializar y garantizar reserva inmediatamente con estos nuevos datos
+            </label>
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-3">
+            <button type="button" class="btn-secondary" :disabled="saving" @click="showReacomodoModal = false">Cancelar</button>
+            <button type="submit" class="btn-primary bg-amber-600 hover:bg-amber-700" :disabled="saving">
+              {{ saving ? 'Guardando Reacomodo...' : 'Aplicar Reacomodo' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL OBSERVAR (EXCLUSIVO SEDEDE) -->
+    <div v-if="showObservarModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+        <h3 class="mb-1 font-display text-base font-bold text-slate-900">Observar Solicitud de Calendario</h3>
+        <p class="text-xs text-slate-500 mb-4">El evento será devuelto a la asociación para subsanación documental o de fechas.</p>
+
+        <form class="space-y-3 text-xs" @submit.prevent="saveObservacion">
+          <div>
+            <label class="mb-1 block font-bold text-slate-700">Observaciones técnicas:</label>
+            <textarea
+              v-model="formObservacion.observaciones"
+              rows="4"
+              class="input-field text-xs"
+              placeholder="Detalle los requerimientos o ajustes que debe cumplir la asociación..."
+              required
+              :disabled="saving"
+            ></textarea>
+          </div>
+
+          <div class="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
+            <button type="button" class="btn-secondary" :disabled="saving" @click="showObservarModal = false">Cancelar</button>
+            <button type="submit" class="rounded-lg bg-rose-600 px-3 py-1.5 font-bold text-white hover:bg-rose-700" :disabled="saving">
+              {{ saving ? 'Enviando...' : 'Devolver con Observación' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -630,8 +989,11 @@ onMounted(async () => {
     <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
       <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl my-8">
         <h3 class="mb-1 font-display text-lg font-bold text-brand-700">
-          {{ editingEvento ? 'Editar Evento' : 'Programar Evento Anual' }}
+          {{ editingEvento ? 'Editar Evento' : isSededeOrAdmin ? 'Programar u Oficializar Evento' : 'Postular Evento Anual' }}
         </h3>
+        <p class="text-xs text-slate-500 mb-4">
+          {{ isSededeOrAdmin ? 'Registro oficial del SEDEDE en el calendario anual.' : 'Su postulación será revisada técnicamente por el SEDEDE.' }}
+        </p>
 
         <form class="space-y-4" @submit.prevent="saveEvento">
           <div class="grid gap-4 sm:grid-cols-2">
@@ -706,6 +1068,14 @@ onMounted(async () => {
             </div>
           </div>
 
+          <div v-if="isSededeOrAdmin">
+            <label class="mb-1 block text-xs font-semibold text-slate-700">Estado de Aprobación Inicial *</label>
+            <select v-model="form.estado_evento" class="input-field text-xs font-bold" :disabled="saving">
+              <option value="Oficializado">✓ Oficializado (Garantiza reserva de escenario)</option>
+              <option value="Postulado">⏳ Postulado (Para revisión posterior)</option>
+            </select>
+          </div>
+
           <div>
             <label class="mb-1 block text-xs font-semibold text-slate-700">Observaciones</label>
             <textarea v-model="form.observaciones" rows="2" class="input-field text-sm" placeholder="Detalles..." :disabled="saving"></textarea>
@@ -718,7 +1088,7 @@ onMounted(async () => {
           <div class="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-3">
             <button type="button" class="btn-secondary" :disabled="saving" @click="closeModal">Cancelar</button>
             <button type="submit" class="btn-primary" :disabled="saving">
-              {{ saving ? 'Guardando…' : 'Guardar Evento' }}
+              {{ saving ? 'Guardando…' : isSededeOrAdmin ? 'Guardar Evento' : 'Enviar Postulación' }}
             </button>
           </div>
         </form>

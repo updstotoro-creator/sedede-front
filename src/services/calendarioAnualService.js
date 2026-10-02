@@ -1,6 +1,11 @@
 import api from './api'
 
 export const calendarioAnualService = {
+  async getPublicEvents(params = {}) {
+    const { data } = await api.get('/calendario-anual/publico', { params })
+    return data.data
+  },
+
   async list(params = {}) {
     const { data } = await api.get('/calendario-anual/unificado', { params })
     return { items: data.data, meta: data.meta }
@@ -24,5 +29,25 @@ export const calendarioAnualService = {
   async delete(id) {
     const { data } = await api.delete(`/calendario-anual/${id}`)
     return data.data
+  },
+
+  async verificarConflictos(params) {
+    const { data } = await api.get('/calendario-anual/conflictos', { params })
+    return data
+  },
+
+  async reacomodar(id, payload) {
+    const { data } = await api.post(`/calendario-anual/${id}/reacomodar`, payload)
+    return data
+  },
+
+  async oficializar(id) {
+    const { data } = await api.post(`/calendario-anual/${id}/oficializar`)
+    return data
+  },
+
+  async observar(id, payload) {
+    const { data } = await api.post(`/calendario-anual/${id}/observar`, payload)
+    return data
   },
 }

@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth'
 import { tramiteService } from '../services/tramiteService'
 import { deportistaService } from '../services/deportistaService'
 import { calendarioAnualService } from '../services/calendarioAnualService'
+import TramiteEtapaWorkspace from '../components/tramites/TramiteEtapaWorkspace.vue'
 
 const auth = useAuthStore()
 const isDeportista = computed(() => auth.user?.role?.nombre === 'deportista')
@@ -18,6 +19,48 @@ const miPerfilDeportista = ref(null)
 const isLoading = ref(true)
 const errorMessage = ref('')
 const filterEtapa = ref('')
+const selectedBandeja = ref('')
+
+const BANDEJAS_ROLES = [
+  { key: '', nombre: 'Todas (1 - 17)' },
+  { key: '1', nombre: 'Paso 1: Atleta (Registro)' },
+  { key: '2', nombre: 'Paso 2: Secretaría / Ventanilla' },
+  { key: '3', nombre: 'Paso 3: Dirección (Derivación)' },
+  { key: '4', nombre: 'Paso 4: Deporte Competitivo (Revisión)' },
+  { key: '5', nombre: 'Paso 5: Subsanación Atleta' },
+  { key: '6', nombre: 'Paso 6: Deporte Competitivo (Informe Técnico)' },
+  { key: '7', nombre: 'Paso 7: Dirección (Vo.Bo.)' },
+  { key: '8', nombre: 'Paso 8: Asesoría Jurídica' },
+  { key: '9', nombre: 'Paso 9: Comisión Técnica / Almacén' },
+  { key: '10', nombre: 'Paso 10: Dirección (Resolución)' },
+  { key: '11', nombre: 'Paso 11: DAF Presupuestos (Certificación)' },
+  { key: '12', nombre: 'Paso 12: Administración (Orden Servicio)' },
+  { key: '13', nombre: 'Paso 13: Contabilidad (Devengado)' },
+  { key: '14', nombre: 'Paso 14: Dirección / DAF (Firma C-31)' },
+  { key: '15', nombre: 'Paso 15: Tesorería (Priorización)' },
+  { key: '16', nombre: 'Paso 16: Tesorería (Desembolso / Pago)' },
+  { key: '17', nombre: 'Paso 17: Archivo Digital (Cierre)' },
+]
+
+function selectBandeja(key) {
+  selectedBandeja.value = key
+  filterEtapa.value = key
+  fetchTramites()
+}
+
+function toggleFilterEtapa(num) {
+  if (filterEtapa.value === String(num)) {
+    filterEtapa.value = ''
+    selectedBandeja.value = ''
+  } else {
+    filterEtapa.value = String(num)
+    selectedBandeja.value = String(num)
+  }
+  fetchTramites()
+}
+
+const viewMode = ref('list') // 'list' | 'solicitud'
+const searchList = ref('')
 
 const showModal = ref(false)
 const showExpedienteModal = ref(false)
@@ -25,7 +68,7 @@ const showDerivarModal = ref(false)
 
 const selectedTramite = ref(null)
 const expedienteDetalle = ref(null)
-const activeTab = ref('resumen')
+const activeTab = ref('etapa')
 
 const saving = ref(false)
 const formError = ref('')
@@ -196,6 +239,16 @@ async function fetchTramites() {
   isLoading.value = true
   errorMessage.value = ''
   try {
+    const params = {}
+    if (filterEtapa.value) {
+      const etapaNum = Number(filterEtapa.value)
+      if (!isNaN(etapaNum)) {
+        params.etapa_actual = etapaNum
+      } else {
+        params.estado = filterEtapa.value
+      }
+    }
+
     if (isDeportista.value) {
       const res = await tramiteService.misTramites()
       let list = res.data || []
@@ -204,14 +257,10 @@ async function fetchTramites() {
       }
       tramites.value = list
     } else {
-      const params = {}
-      if (filterEtapa.value) {
-        params.estado = filterEtapa.value
-      }
       const res = await tramiteService.list(params)
-      let list = res.items || res || []
-      if (filterEtapa.value && !isNaN(Number(filterEtapa.value))) {
-        list = list.filter(t => t.etapa_actual === Number(filterEtapa.value))
+      let list = res.items || res.data || res || []
+      if (filterEtapa.value) {
+        list = list.filter(t => matchesFilter(t, filterEtapa.value))
       }
       tramites.value = list
     }
@@ -224,12 +273,12 @@ async function fetchTramites() {
 
 function matchesFilter(tramite, filter) {
   if (!filter) return true
-  if (filter === 'observadas') return tramite.estado.includes('Observada') || tramite.etapa_actual === 5
-  if (filter === 'pagadas') return tramite.estado.includes('Pagada') || tramite.etapa_actual >= 16
+  if (filter === 'observadas') return tramite.estado.includes('Observada') || Number(tramite.etapa_actual) === 5
+  if (filter === 'pagadas') return tramite.estado.includes('Pagada') || Number(tramite.etapa_actual) >= 16
   if (filter === 'en_curso') return !tramite.estado.includes('Pagada') && !tramite.estado.includes('Observada')
   const etapaNum = Number(filter)
-  if (!isNaN(etapaNum)) return tramite.etapa_actual === etapaNum
-  return true
+  if (!isNaN(etapaNum)) return Number(tramite.etapa_actual) === etapaNum
+  return tramite.estado.toLowerCase().includes(String(filter).toLowerCase())
 }
 
 async function fetchDeportistas() {
@@ -292,16 +341,49 @@ async function openCreateModal() {
   showModal.value = true
 }
 
-async function openExpediente(t) {
-  selectedTramite.value = t
-  activeTab.value = 'resumen'
-  showExpedienteModal.value = true
-  try {
-    const res = await tramiteService.expediente(t.id)
-    expedienteDetalle.value = res
-  } catch (e) {
-    console.error('Error al cargar expediente:', e)
+const filteredTramitesList = computed(() => {
+  let list = tramites.value || []
+  if (searchList.value.trim()) {
+    const q = searchList.value.toLowerCase().trim()
+    list = list.filter(t =>
+      t.codigo_tramite?.toLowerCase().includes(q) ||
+      t.evento_nombre?.toLowerCase().includes(q) ||
+      t.deportista?.nombres?.toLowerCase().includes(q) ||
+      t.deportista?.apellidos?.toLowerCase().includes(q) ||
+      t.deportista?.asociacion?.nombre?.toLowerCase().includes(q) ||
+      t.estado?.toLowerCase().includes(q)
+    )
   }
+  return list
+})
+
+async function openSolicitud(t) {
+  selectedTramite.value = t
+  viewMode.value = 'solicitud'
+  try {
+    const fresh = await tramiteService.get(t.id)
+    selectedTramite.value = fresh
+  } catch (e) {
+    console.error('Error al cargar trámite:', e)
+  }
+}
+
+async function openExpediente(t, tab = 'etapa') {
+  await openSolicitud(t)
+}
+
+async function onTramiteUpdated() {
+  if (selectedTramite.value?.id) {
+    try {
+      const fresh = await tramiteService.get(selectedTramite.value.id)
+      selectedTramite.value = fresh
+      const res = await tramiteService.expediente(selectedTramite.value.id)
+      expedienteDetalle.value = res
+    } catch (e) {
+      console.error('Error actualizando expediente:', e)
+    }
+  }
+  await fetchTramites()
 }
 
 function openDerivarModal(t) {
@@ -462,7 +544,11 @@ onMounted(async () => {
 
 <template>
   <div class="mt-8 space-y-6">
-    <!-- Encabezado Módulo -->
+    <!-- ======================================================== -->
+    <!-- MODO 1: BANDEJA GENERAL Y LISTA COMPACTA DE TRÁMITES     -->
+    <!-- ======================================================== -->
+    <div v-if="viewMode === 'list'" class="space-y-6">
+      <!-- Encabezado Módulo -->
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div class="flex items-center gap-2">
@@ -486,11 +572,19 @@ onMounted(async () => {
         <select v-model="filterEtapa" class="input-field text-xs w-56 font-semibold" @change="fetchTramites">
           <option value="">Todas las Etapas (1 - 17)</option>
           <option value="1">Etapa 1: Registradas (Deportista)</option>
+          <option value="2">Etapa 2: Recepción Institucional</option>
+          <option value="3">Etapa 3: Derivación Dirección</option>
           <option value="4">Etapa 4: En Revisión Técnica</option>
           <option value="5">Etapa 5: Observadas / Subsanación</option>
+          <option value="6">Etapa 6: Informe Técnico Digital</option>
+          <option value="7">Etapa 7: Vo.Bo. Dirección</option>
           <option value="8">Etapa 8: Asesoría Jurídica</option>
+          <option value="9">Etapa 9: Comisión Técnica</option>
           <option value="10">Etapa 10: Resolución Departamental</option>
           <option value="11">Etapa 11: Certif. Presupuestaria</option>
+          <option value="12">Etapa 12: Orden de Servicio/Compra</option>
+          <option value="13">Etapa 13: Revisión Contable</option>
+          <option value="14">Etapa 14: Firma C-31</option>
           <option value="15">Etapa 15: Priorización SIGEP</option>
           <option value="16">Etapa 16: Pagada / Desembolsada</option>
           <option value="17">Etapa 17: Archivo Digital y Rendición</option>
@@ -503,6 +597,21 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Barra de Filtro Rápido por Bandeja de Unidad Institucional -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin text-xs">
+      <span class="font-bold text-slate-400 text-[11px] shrink-0">Bandejas:</span>
+      <button
+        v-for="b in BANDEJAS_ROLES"
+        :key="b.key"
+        type="button"
+        @click="selectBandeja(b.key)"
+        class="px-2.5 py-1 rounded-lg border font-semibold shrink-0 transition-all text-[11px]"
+        :class="selectedBandeja === b.key ? 'bg-brand-600 border-brand-700 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
+      >
+        {{ b.nombre }}
+      </button>
+    </div>
+
     <!-- MAPA VISUAL COMPLETO: LAS 17 ETAPAS DEL PROCEDIMIENTO SEDEDE -->
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
@@ -511,7 +620,7 @@ onMounted(async () => {
             <span>🗺️ Flujo Oficial Completo del Procedimiento (17 Etapas Digitales)</span>
           </h2>
           <p class="text-[11px] text-slate-400">
-            Cada solicitud avanza secuencialmente a través de las unidades de revisión, aprobación y desembolso.
+            Haz clic en cualquier etapa para filtrar trámites de esa bandeja o verificar responsables institucionales.
           </p>
         </div>
         <div class="flex items-center gap-2 text-[10px] font-bold">
@@ -524,16 +633,19 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Barra de etapas con scroll horizontal suave -->
+      <!-- Barra de etapas con scroll horizontal interactivo -->
       <div class="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-        <div
+        <button
           v-for="et in ETAPAS_PROCEDIMIENTO"
           :key="et.numero"
-          class="shrink-0 w-36 rounded-xl border p-2.5 transition-all text-left flex flex-col justify-between"
+          type="button"
+          @click="toggleFilterEtapa(et.numero)"
+          class="shrink-0 w-36 rounded-xl border p-2.5 transition-all text-left flex flex-col justify-between cursor-pointer"
           :class="{
-            'bg-emerald-50/70 border-emerald-300 ring-2 ring-emerald-500/20': et.numero === 1,
-            'bg-amber-50/70 border-amber-300': et.numero === 5,
-            'bg-slate-50 border-slate-200 hover:border-slate-300': et.numero !== 1 && et.numero !== 5
+            'ring-2 ring-brand-600 bg-brand-50 border-brand-400': filterEtapa === String(et.numero),
+            'bg-emerald-50/70 border-emerald-300': filterEtapa !== String(et.numero) && et.numero === 1,
+            'bg-amber-50/70 border-amber-300': filterEtapa !== String(et.numero) && et.numero === 5,
+            'bg-slate-50 border-slate-200 hover:border-slate-300': filterEtapa !== String(et.numero) && et.numero !== 1 && et.numero !== 5
           }"
         >
           <div>
@@ -552,123 +664,240 @@ onMounted(async () => {
           <p class="text-[9px] text-slate-500 mt-2 font-medium">
             {{ et.responsable }}
           </p>
+        </button>
+      </div>
+    </div>
+
+      <!-- Barra de Búsqueda Rápida y Contador -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-2 flex-1 max-w-md bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+          <span class="text-slate-400 text-xs">🔍</span>
+          <input
+            v-model="searchList"
+            type="text"
+            class="bg-transparent border-0 p-0 text-xs font-medium focus:ring-0 w-full placeholder:text-slate-400"
+            placeholder="Buscar por código, deportista, disciplina o evento..."
+          />
+        </div>
+        <div class="text-xs text-slate-500 font-semibold flex items-center gap-2">
+          <span>Mostrando <strong class="text-slate-800">{{ filteredTramitesList.length }}</strong> trámite(s)</span>
+          <span v-if="filterEtapa" class="rounded bg-brand-100 px-2 py-0.5 font-bold text-brand-800 text-[10px]">
+            Filtro: Paso {{ filterEtapa }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Indicador de Carga -->
+      <div v-if="isLoading" class="p-8 text-center text-slate-500">Cargando trámites...</div>
+      <div v-else-if="errorMessage" role="alert" class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {{ errorMessage }}
+      </div>
+
+      <!-- Listado Compacto de Trámites -->
+      <div v-else>
+        <div v-if="filteredTramitesList.length === 0" class="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+          <p class="text-slate-400 text-sm">No se encontraron trámites registrados con el filtro seleccionado.</p>
+          <button class="btn-primary mt-4 text-xs font-bold" @click="openCreateModal">
+            + Iniciar Primera Solicitud de Apoyo
+          </button>
+        </div>
+
+        <!-- TABLA COMPACTA Y MODERNA -->
+        <div v-else class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table class="w-full text-left text-xs">
+            <thead class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <tr>
+                <th class="py-3 px-4">Código</th>
+                <th class="py-3 px-4">Solicitante</th>
+                <th class="py-3 px-4">Evento Deportivo</th>
+                <th class="py-3 px-4">Tipo & Monto</th>
+                <th class="py-3 px-4">Etapa Actual & Estado</th>
+                <th class="py-3 px-4 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr
+                v-for="t in filteredTramitesList"
+                :key="t.id"
+                @click="openSolicitud(t)"
+                class="group cursor-pointer transition-colors hover:bg-brand-50/40"
+                :class="t.estado.includes('Observada') || t.etapa_actual === 5 ? 'bg-amber-50/30' : ''"
+              >
+                <!-- Código -->
+                <td class="py-3 px-4 whitespace-nowrap">
+                  <span class="rounded bg-brand-100 px-2 py-0.5 font-mono text-[11px] font-bold text-brand-800">
+                    {{ t.codigo_tramite }}
+                  </span>
+                  <span v-if="t.es_menor_edad" class="ml-1.5 rounded bg-amber-100 px-1.5 py-0.2 text-[10px] font-bold text-amber-800">
+                    Menor
+                  </span>
+                </td>
+                <!-- Solicitante -->
+                <td class="py-3 px-4">
+                  <div class="font-bold text-slate-800 group-hover:text-brand-700 transition-colors">
+                    {{ t.deportista?.nombres }} {{ t.deportista?.apellidos }}
+                  </div>
+                  <div class="text-[11px] text-slate-400">
+                    {{ t.deportista?.asociacion?.nombre || 'Deporte Chuquisaca' }}
+                  </div>
+                </td>
+                <!-- Evento Deportivo -->
+                <td class="py-3 px-4">
+                  <div class="font-semibold text-slate-800 line-clamp-1 max-w-xs">
+                    {{ t.evento_nombre }}
+                  </div>
+                  <div class="text-[11px] text-slate-400">
+                    Fecha: {{ t.fecha_evento ? t.fecha_evento.split('T')[0] : 'N/A' }}
+                  </div>
+                </td>
+                <!-- Tipo & Monto -->
+                <td class="py-3 px-4 whitespace-nowrap">
+                  <div class="font-bold font-mono text-slate-800">
+                    Bs {{ Number(t.monto_solicitado).toLocaleString('es-BO', {minimumFractionDigits: 2}) }}
+                  </div>
+                  <div class="text-[10px] text-slate-400">
+                    {{ t.tipo_solicitud }}
+                  </div>
+                </td>
+                <!-- Etapa & Estado -->
+                <td class="py-3 px-4">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span
+                      class="rounded px-2 py-0.5 text-[10px] font-extrabold"
+                      :class="t.etapa_actual === 5 ? 'bg-amber-600 text-white' : (t.etapa_actual >= 16 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700')"
+                    >
+                      Paso {{ t.etapa_actual }}
+                    </span>
+                    <span
+                      class="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                      :class="{
+                        'bg-blue-100 text-blue-800': t.estado === 'Registrada',
+                        'bg-amber-100 text-amber-800 border border-amber-300': t.estado.includes('Observada') || t.etapa_actual === 5,
+                        'bg-purple-100 text-purple-800': t.estado.includes('Técnica') || t.estado.includes('Presupuestaria'),
+                        'bg-emerald-100 text-emerald-800': t.estado.includes('Aprobada') || t.estado.includes('Pagada'),
+                        'bg-red-100 text-red-800': t.estado === 'Rechazada',
+                        'bg-slate-100 text-slate-700': !t.estado.includes('Observada') && !t.estado.includes('Pagada') && !t.estado.includes('Aprobada')
+                      }"
+                    >
+                      {{ t.estado }}
+                    </span>
+                  </div>
+                  <div class="text-[10px] text-slate-400 mt-0.5 truncate max-w-xs">
+                    {{ t.unidad_actual }}
+                  </div>
+                </td>
+                <!-- Acción -->
+                <td class="py-3 px-4 text-right whitespace-nowrap">
+                  <button
+                    type="button"
+                    class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-xs font-bold text-brand-700 shadow-sm transition-all hover:bg-brand-600 hover:text-white group-hover:border-brand-600"
+                  >
+                    Ver Solicitud ➔
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- Indicador de Carga -->
-    <div v-if="isLoading" class="p-8 text-center text-slate-500">Cargando trámites...</div>
-    <div v-else-if="errorMessage" role="alert" class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      {{ errorMessage }}
-    </div>
-
-    <!-- Listado de Trámites -->
-    <div v-else class="space-y-4">
-      <div v-if="tramites.length === 0" class="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-        <p class="text-slate-400 text-sm">No se encontraron trámites registrados con el filtro seleccionado.</p>
-        <button class="btn-primary mt-4 text-xs font-bold" @click="openCreateModal">
-          + Iniciar Primera Solicitud de Apoyo
-        </button>
-      </div>
-
-      <div
-        v-for="t in tramites"
-        :key="t.id"
-        class="rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md"
-        :class="t.estado.includes('Observada') ? 'border-amber-400 bg-amber-50/20' : 'border-slate-200 hover:border-brand-300'"
-      >
-        <div class="flex flex-col justify-between gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center">
-          <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded bg-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-brand-800">{{ t.codigo_tramite }}</span>
-              <span class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                Etapa {{ t.etapa_actual }} de 17: {{ getNombreUnidadPorEtapa(t.etapa_actual) }}
+    <!-- ======================================================== -->
+    <!-- MODO 2: VIEW OFICIAL DE LA SOLICITUD DE APOYO            -->
+    <!-- ======================================================== -->
+    <div v-else-if="viewMode === 'solicitud' && selectedTramite" class="space-y-5">
+      <!-- Barra superior / Breadcrumb y resumen clave del trámite -->
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="btn-secondary text-xs flex items-center gap-1.5 font-bold"
+              @click="viewMode = 'list'"
+            >
+              <span>←</span>
+              <span>Volver a la Lista</span>
+            </button>
+            <span class="text-slate-300">|</span>
+            <div class="flex items-center gap-2">
+              <span class="rounded bg-brand-100 px-2 py-0.5 font-mono text-xs font-extrabold text-brand-800">
+                {{ selectedTramite.codigo_tramite }}
               </span>
-              <span v-if="t.es_menor_edad" class="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">Menor de Edad</span>
-              <span class="rounded bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-800">{{ t.tipo_solicitud }}</span>
+              <span class="text-xs font-bold text-slate-700">
+                Expediente Digital Oficial
+              </span>
             </div>
-
-            <h2 class="mt-1.5 font-display text-base font-bold text-slate-900">{{ t.evento_nombre }}</h2>
-            <p class="text-xs text-slate-500">
-              Solicitante: <strong class="text-slate-800">{{ t.deportista?.nombres }} {{ t.deportista?.apellidos }}</strong>
-              <span v-if="t.deportista?.asociacion">({{ t.deportista.asociacion.nombre }})</span>
-              <span v-if="t.deportista?.club" class="ml-1 text-slate-400">· Club {{ t.deportista.club.nombre }}</span>
-            </p>
           </div>
 
-          <div class="flex items-center gap-4">
-            <div class="text-right">
-              <span class="block text-xs font-semibold text-slate-400">Monto Solicitado</span>
-              <span class="font-mono text-sm font-bold text-brand-700">
-                Bs {{ Number(t.monto_solicitado).toLocaleString('es-BO', {minimumFractionDigits: 2}) }}
-                <span v-if="t.monto_aprobado" class="text-emerald-700 font-bold block text-xs">
-                  Aprobado: Bs {{ Number(t.monto_aprobado).toLocaleString('es-BO', {minimumFractionDigits: 2}) }}
-                </span>
-              </span>
-            </div>
-
+          <div class="flex items-center gap-2">
             <span
               class="rounded-full px-3 py-1 text-xs font-bold"
               :class="{
-                'bg-blue-100 text-blue-800': t.estado === 'Registrada',
-                'bg-amber-100 text-amber-800 border border-amber-300': t.estado.includes('Observada') || t.etapa_actual === 5,
-                'bg-purple-100 text-purple-800': t.estado.includes('Técnica') || t.estado.includes('Presupuestaria'),
-                'bg-emerald-100 text-emerald-800': t.estado.includes('Aprobada') || t.estado.includes('Pagada'),
-                'bg-red-100 text-red-800': t.estado === 'Rechazada',
-                'bg-slate-100 text-slate-700': !t.estado.includes('Observada') && !t.estado.includes('Pagada') && !t.estado.includes('Aprobada')
+                'bg-blue-100 text-blue-800': selectedTramite.estado === 'Registrada',
+                'bg-amber-100 text-amber-800 border border-amber-300': selectedTramite.estado.includes('Observada') || selectedTramite.etapa_actual === 5,
+                'bg-purple-100 text-purple-800': selectedTramite.estado.includes('Técnica') || selectedTramite.estado.includes('Presupuestaria'),
+                'bg-emerald-100 text-emerald-800': selectedTramite.estado.includes('Aprobada') || selectedTramite.estado.includes('Pagada'),
+                'bg-slate-100 text-slate-700': !selectedTramite.estado.includes('Observada') && !selectedTramite.estado.includes('Pagada') && !selectedTramite.estado.includes('Aprobada')
               }"
             >
-              {{ t.estado }}
+              {{ selectedTramite.estado }}
             </span>
-
-            <div class="flex items-center gap-2">
-              <button
-                class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700 shadow-sm"
-                @click="openExpediente(t)"
-              >
-                Ver Expediente
-              </button>
-
-              <button
-                v-if="!isDeportista"
-                class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                @click="openDerivarModal(t)"
-              >
-                Derivar →
-              </button>
-            </div>
+            <span class="rounded bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+              Paso {{ selectedTramite.etapa_actual }} de 17
+            </span>
           </div>
         </div>
 
-        <!-- Fila de Detalles y Requisitos -->
-        <div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div class="flex flex-wrap items-center gap-4 text-slate-600">
-            <div>
-              <span class="text-slate-400">Unidad Responsable:</span>
-              <strong class="ml-1 text-slate-800">{{ t.unidad_actual }}</strong>
-            </div>
-            <div>
-              <span class="text-slate-400">Fecha del Evento:</span>
-              <strong class="ml-1 text-slate-800">{{ t.fecha_evento ? t.fecha_evento.split('T')[0] : 'N/A' }}</strong>
-            </div>
-            <div v-if="t.cuenta_sigep">
-              <span class="text-slate-400">Cuenta SIGEP:</span>
-              <strong class="ml-1 font-mono text-slate-800">{{ t.cuenta_sigep }}</strong>
-            </div>
-          </div>
-
-          <!-- Alerta de Subsanación en tarjeta si aplica -->
-          <div v-if="t.estado.includes('Observada') || t.etapa_actual === 5" class="w-full mt-2 rounded-lg bg-amber-100/80 border border-amber-300 p-2.5 flex items-center justify-between text-amber-900">
-            <span class="font-semibold text-xs flex items-center gap-1.5">
-              <span>⚠️ Observación:</span>
-              <span>{{ t.observaciones || 'Se requiere corregir la documentación para continuar el trámite.' }}</span>
+        <!-- Ficha de datos clave -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <div>
+            <span class="text-slate-400 block font-medium">Solicitante:</span>
+            <strong class="text-slate-800 text-sm">
+              {{ selectedTramite.deportista?.nombres }} {{ selectedTramite.deportista?.apellidos }}
+            </strong>
+            <span class="block text-[11px] text-slate-500">
+              CI: {{ selectedTramite.deportista?.ci }}
+              <span v-if="selectedTramite.es_menor_edad" class="text-amber-700 font-bold ml-1">(Menor)</span>
             </span>
-            <button class="px-3 py-1 bg-amber-700 text-white rounded text-xs font-bold hover:bg-amber-800 shrink-0" @click="openExpediente(t)">
-              Subsanar en Expediente →
-            </button>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-medium">Disciplina / Asociación:</span>
+            <strong class="text-slate-800 text-sm">
+              {{ selectedTramite.deportista?.asociacion?.nombre || 'Deporte General' }}
+            </strong>
+            <span v-if="selectedTramite.deportista?.club" class="block text-[11px] text-slate-500">
+              Club: {{ selectedTramite.deportista.club.nombre }}
+            </span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-medium">Evento Oficial:</span>
+            <strong class="text-slate-800 text-sm line-clamp-1">
+              {{ selectedTramite.evento_nombre }}
+            </strong>
+            <span class="block text-[11px] text-slate-500">
+              Fecha: {{ selectedTramite.fecha_evento ? selectedTramite.fecha_evento.split('T')[0] : 'N/A' }}
+            </span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-medium">Monto Solicitado:</span>
+            <strong class="text-brand-700 font-mono text-base">
+              Bs {{ Number(selectedTramite.monto_solicitado).toLocaleString('es-BO', {minimumFractionDigits: 2}) }}
+            </strong>
+            <span v-if="selectedTramite.monto_aprobado" class="block text-[11px] text-emerald-700 font-bold">
+              Aprobado: Bs {{ Number(selectedTramite.monto_aprobado).toLocaleString('es-BO', {minimumFractionDigits: 2}) }}
+            </span>
           </div>
         </div>
       </div>
+
+      <!-- Espacio de Trabajo / View de la Etapa Oficial -->
+      <TramiteEtapaWorkspace
+        :tramite="selectedTramite"
+        :is-deportista="isDeportista"
+        @updated="onTramiteUpdated"
+        @back="viewMode = 'list'"
+        @close="viewMode = 'list'"
+      />
     </div>
 
     <!-- ======================================================== -->
@@ -965,193 +1194,6 @@ onMounted(async () => {
     </div>
 
     <!-- ======================================================== -->
-    <!-- MODAL 2: EXPEDIENTE DIGITAL Y REQUISITOS (17 ETAPAS)      -->
-    <!-- ======================================================== -->
-    <div v-if="showExpedienteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div class="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl my-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="rounded bg-brand-100 px-2 py-0.5 font-mono text-xs font-bold text-brand-800">{{ selectedTramite?.codigo_tramite }}</span>
-              <span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                Paso {{ selectedTramite?.etapa_actual }} de 17: {{ getNombreUnidadPorEtapa(selectedTramite?.etapa_actual) }}
-              </span>
-            </div>
-            <h2 class="font-display text-xl font-bold text-slate-900 mt-1">{{ selectedTramite?.evento_nombre }}</h2>
-            <p class="text-xs text-slate-500">Solicitante: {{ selectedTramite?.deportista?.nombres }} {{ selectedTramite?.deportista?.apellidos }}</p>
-          </div>
-          <button class="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200" @click="closeModals">✕</button>
-        </div>
-
-        <!-- Pestañas del Expediente -->
-        <div class="mt-4 flex border-b border-slate-200 text-sm font-semibold">
-          <button class="px-4 py-2 border-b-2 transition-colors" :class="activeTab === 'resumen' ? 'border-brand-600 text-brand-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" @click="activeTab = 'resumen'">
-            1. Avance del Procedimiento (17 Etapas)
-          </button>
-          <button class="px-4 py-2 border-b-2 transition-colors" :class="activeTab === 'requisitos' ? 'border-brand-600 text-brand-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" @click="activeTab = 'requisitos'">
-            2. Requisitos y Documentos Digitales ({{ expedienteDetalle?.data?.requisitos?.length || 0 }})
-          </button>
-          <button class="px-4 py-2 border-b-2 transition-colors" :class="activeTab === 'trazabilidad' ? 'border-brand-600 text-brand-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" @click="activeTab = 'trazabilidad'">
-            3. Historial de Derivaciones
-          </button>
-        </div>
-
-        <!-- TAB 1: AVANCE DEL PROCEDIMIENTO -->
-        <div v-if="activeTab === 'resumen'" class="mt-4 space-y-4">
-          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-              Estado Actual: Etapa {{ selectedTramite?.etapa_actual }} · {{ selectedTramite?.estado }}
-            </h4>
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-3 max-h-72 overflow-y-auto pr-2">
-              <div
-                v-for="item in expedienteDetalle?.flujo_etapas"
-                :key="item.etapa"
-                class="rounded-lg p-2.5 text-xs border"
-                :class="{
-                  'bg-emerald-50 border-emerald-300 text-emerald-900 font-medium': item.completado,
-                  'bg-brand-600 border-brand-700 text-white font-bold shadow-md': item.es_actual,
-                  'bg-white border-slate-200 text-slate-400': !item.completado && !item.es_actual
-                }"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="font-bold">Etapa {{ item.etapa }}</span>
-                  <span>{{ item.completado ? '✓' : item.es_actual ? '➔' : '' }}</span>
-                </div>
-                <div class="font-bold mt-0.5">{{ item.nombre }}</div>
-                <div class="text-[10px] opacity-80">{{ item.responsable }}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
-            <!-- Botón Subsanación para el Deportista -->
-            <button
-              v-if="selectedTramite?.estado.includes('Observada') || selectedTramite?.etapa_actual === 5"
-              class="btn-primary bg-amber-600 hover:bg-amber-700 text-xs font-bold"
-              @click="ejecutarSubsanacion"
-            >
-              ✓ Enviar Subsanación a Revisión Técnica (Etapa 4)
-            </button>
-
-            <!-- Botón Derivación para Staff/Admin -->
-            <button
-              v-if="!isDeportista"
-              class="btn-primary bg-slate-800 hover:bg-slate-900 text-xs font-bold"
-              @click="openDerivarModal(selectedTramite)"
-            >
-              Derivar a Siguiente Etapa →
-            </button>
-          </div>
-        </div>
-
-        <!-- TAB 2: REQUISITOS Y SUBSANACIÓN DE DOCUMENTOS -->
-        <div v-if="activeTab === 'requisitos'" class="mt-4 space-y-3">
-          <div class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
-            <div
-              v-for="req in expedienteDetalle?.data?.requisitos"
-              :key="req.id"
-              class="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3"
-            >
-              <div class="space-y-1">
-                <span class="font-bold text-xs text-slate-800">{{ req.requisito_nombre }}</span>
-
-                <div v-if="req.archivo_nombre" class="flex items-center gap-2">
-                  <a :href="req.archivo_path" target="_blank" rel="noopener noreferrer" class="text-[11px] font-semibold text-brand-600 hover:underline flex items-center gap-1">
-                    <span>📄 {{ req.archivo_nombre }}</span>
-                    <span class="text-[10px] text-slate-400">(Abrir Documento)</span>
-                  </a>
-                </div>
-                <div v-else class="text-[11px] text-slate-400 italic">
-                  Sin documento adjunto aún.
-                </div>
-
-                <p v-if="req.observacion" class="text-[11px] font-semibold text-amber-700 bg-amber-50 p-1.5 rounded border border-amber-200">
-                  Obs: {{ req.observacion }}
-                </p>
-              </div>
-
-              <div class="flex items-center gap-2 shrink-0">
-                <!-- Botón Subir / Subsanar Archivo -->
-                <label class="btn-secondary py-1 px-2.5 text-[11px] cursor-pointer flex items-center gap-1 hover:bg-brand-50 hover:text-brand-700 transition-colors">
-                  <span v-if="uploadingReqId === req.id">Subiendo...</span>
-                  <span v-else>📎 Cargar / Cambiar</span>
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                    class="hidden"
-                    :disabled="uploadingReqId === req.id"
-                    @change="subirDocumentoRequisito(req, $event)"
-                  />
-                </label>
-
-                <!-- Estado del Requisito -->
-                <span
-                  class="rounded px-2.5 py-1 text-xs font-bold"
-                  :class="{
-                    'bg-emerald-100 text-emerald-800': req.estado_validacion === 'Valido' || req.estado_validacion === 'Subsanado',
-                    'bg-amber-100 text-amber-800': req.estado_validacion === 'Observado',
-                    'bg-slate-100 text-slate-600': req.estado_validacion === 'Pendiente'
-                  }"
-                >
-                  {{ req.estado_validacion }}
-                </span>
-
-                <!-- Botón de Evaluación de Requisito para Personal Administrativo -->
-                <button
-                  v-if="!isDeportista"
-                  class="rounded border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
-                  @click="openValidarRequisito(req)"
-                >
-                  Evaluar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Si el trámite está observado, botón de reingreso -->
-          <div v-if="selectedTramite?.estado.includes('Observada') || selectedTramite?.etapa_actual === 5" class="rounded-xl border border-amber-300 bg-amber-50 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
-            <div>
-              <p class="font-bold text-xs text-amber-900">¿Terminaste de cargar los documentos observados?</p>
-              <p class="text-[11px] text-amber-800">Haz clic en subsanar para notificar a la Comisión Técnica y reanudar el trámite.</p>
-            </div>
-            <button class="btn-primary bg-amber-600 hover:bg-amber-700 text-xs font-bold shrink-0" @click="ejecutarSubsanacion">
-              ✓ Subsanar y Enviar a Revisión Técnica
-            </button>
-          </div>
-        </div>
-
-        <!-- TAB 3: HISTORIAL DE DERIVACIONES -->
-        <div v-if="activeTab === 'trazabilidad'" class="mt-4 space-y-3">
-          <div class="space-y-2">
-            <div
-              v-for="d in expedienteDetalle?.data?.derivaciones"
-              :key="d.id"
-              class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-            >
-              <div>
-                <div class="flex items-center gap-2">
-                  <span class="font-bold text-slate-800">Paso {{ d.etapa_origen }} ➔ Paso {{ d.etapa_destino }}</span>
-                  <span class="text-slate-400">·</span>
-                  <span class="text-slate-600">{{ d.accion }}</span>
-                </div>
-                <p class="text-slate-500 mt-0.5">
-                  De: <strong>{{ d.unidad_origen }}</strong> a <strong>{{ d.unidad_destino }}</strong>
-                  <span v-if="d.usuario_nombre">({{ d.usuario_nombre }})</span>
-                </p>
-                <p v-if="d.observacion" class="text-slate-700 italic mt-1 bg-white p-2 rounded border border-slate-200">
-                  "{{ d.observacion }}"
-                </p>
-              </div>
-              <span class="text-[11px] text-slate-400 shrink-0 font-mono">
-                {{ d.created_at ? d.created_at.split('T')[0] : '' }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ======================================================== -->
     <!-- MODAL 3: EVALUAR REQUISITO (ADMIN)                       -->
     <!-- ======================================================== -->
     <div v-if="showRequisitoObsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -1177,52 +1219,6 @@ onMounted(async () => {
           <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <button type="button" class="btn-secondary" @click="showRequisitoObsModal = false">Cancelar</button>
             <button type="submit" class="btn-primary" :disabled="saving">Guardar Calificación</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ======================================================== -->
-    <!-- MODAL 4: DERIVACIÓN (ADMIN)                              -->
-    <!-- ======================================================== -->
-    <div v-if="showDerivarModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-        <h3 class="font-display text-base font-bold text-slate-900">Derivar Expediente</h3>
-        <p class="text-xs text-slate-500 mt-1">Trámite: {{ selectedTramite?.codigo_tramite }} · {{ selectedTramite?.evento_nombre }}</p>
-
-        <form @submit.prevent="ejecutarDerivacion" class="mt-4 space-y-3">
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Etapa de Destino *</label>
-              <select v-model="derivarForm.etapa_destino" class="input-field text-xs font-semibold">
-                <option v-for="e in ETAPAS_PROCEDIMIENTO" :key="e.numero" :value="e.numero">
-                  Paso {{ e.numero }}: {{ e.nombre }}
-                </option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Monto Aprobado (Bs)</label>
-              <input v-model="derivarForm.monto_aprobado" type="number" step="0.5" class="input-field text-xs font-mono" />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Acción</label>
-            <input v-model="derivarForm.accion" type="text" class="input-field text-xs" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Observaciones / Dictamen</label>
-            <textarea v-model="derivarForm.observaciones" rows="3" class="input-field text-xs" placeholder="Instrucción u observaciones sobre el expediente..."></textarea>
-          </div>
-
-          <div v-if="formError" class="text-xs text-red-600">{{ formError }}</div>
-
-          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button type="button" class="btn-secondary" @click="closeModals">Cancelar</button>
-            <button type="submit" class="btn-primary" :disabled="saving">
-              {{ saving ? 'Derivando...' : 'Confirmar Derivación' }}
-            </button>
           </div>
         </form>
       </div>
