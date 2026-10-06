@@ -14,6 +14,11 @@ export const mancomunidadService = {
 
   async createMancomunidad(payload) {
     const { data } = await api.post('/mancomunidades', payload)
+    return data
+  },
+
+  async listUsuariosDisponibles() {
+    const { data } = await api.get('/mancomunidades-usuarios')
     return data.data
   },
 
@@ -55,6 +60,17 @@ export const mancomunidadService = {
   async getAuditoria(id) {
     const { data } = await api.get(`/mancomunidades/${id}/auditoria`)
     return data.data
+  },
+
+  // --- USUARIOS DE ACCESO COMUNITARIO ---
+  async getUsuariosMancomunidad(mancomunidadId) {
+    const { data } = await api.get(`/mancomunidades/${mancomunidadId}/usuarios`)
+    return data.data
+  },
+
+  async crearUsuarioMancomunidad(mancomunidadId, payload) {
+    const { data } = await api.post(`/mancomunidades/${mancomunidadId}/usuarios`, payload)
+    return data
   },
 
   // --- MIEMBROS ---

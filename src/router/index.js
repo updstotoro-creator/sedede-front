@@ -154,8 +154,23 @@ router.beforeEach((to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (guestOnly && auth.isAuthenticated) {
+    const role = auth.user?.role?.nombre
+    if (role === 'comunidades' || role === 'representante_mancomunidad') {
+      return { name: 'dashboard-comunidades' }
+    }
     return { name: 'dashboard' }
   }
+
+  // Restricción estricta de navegación: rol comunidades sólo puede acceder a su módulo
+  if (auth.isAuthenticated) {
+    const role = auth.user?.role?.nombre
+    if (role === 'comunidades' || role === 'representante_mancomunidad') {
+      if (to.name !== 'dashboard-comunidades' && to.path !== '/dashboard/comunidades') {
+        return { name: 'dashboard-comunidades' }
+      }
+    }
+  }
+
   return true
 })
 

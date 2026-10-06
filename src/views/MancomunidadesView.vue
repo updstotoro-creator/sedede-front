@@ -6,7 +6,13 @@ import { escenarioService } from '../services/escenarioService'
 
 const auth = useAuthStore()
 
-// Pestañas activas: 'mancomunidades' | 'solicitudes' | 'recursos' | 'municipios'
+// Detección de roles
+const isSedede = computed(() => ['admin', 'sedede'].includes(auth.user?.role?.nombre))
+const isComunidad = computed(() => ['comunidades', 'representante_mancomunidad'].includes(auth.user?.role?.nombre))
+
+// Pestañas activas:
+// Para Comunidad: 'mi_comunidad' | 'solicitudes'
+// Para SEDEDE: 'mancomunidades' | 'solicitudes' | 'recursos' | 'municipios'
 const activeTab = ref('mancomunidades')
 const isLoading = ref(false)
 const notification = ref(null)
@@ -17,6 +23,14 @@ const solicitudes = ref([])
 const recursos = ref([])
 const municipios = ref([])
 const escenarios = ref([])
+
+// Comunidad asignada para usuario rol comunidad
+const miComunidad = computed(() => {
+  if (isComunidad.value) {
+    return mancomunidades.value[0] || null
+  }
+  return null
+})
 
 // Filtros y búsquedas
 const searchMancomunidad = ref('')
@@ -29,6 +43,22 @@ const filterTipoSolicitud = ref('TODOS')
 const showMancomunidadModal = ref(false)
 const isEditingMancomunidad = ref(false)
 const selectedMancomunidad = ref(null)
+
+// Modal de Credenciales generadas (para entrega a la comunidad)
+const showCredencialesModal = ref(false)
+const credencialesGeneradas = ref(null)
+
+// Modal de asignación de usuario para comunidad existente
+const showUsuarioModal = ref(false)
+const selectedComunidadForUser = ref(null)
+const usuariosComunidadesDisponibles = ref([])
+const usuarioForm = reactive({
+  tipo_usuario: 'existente', // 'existente' | 'nuevo'
+  usuario_id_seleccionado: '',
+  name: '',
+  email: '',
+  password: 'Comunidad2026*',
+})
 
 const showExpedienteModal = ref(false)
 const expedienteDocs = ref([])
@@ -51,9 +81,7 @@ const solicitudForm = reactive({
   solicitante_tipo: 'mancomunidad',
   titulo: '',
   descripcion: '',
-  // Tipo recursos:
   recursos: [{ recurso_id: '', cantidad_solicitada: 1 }],
-  // Tipo espacio:
   espacio_id: '',
   actividad: '',
   fecha_uso: '',
@@ -98,15 +126,21 @@ const mancomunidadForm = reactive({
   direccion: '',
   telefono: '',
   correo: '',
+  crear_usuario: true,
+  tipo_usuario: 'existente', // 'existente' | 'nuevo' | 'ninguno'
+  usuario_id_seleccionado: '',
+  usuario_nombre: '',
+  usuario_email: '',
+  usuario_password: 'Comunidad2026*',
 })
 
-// Tipos fijos de documentos
+// Tipos fijos de documentos legales
 const tiposDocumentos = [
-  { value: 'convenio_constitucion', label: 'Convenio de Constitución' },
-  { value: 'estatutos', label: 'Estatutos Orgánicos' },
-  { value: 'acta_fundacion', label: 'Acta de Fundación' },
-  { value: 'nit', label: 'Número de Identificación Tributaria (NIT)' },
-  { value: 'certificado_alcaldes', label: 'Certificado de Alcaldes Integrantes' },
+  { value: 'convenio_constitucion', label: 'Convenio de Constitución Intermunicipal' },
+  { value: 'estatutos', label: 'Estatutos Orgánicos y Reglamentos' },
+  { value: 'acta_fundacion', label: 'Acta de Fundación Comunitaria' },
+  { value: 'nit', label: 'Número de Identificación Tributaria (NIT / Código)' },
+  { value: 'certificado_alcaldes', label: 'Certificado de Autoridades / Alcaldes' },
 ]
 
 function showNotice(msg, type = 'success') {
@@ -116,7 +150,7 @@ function showNotice(msg, type = 'success') {
   }, 4500)
 }
 
-// Cargas de datos
+// Carga inicial y actualización de datos
 async function loadAll() {
   isLoading.value = true
   try {
@@ -133,6 +167,20 @@ async function loadAll() {
     if (recRes.status === 'fulfilled') recursos.value = recRes.value.data || []
     if (munRes.status === 'fulfilled') municipios.value = munRes.value || []
     if (escRes.status === 'fulfilled') escenarios.value = escRes.value || []
+
+    // Si es usuario comunidad, establecer pestaña inicial y cargar su expediente
+    if (isComunidad.value) {
+      if (activeTab.value !== 'solicitudes') {
+        activeTab.value = 'mi_comunidad'
+      }
+      if (mancomunidades.value.length > 0) {
+        await loadExpedienteComunidad(mancomunidades.value[0].id)
+      }
+    } else if (isSedede.value) {
+      mancomunidadService.listUsuariosDisponibles().then((users) => {
+        usuariosComunidadesDisponibles.value = users || []
+      }).catch(() => {})
+    }
   } catch (err) {
     console.error('Error cargando módulo mancomunidades:', err)
   } finally {
@@ -140,7 +188,23 @@ async function loadAll() {
   }
 }
 
+async function loadExpedienteComunidad(comunidadId) {
+  try {
+    const [docs, reqs] = await Promise.allSettled([
+      mancomunidadService.getDocumentos(comunidadId),
+      mancomunidadService.getRequisitos(comunidadId),
+    ])
+    if (docs.status === 'fulfilled') expedienteDocs.value = docs.value || []
+    if (reqs.status === 'fulfilled') expedienteRequisitos.value = reqs.value || null
+  } catch (e) {
+    console.error('Error cargando expediente de comunidad:', e)
+  }
+}
+
 onMounted(() => {
+  if (isComunidad.value) {
+    activeTab.value = 'mi_comunidad'
+  }
   loadAll()
 })
 
@@ -182,7 +246,53 @@ const filteredSolicitudes = computed(() => {
   })
 })
 
-// --- ACCIONES MANCOMUNIDAD ---
+// --- ACCIONES MANCOMUNIDAD POR SEDEDE ---
+function selectComunidadCuentaPrincipal() {
+  mancomunidadForm.tipo_usuario = 'existente'
+  mancomunidadForm.crear_usuario = true
+  const found = usuariosComunidadesDisponibles.value.find((u) => u.email === 'comunidades@sedede.gob.bo')
+  if (found) {
+    mancomunidadForm.usuario_id_seleccionado = found.id
+    mancomunidadForm.usuario_email = found.email
+    mancomunidadForm.usuario_nombre = found.name
+  } else {
+    mancomunidadForm.usuario_email = 'comunidades@sedede.gob.bo'
+    mancomunidadForm.usuario_nombre = 'Representante Mancomunidades Chuquisaca'
+  }
+}
+
+function onSelectUsuarioExistente(e) {
+  const userId = e.target.value
+  const found = usuariosComunidadesDisponibles.value.find((u) => String(u.id) === String(userId))
+  if (found) {
+    mancomunidadForm.usuario_email = found.email
+    mancomunidadForm.usuario_nombre = found.name
+  }
+}
+
+function selectComunidadCuentaPrincipalEnModal() {
+  usuarioForm.tipo_usuario = 'existente'
+  const found = usuariosComunidadesDisponibles.value.find((u) => u.email === 'comunidades@sedede.gob.bo')
+  if (found) {
+    usuarioForm.usuario_id_seleccionado = found.id
+    usuarioForm.name = found.name
+    usuarioForm.email = found.email
+  } else {
+    usuarioForm.name = 'Representante Mancomunidades Chuquisaca'
+    usuarioForm.email = 'comunidades@sedede.gob.bo'
+  }
+}
+
+function onSelectUsuarioExistenteEnModal(e) {
+  const userId = e.target.value
+  const found = usuariosComunidadesDisponibles.value.find((u) => String(u.id) === String(userId))
+  if (found) {
+    usuarioForm.name = found.name
+    usuarioForm.email = found.email
+  }
+}
+
+// --- ACCIONES MANCOMUNIDAD POR SEDEDE ---
 function openCreateMancomunidad() {
   isEditingMancomunidad.value = false
   Object.assign(mancomunidadForm, {
@@ -194,7 +304,16 @@ function openCreateMancomunidad() {
     direccion: '',
     telefono: '',
     correo: '',
+    crear_usuario: true,
+    tipo_usuario: 'existente',
+    usuario_id_seleccionado: '',
+    usuario_nombre: '',
+    usuario_email: '',
+    usuario_password: 'Comunidad2026*',
   })
+
+  // Pre-vincular cuenta principal comunidades@sedede.gob.bo por defecto para agilizar
+  selectComunidadCuentaPrincipal()
   showMancomunidadModal.value = true
 }
 
@@ -209,6 +328,12 @@ function openEditMancomunidad(m) {
     direccion: m.direccion || '',
     telefono: m.telefono || '',
     correo: m.correo || '',
+    crear_usuario: false,
+    tipo_usuario: 'ninguno',
+    usuario_id_seleccionado: '',
+    usuario_nombre: '',
+    usuario_email: '',
+    usuario_password: '',
   })
   showMancomunidadModal.value = true
 }
@@ -217,23 +342,96 @@ async function saveMancomunidad() {
   try {
     if (isEditingMancomunidad.value) {
       await mancomunidadService.updateMancomunidad(mancomunidadForm.id, mancomunidadForm)
-      showNotice('Mancomunidad actualizada correctamente')
+      showNotice('Comunidad actualizada correctamente')
+      showMancomunidadModal.value = false
     } else {
-      await mancomunidadService.createMancomunidad(mancomunidadForm)
-      showNotice('Mancomunidad creada exitosamente')
+      const payload = { ...mancomunidadForm }
+      if (!mancomunidadForm.crear_usuario || mancomunidadForm.tipo_usuario === 'ninguno') {
+        delete payload.usuario_nombre
+        delete payload.usuario_email
+        delete payload.usuario_password
+      }
+      delete payload.tipo_usuario
+      delete payload.usuario_id_seleccionado
+
+      const res = await mancomunidadService.createMancomunidad(payload)
+      showNotice('Comunidad registrada exitosamente en el sistema')
+      showMancomunidadModal.value = false
+
+      if (res.usuario) {
+        credencialesGeneradas.value = {
+          comunidad: mancomunidadForm.nombre,
+          nombre: res.usuario.name,
+          email: res.usuario.email,
+          password: res.usuario.password_inicial || mancomunidadForm.usuario_password,
+          vinculado: res.usuario.vinculado ?? false,
+        }
+        showCredencialesModal.value = true
+      }
     }
-    showMancomunidadModal.value = false
     loadAll()
   } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al guardar mancomunidad', 'error')
+    if (err.response?.data?.errors) {
+      const msgs = Object.values(err.response.data.errors).flat().join('. ')
+      showNotice(`Error de validación: ${msgs}`, 'error')
+    } else {
+      showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al guardar comunidad', 'error')
+    }
+  }
+}
+
+// Gestión de usuario para comunidad existente por SEDEDE
+function openGestionarUsuario(m) {
+  selectedComunidadForUser.value = m
+  const existingUser = m.users?.[0]
+  if (existingUser) {
+    usuarioForm.tipo_usuario = 'nuevo'
+    usuarioForm.usuario_id_seleccionado = ''
+    usuarioForm.name = existingUser.name
+    usuarioForm.email = existingUser.email
+    usuarioForm.password = 'Comunidad2026*'
+  } else {
+    usuarioForm.tipo_usuario = 'existente'
+    selectComunidadCuentaPrincipalEnModal()
+    usuarioForm.password = 'Comunidad2026*'
+  }
+  showUsuarioModal.value = true
+}
+
+async function saveUsuarioComunidad() {
+  if (!selectedComunidadForUser.value) return
+  try {
+    const res = await mancomunidadService.crearUsuarioMancomunidad(selectedComunidadForUser.value.id, {
+      name: usuarioForm.name,
+      email: usuarioForm.email,
+      password: usuarioForm.password,
+    })
+    showNotice('Credenciales de acceso asignadas exitosamente a la comunidad')
+    credencialesGeneradas.value = {
+      comunidad: selectedComunidadForUser.value.nombre,
+      nombre: usuarioForm.name,
+      email: usuarioForm.email,
+      password: usuarioForm.password,
+      vinculado: true,
+    }
+    showUsuarioModal.value = false
+    showCredencialesModal.value = true
+    loadAll()
+  } catch (err) {
+    if (err.response?.data?.errors) {
+      const msgs = Object.values(err.response.data.errors).flat().join('. ')
+      showNotice(`Error de validación: ${msgs}`, 'error')
+    } else {
+      showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al asignar usuario', 'error')
+    }
   }
 }
 
 async function suspenderMancomunidad(id) {
-  if (!confirm('¿Confirma que desea suspender legalmente esta mancomunidad? Sus solicitudes en curso se congelarán.')) return
+  if (!confirm('¿Confirma que desea suspender legalmente esta comunidad? Sus solicitudes en curso quedarán congeladas.')) return
   try {
     await mancomunidadService.suspenderMancomunidad(id)
-    showNotice('Mancomunidad suspendida')
+    showNotice('Comunidad suspendida')
     loadAll()
   } catch (err) {
     showNotice(err.response?.data?.message || 'Error al suspender', 'error')
@@ -243,140 +441,192 @@ async function suspenderMancomunidad(id) {
 async function reactivarMancomunidad(id) {
   try {
     await mancomunidadService.reactivarMancomunidad(id)
-    showNotice('Mancomunidad reactivada (Estado: Pendiente de expediente)')
+    showNotice('Comunidad reactivada (Estado: Pendiente de expediente)')
     loadAll()
   } catch (err) {
     showNotice(err.response?.data?.message || 'Error al reactivar', 'error')
   }
 }
 
-// --- EXPEDIENTE DOCUMENTAL ---
+// --- EXPEDIENTE DOCUMENTAL (SEDEDE & COMUNIDAD) ---
 async function openExpediente(m) {
   selectedMancomunidad.value = m
-  try {
-    const [docs, reqs] = await Promise.all([
-      mancomunidadService.getDocumentos(m.id),
-      mancomunidadService.getRequisitos(m.id),
-    ])
-    expedienteDocs.value = docs || []
-    expedienteRequisitos.value = reqs || null
-    showExpedienteModal.value = true
-  } catch (err) {
-    showNotice('Error cargando expediente documental', 'error')
-  }
+  newDocType.value = 'convenio_constitucion'
+  newDocFile.value = null
+  await loadExpedienteComunidad(m.id)
+  showExpedienteModal.value = true
 }
 
 function handleFileSelect(e) {
-  const file = e.target.files[0]
-  if (file) newDocFile.value = file
+  newDocFile.value = e.target.files?.[0] || null
 }
 
 async function uploadDocumento() {
-  if (!newDocFile.value) {
-    alert('Seleccione un archivo primero (PDF, JPG, PNG)')
+  const targetId = isComunidad.value ? miComunidad.value?.id : selectedMancomunidad.value?.id
+  if (!targetId || !newDocFile.value) {
+    showNotice('Debe seleccionar un archivo válido', 'error')
     return
   }
+
+  const formData = new FormData()
+  formData.append('tipo', newDocType.value)
+  formData.append('archivo', newDocFile.value)
+
   uploadingDoc.value = true
   try {
-    const formData = new FormData()
-    formData.append('tipo', newDocType.value)
-    formData.append('archivo', newDocFile.value)
-
-    await mancomunidadService.uploadDocumento(selectedMancomunidad.value.id, formData)
-    showNotice('Documento subido con éxito al expediente')
+    await mancomunidadService.uploadDocumento(targetId, formData)
+    showNotice('Documento cargado correctamente')
     newDocFile.value = null
-    // Refrescar expediente
-    openExpediente(selectedMancomunidad.value)
+    await loadExpedienteComunidad(targetId)
+    await loadAll()
   } catch (err) {
-    showNotice(err.response?.data?.message || 'Error subiendo archivo', 'error')
+    showNotice(err.response?.data?.message || 'Error al subir documento', 'error')
   } finally {
     uploadingDoc.value = false
   }
 }
 
-async function aprobarDoc(doc) {
+async function uploadDirectoComunidad(tipo, event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (!miComunidad.value) return
+
+  const formData = new FormData()
+  formData.append('tipo', tipo)
+  formData.append('archivo', file)
+
+  uploadingDoc.value = true
   try {
-    await mancomunidadService.aprobarDocumento(selectedMancomunidad.value.id, doc.id)
-    showNotice('Documento aprobado oficialmente')
-    openExpediente(selectedMancomunidad.value)
+    await mancomunidadService.uploadDocumento(miComunidad.value.id, formData)
+    showNotice(`Documento cargado con éxito para revisión por SEDEDE`)
+    await loadExpedienteComunidad(miComunidad.value.id)
+    await loadAll()
   } catch (err) {
-    showNotice('Error al aprobar documento', 'error')
+    showNotice(err.response?.data?.message || 'Error al subir documento', 'error')
+  } finally {
+    uploadingDoc.value = false
+    event.target.value = ''
+  }
+}
+
+async function aprobarDoc(doc) {
+  const targetId = selectedMancomunidad.value?.id || miComunidad.value?.id
+  try {
+    await mancomunidadService.aprobarDocumento(targetId, doc.id)
+    showNotice('Documento aprobado oficialmente')
+    await loadExpedienteComunidad(targetId)
+    loadAll()
+  } catch (err) {
+    showNotice(err.response?.data?.message || 'Error al aprobar documento', 'error')
   }
 }
 
 async function rechazarDoc(doc) {
-  const obs = prompt('Ingrese las observaciones del rechazo para subsanación:')
-  if (!obs) return
+  const targetId = selectedMancomunidad.value?.id || miComunidad.value?.id
+  const obs = prompt('Ingrese el motivo u observación de rechazo para la comunidad:', doc.observaciones || '')
+  if (obs === null) return
   try {
-    await mancomunidadService.rechazarDocumento(selectedMancomunidad.value.id, doc.id, obs)
-    showNotice('Documento rechazado con observaciones')
-    openExpediente(selectedMancomunidad.value)
+    await mancomunidadService.rechazarDocumento(targetId, doc.id, obs)
+    showNotice('Documento marcado como Rechazado con observaciones')
+    await loadExpedienteComunidad(targetId)
+    loadAll()
   } catch (err) {
-    showNotice('Error al rechazar documento', 'error')
+    showNotice(err.response?.data?.message || 'Error al rechazar documento', 'error')
   }
 }
 
 async function verificarYOficializarExpediente() {
+  const targetId = selectedMancomunidad.value?.id || miComunidad.value?.id
   try {
-    await mancomunidadService.verificarExpediente(selectedMancomunidad.value.id)
-    showNotice('¡Expediente verificado! La mancomunidad ahora está en estado VIGENTE.')
+    await mancomunidadService.verificarExpediente(targetId)
+    showNotice('¡Expediente verificado y aprobado! La comunidad ahora está Vigente.')
     showExpedienteModal.value = false
     loadAll()
   } catch (err) {
-    showNotice(err.response?.data?.message || 'Requisitos incompletos para oficializar expediente', 'error')
+    showNotice(err.response?.data?.message || 'No se puede oficializar: faltan documentos aprobados', 'error')
   }
+}
+
+function descargarDoc(doc) {
+  if (!doc?.id) return
+  const targetId = doc.mancomunidad_id || selectedMancomunidad.value?.id || miComunidad.value?.id
+  const url = `${import.meta.env.VITE_API_BASE_URL || '/sedede/api'}/v1/mancomunidades/${targetId}/documentos/${doc.id}/descargar`
+  window.open(url, '_blank')
 }
 
 // --- MIEMBROS ---
 async function openMiembros(m) {
   selectedMancomunidad.value = m
+  nuevoMiembro.municipio_id = ''
+  nuevoMiembro.cargo = 'alcalde'
   try {
-    const miembros = await mancomunidadService.getMiembros(m.id)
-    miembrosList.value = miembros || []
+    miembrosList.value = await mancomunidadService.getMiembros(m.id)
     showMiembrosModal.value = true
   } catch (err) {
-    showNotice('Error al cargar municipios miembros', 'error')
+    showNotice('Error cargando miembros', 'error')
   }
 }
 
 async function addMiembroToMancomunidad() {
-  if (!nuevoMiembro.municipio_id) {
-    alert('Seleccione un municipio integrante')
-    return
-  }
+  if (!nuevoMiembro.municipio_id) return
   try {
     await mancomunidadService.addMiembro(selectedMancomunidad.value.id, nuevoMiembro)
     showNotice('Municipio afiliado exitosamente')
-    openMiembros(selectedMancomunidad.value)
+    miembrosList.value = await mancomunidadService.getMiembros(selectedMancomunidad.value.id)
+    nuevoMiembro.municipio_id = ''
   } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al agregar miembro', 'error')
+    showNotice(err.response?.data?.message || 'Error al afiliar municipio', 'error')
   }
 }
 
 async function deleteMiembroFromMancomunidad(miembroId) {
-  if (!confirm('¿Desafiliar este municipio de la mancomunidad?')) return
+  if (!confirm('¿Desafiliar este municipio?')) return
   try {
     await mancomunidadService.deleteMiembro(selectedMancomunidad.value.id, miembroId)
     showNotice('Municipio desafiliado')
-    openMiembros(selectedMancomunidad.value)
+    miembrosList.value = await mancomunidadService.getMiembros(selectedMancomunidad.value.id)
   } catch (err) {
-    showNotice('Error al desafiliar miembro', 'error')
+    showNotice(err.response?.data?.message || 'Error al desafiliar', 'error')
   }
 }
 
-// --- SOLICITUDES Y TRANSICIONES ---
+// --- SOLICITUDES DE APOYO ---
 function openNewSolicitud() {
-  solicitudForm.tipo = 'recursos'
-  solicitudForm.solicitante_id = mancomunidades.value[0]?.id || ''
-  solicitudForm.titulo = ''
-  solicitudForm.descripcion = ''
-  solicitudForm.recursos = [{ recurso_id: recursos.value[0]?.id || '', cantidad_solicitada: 5 }]
-  solicitudForm.espacio_id = escenarios.value[0]?.id || ''
-  solicitudForm.actividad = ''
-  solicitudForm.fecha_uso = new Date().toISOString().split('T')[0]
-  solicitudForm.hora_inicio = '08:00'
-  solicitudForm.hora_fin = '14:00'
-  solicitudForm.numero_personas = 50
+  // Verificación para usuario de comunidad
+  if (isComunidad.value) {
+    if (!miComunidad.value) {
+      showNotice('No se encontró su registro de comunidad', 'error')
+      return
+    }
+    if (miComunidad.value.estado_legal !== 'Vigente') {
+      showNotice(
+        `Su comunidad aún no cuenta con aprobación legal del SEDEDE (Estado: ${miComunidad.value.estado_legal}). Debe subir sus documentos en la pestaña 'Mi Registro' y esperar la aprobación.`,
+        'error'
+      )
+      return
+    }
+  }
+
+  // Prellenar solicitante
+  const preSelectedId = isComunidad.value
+    ? miComunidad.value.id
+    : (mancomunidades.value[0]?.id || '')
+
+  Object.assign(solicitudForm, {
+    tipo: 'recursos',
+    solicitante_id: preSelectedId,
+    solicitante_tipo: 'mancomunidad',
+    titulo: '',
+    descripcion: '',
+    recursos: [{ recurso_id: recursos.value[0]?.id || '', cantidad_solicitada: 1 }],
+    espacio_id: escenarios.value[0]?.id || '',
+    actividad: '',
+    fecha_uso: new Date().toISOString().split('T')[0],
+    hora_inicio: '08:00',
+    hora_fin: '12:00',
+    numero_personas: 50,
+  })
+
   showSolicitudModal.value = true
 }
 
@@ -394,7 +644,7 @@ async function saveSolicitud() {
   try {
     const payload = {
       tipo: solicitudForm.tipo,
-      solicitante_id: solicitudForm.solicitante_id,
+      solicitante_id: parseInt(solicitudForm.solicitante_id, 10),
       solicitante_tipo: 'mancomunidad',
       titulo: solicitudForm.titulo,
       descripcion: solicitudForm.descripcion,
@@ -415,11 +665,11 @@ async function saveSolicitud() {
     }
 
     await mancomunidadService.createSolicitud(payload)
-    showNotice('Solicitud registrada en borrador exitosamente')
+    showNotice('Solicitud de apoyo registrada exitosamente en borrador')
     showSolicitudModal.value = false
     loadAll()
   } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al registrar solicitud', 'error')
+    showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al registrar solicitud', 'error')
   }
 }
 
@@ -427,7 +677,7 @@ async function saveSolicitud() {
 async function enviarSol(sol) {
   try {
     await mancomunidadService.enviarSolicitud(sol.id)
-    showNotice('Solicitud enviada a revisión técnica')
+    showNotice('Solicitud enviada a revisión técnica del SEDEDE')
     loadAll()
   } catch (err) {
     showNotice(err.response?.data?.message || 'Error al enviar solicitud', 'error')
@@ -480,24 +730,24 @@ async function executeTransicion() {
 async function asignarStockSol(sol) {
   try {
     await mancomunidadService.asignarSolicitud(sol.id)
-    showNotice('Recursos asignados y descontados del inventario comunitario')
+    showNotice('Recursos asignados y reservados en el almacén')
     loadAll()
   } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al asignar stock', 'error')
+    showNotice(err.response?.data?.message || 'Error al asignar recursos', 'error')
   }
 }
 
 async function completarSol(sol) {
   try {
     await mancomunidadService.completarSolicitud(sol.id)
-    showNotice('Solicitud marcada como Completada (Entrega y uso finalizados)')
+    showNotice('Solicitud completada exitosamente')
     loadAll()
   } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al completar solicitud', 'error')
+    showNotice(err.response?.data?.message || 'Error al completar', 'error')
   }
 }
 
-// --- RECURSOS ---
+// --- RECURSOS (SEDEDE) ---
 function openCreateRecurso() {
   Object.assign(recursoForm, {
     id: null,
@@ -527,7 +777,7 @@ async function saveRecurso() {
   }
 }
 
-// --- MUNICIPIOS ---
+// --- MUNICIPIOS (SEDEDE) ---
 function openCreateMunicipio() {
   municipioForm.codigo = '0' + Math.floor(100 + Math.random() * 900)
   municipioForm.nombre = ''
@@ -544,6 +794,12 @@ async function saveMunicipio() {
   } catch (err) {
     showNotice(err.response?.data?.message || 'Error al guardar municipio', 'error')
   }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showNotice('Copiado al portapapeles')
+  })
 }
 
 const getEstadoBadgeClass = (estado) => {
@@ -591,19 +847,24 @@ const getEstadoBadgeClass = (estado) => {
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div class="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-100 px-3 py-0.5 text-xs font-bold text-brand-700 mb-1">
-          Unidad de Coordinación Intermunicipal SEDEDE
+          {{ isComunidad ? 'Portal de Comunidades y Mancomunidades Rurales' : 'Unidad de Coordinación Intermunicipal SEDEDE' }}
         </div>
         <h1 class="font-display text-2xl font-bold text-ink sm:text-3xl">
-          Apoyo a Mancomunidades y Comunidades Rurales
+          {{ isComunidad ? 'Gestión Comunitaria y Solicitudes de Apoyo' : 'Apoyo a Mancomunidades y Comunidades Rurales' }}
         </h1>
         <p class="text-sm text-slate-500">
-          Gestión del padrón de mancomunidades, verificación legal de expedientes y solicitudes de recursos deportivos rurales.
+          {{
+            isComunidad
+              ? 'Consulte su registro legal, cargue su documentación de acreditación y gestione sus solicitudes de apoyo deportivo.'
+              : 'Padrón de comunidades, asignación de credenciales, verificación de expedientes y aprobación de solicitudes de apoyo.'
+          }}
         </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Botón para SEDEDE: Nueva Mancomunidad con Usuario -->
         <button
-          v-if="activeTab === 'mancomunidades'"
+          v-if="isSedede && activeTab === 'mancomunidades'"
           type="button"
           @click="openCreateMancomunidad"
           class="btn-primary flex items-center gap-2"
@@ -611,9 +872,10 @@ const getEstadoBadgeClass = (estado) => {
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
-          Nueva Mancomunidad
+          Nueva Comunidad con Usuario
         </button>
 
+        <!-- Botón Nueva Solicitud de Apoyo (Para SEDEDE o Comunidad aprobada) -->
         <button
           v-if="activeTab === 'solicitudes'"
           type="button"
@@ -623,11 +885,11 @@ const getEstadoBadgeClass = (estado) => {
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
-          Nueva Solicitud de Apoyo
+          {{ isSedede ? 'Registrar Solicitud (Por SEDEDE)' : 'Nueva Solicitud de Apoyo' }}
         </button>
 
         <button
-          v-if="activeTab === 'recursos'"
+          v-if="isSedede && activeTab === 'recursos'"
           type="button"
           @click="openCreateRecurso"
           class="btn-primary flex items-center gap-2"
@@ -639,7 +901,7 @@ const getEstadoBadgeClass = (estado) => {
         </button>
 
         <button
-          v-if="activeTab === 'municipios'"
+          v-if="isSedede && activeTab === 'municipios'"
           type="button"
           @click="openCreateMunicipio"
           class="btn-primary flex items-center gap-2"
@@ -652,10 +914,10 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- Indicadores Numéricos -->
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <!-- Indicadores Numéricos (Para SEDEDE) -->
+    <div v-if="isSedede" class="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-        <p class="text-xs font-semibold text-slate-500 uppercase">Mancomunidades</p>
+        <p class="text-xs font-semibold text-slate-500 uppercase">Comunidades</p>
         <p class="font-display text-2xl font-bold text-ink mt-1">{{ stats.totalManc }}</p>
       </div>
       <div class="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-xs">
@@ -675,7 +937,24 @@ const getEstadoBadgeClass = (estado) => {
     <!-- Pestañas de Navegación -->
     <div class="border-b border-slate-200">
       <nav class="-mb-px flex space-x-6">
+        <!-- VISTA DE COMUNIDAD: Pestaña 1 (Mi Registro) -->
         <button
+          v-if="isComunidad"
+          type="button"
+          :class="[
+            'pb-3 font-semibold text-sm transition-colors border-b-2 flex items-center gap-2',
+            activeTab === 'mi_comunidad'
+              ? 'border-brand-600 text-brand-700'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+          ]"
+          @click="activeTab = 'mi_comunidad'"
+        >
+          🏛️ Mi Registro y Documentación Legal
+        </button>
+
+        <!-- VISTA DE SEDEDE: Pestaña 1 (Padrón de Mancomunidades) -->
+        <button
+          v-if="isSedede"
           type="button"
           :class="[
             'pb-3 font-semibold text-sm transition-colors border-b-2 flex items-center gap-2',
@@ -685,10 +964,11 @@ const getEstadoBadgeClass = (estado) => {
           ]"
           @click="activeTab = 'mancomunidades'"
         >
-          🏛️ Padrón de Mancomunidades
+          🏛️ Padrón de Comunidades / Mancomunidades
           <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ mancomunidades.length }}</span>
         </button>
 
+        <!-- Pestaña Solicitudes (Visible para ambos) -->
         <button
           type="button"
           :class="[
@@ -699,11 +979,13 @@ const getEstadoBadgeClass = (estado) => {
           ]"
           @click="activeTab = 'solicitudes'"
         >
-          📋 Solicitudes y Apoyo Deportivo
+          📋 Solicitudes de Apoyo Deportivo
           <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ solicitudes.length }}</span>
         </button>
 
+        <!-- Pestañas EXCLUSIVAS de SEDEDE: Recursos y Municipios -->
         <button
+          v-if="isSedede"
           type="button"
           :class="[
             'pb-3 font-semibold text-sm transition-colors border-b-2 flex items-center gap-2',
@@ -718,6 +1000,7 @@ const getEstadoBadgeClass = (estado) => {
         </button>
 
         <button
+          v-if="isSedede"
           type="button"
           :class="[
             'pb-3 font-semibold text-sm transition-colors border-b-2 flex items-center gap-2',
@@ -733,8 +1016,162 @@ const getEstadoBadgeClass = (estado) => {
       </nav>
     </div>
 
-    <!-- 1. PESTAÑA: MANCOMUNIDADES -->
-    <div v-if="activeTab === 'mancomunidades'" class="space-y-4">
+    <!-- ================================================================= -->
+    <!-- 1. VISTA DE COMUNIDAD: MI REGISTRO Y DOCUMENTACIÓN LEGAL          -->
+    <!-- ================================================================= -->
+    <div v-if="isComunidad && activeTab === 'mi_comunidad'" class="space-y-6">
+      <div v-if="!miComunidad" class="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+        No se encontró ninguna comunidad vinculada a su usuario. Por favor comuníquese con el SEDEDE.
+      </div>
+
+      <div v-else class="space-y-6">
+        <!-- Banner de Estado de Aprobación Legal -->
+        <div
+          :class="[
+            'rounded-2xl p-6 border shadow-xs',
+            miComunidad.estado_legal === 'Vigente'
+              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+              : miComunidad.estado_legal === 'Pendiente'
+              ? 'bg-amber-50/70 border-amber-200 text-amber-950'
+              : 'bg-rose-50/70 border-rose-200 text-rose-950'
+          ]"
+        >
+          <div class="flex items-start gap-4">
+            <span class="text-3xl">
+              {{ miComunidad.estado_legal === 'Vigente' ? '✅' : miComunidad.estado_legal === 'Pendiente' ? '⏳' : '⚠️' }}
+            </span>
+            <div class="flex-1">
+              <div class="flex items-center gap-3 flex-wrap">
+                <h3 class="font-display text-lg font-bold">
+                  Estado de Registro: {{ miComunidad.estado_legal === 'Vigente' ? 'APROBADO Y VIGENTE' : miComunidad.estado_legal === 'Pendiente' ? 'PENDIENTE DE APROBACIÓN POR SEDEDE' : miComunidad.estado_legal }}
+                </h3>
+                <span :class="['rounded-full px-3 py-0.5 text-xs font-bold border', getEstadoBadgeClass(miComunidad.estado_legal)]">
+                  {{ miComunidad.estado_legal }}
+                </span>
+              </div>
+
+              <p class="mt-2 text-sm leading-relaxed" v-if="miComunidad.estado_legal === 'Pendiente'">
+                Su comunidad fue registrada por el SEDEDE. Para que su usuario y comunidad sean <strong>aprobados</strong>, debe cargar los 5 documentos reglamentarios que figuran a continuación. Una vez que el equipo de SEDEDE los verifique y apruebe, su estado pasará a <strong>Vigente</strong> y podrá realizar <strong>Solicitudes de Apoyo Deportivo</strong>.
+              </p>
+              <p class="mt-2 text-sm leading-relaxed" v-else-if="miComunidad.estado_legal === 'Vigente'">
+                ¡Su expediente legal ha sido verificado y aprobado satisfactoriamente por el SEDEDE! Su comunidad está plenamente habilitada para solicitar implementos, kits deportivos, equipamiento y el uso de escenarios. Puede gestionar sus solicitudes en la pestaña <strong>Solicitudes de Apoyo Deportivo</strong>.
+              </p>
+              <p class="mt-2 text-sm leading-relaxed" v-else>
+                Su comunidad se encuentra en estado {{ miComunidad.estado_legal }}. Para mayor información comuníquese con la Unidad de Coordinación del SEDEDE.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ficha de Datos Institucionales de la Comunidad -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 mb-4 gap-2">
+            <div>
+              <h2 class="font-display text-xl font-bold text-ink">{{ miComunidad.nombre }}</h2>
+              <p class="text-xs text-slate-500 font-mono">Sigla: {{ miComunidad.sigla || 'S/S' }} | NIT / Código: {{ miComunidad.nit }}</p>
+            </div>
+            <div class="text-xs text-slate-600 bg-slate-50 rounded-lg p-2.5 border">
+              <div>👤 <strong>Usuario:</strong> {{ auth.user?.name }} ({{ auth.user?.email }})</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600">
+            <div>
+              <span class="block text-slate-400 font-semibold mb-0.5">Dirección / Sede:</span>
+              <p class="font-medium text-ink">{{ miComunidad.direccion || 'No especificada' }}</p>
+            </div>
+            <div>
+              <span class="block text-slate-400 font-semibold mb-0.5">Teléfono de Contacto:</span>
+              <p class="font-medium text-ink">{{ miComunidad.telefono || 'No registrado' }}</p>
+            </div>
+            <div>
+              <span class="block text-slate-400 font-semibold mb-0.5">Correo Electrónico:</span>
+              <p class="font-medium text-ink">{{ miComunidad.correo || 'No registrado' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Documentación Legal Requerida para Aprobación -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+          <div class="flex items-center justify-between border-b pb-3">
+            <div>
+              <h3 class="font-display text-base font-bold text-ink">
+                Documentación del Expediente Legal
+              </h3>
+              <p class="text-xs text-slate-500">
+                Suba cada uno de los requisitos legales requeridos en formato PDF o imagen legible.
+              </p>
+            </div>
+            <div class="text-xs font-semibold text-slate-600">
+              Cargados: {{ expedienteDocs.length }} / 5
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div
+              v-for="tipo in tiposDocumentos"
+              :key="tipo.value"
+              class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border transition-colors bg-slate-50/50 hover:bg-slate-50"
+            >
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-sm text-slate-800">{{ tipo.label }}</span>
+                  <span
+                    v-if="expedienteDocs.find(d => d.tipo === tipo.value)"
+                    :class="['rounded px-2 py-0.5 text-[11px] font-bold border', getEstadoBadgeClass(expedienteDocs.find(d => d.tipo === tipo.value).estado_verificacion)]"
+                  >
+                    {{ expedienteDocs.find(d => d.tipo === tipo.value).estado_verificacion }}
+                  </span>
+                  <span v-else class="rounded px-2 py-0.5 text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                    Faltante
+                  </span>
+                </div>
+
+                <div v-if="expedienteDocs.find(d => d.tipo === tipo.value)" class="text-xs text-slate-500 mt-1 font-mono">
+                  Archivo: {{ expedienteDocs.find(d => d.tipo === tipo.value).nombre_archivo }}
+                </div>
+
+                <!-- Observaciones de Rechazo por SEDEDE -->
+                <div
+                  v-if="expedienteDocs.find(d => d.tipo === tipo.value && d.estado_verificacion === 'Rechazado' && d.observaciones)"
+                  class="mt-2 p-2 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800"
+                >
+                  <strong>Observación del SEDEDE:</strong> {{ expedienteDocs.find(d => d.tipo === tipo.value).observaciones }}
+                </div>
+              </div>
+
+              <!-- Acciones de Subida y Descarga -->
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="expedienteDocs.find(d => d.tipo === tipo.value)"
+                  type="button"
+                  @click="descargarDoc(expedienteDocs.find(d => d.tipo === tipo.value))"
+                  class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  📥 Ver Archivo
+                </button>
+
+                <label class="cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700 flex items-center gap-1.5 shadow-xs">
+                  <span>{{ expedienteDocs.find(d => d.tipo === tipo.value) ? '🔄 Reemplazar' : '📤 Subir Documento' }}</span>
+                  <input
+                    type="file"
+                    class="hidden"
+                    accept=".pdf,image/*"
+                    :disabled="uploadingDoc"
+                    @change="uploadDirectoComunidad(tipo.value, $event)"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 2. VISTA DE SEDEDE: PADRÓN DE MANCOMUNIDADES                      -->
+    <!-- ================================================================= -->
+    <div v-if="isSedede && activeTab === 'mancomunidades'" class="space-y-4">
       <!-- Filtros -->
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-xl border border-slate-200">
         <div class="flex-1 max-w-md relative">
@@ -766,17 +1203,17 @@ const getEstadoBadgeClass = (estado) => {
         <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
           <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <th class="px-5 py-3">Mancomunidad</th>
+              <th class="px-5 py-3">Comunidad / Mancomunidad</th>
               <th class="px-5 py-3">NIT & Constitución</th>
               <th class="px-5 py-3">Estado Legal</th>
-              <th class="px-5 py-3">Contacto / Sede</th>
-              <th class="px-5 py-3 text-right">Acciones</th>
+              <th class="px-5 py-3">Usuario de Acceso</th>
+              <th class="px-5 py-3 text-right">Expediente y Acciones</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-if="filteredMancomunidades.length === 0">
               <td colspan="5" class="px-5 py-8 text-center text-slate-500">
-                No hay mancomunidades registradas o no coinciden con los filtros.
+                No hay comunidades registradas o no coinciden con los filtros.
               </td>
             </tr>
             <tr v-for="m in filteredMancomunidades" :key="m.id" class="hover:bg-slate-50/70 transition-colors">
@@ -793,25 +1230,47 @@ const getEstadoBadgeClass = (estado) => {
                   {{ m.estado_legal }}
                 </span>
               </td>
-              <td class="px-5 py-4 text-xs text-slate-600">
-                <div>📍 {{ m.direccion || 'No especificada' }}</div>
-                <div v-if="m.telefono">📞 {{ m.telefono }}</div>
-                <div v-if="m.correo" class="text-slate-400">✉️ {{ m.correo }}</div>
+              <!-- Usuario de Acceso -->
+              <td class="px-5 py-4 text-xs">
+                <div v-if="m.users && m.users.length > 0">
+                  <div class="font-semibold text-slate-800">👤 {{ m.users[0].email }}</div>
+                  <div class="text-slate-500">{{ m.users[0].name }}</div>
+                  <button
+                    type="button"
+                    @click="openGestionarUsuario(m)"
+                    class="text-[11px] font-bold text-brand-600 hover:text-brand-800 mt-1"
+                  >
+                    🔑 Modificar Credenciales
+                  </button>
+                </div>
+                <div v-else>
+                  <span class="text-slate-400 italic">Sin usuario asignado</span>
+                  <div>
+                    <button
+                      type="button"
+                      @click="openGestionarUsuario(m)"
+                      class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline mt-0.5"
+                    >
+                      + Crear Usuario de Acceso
+                    </button>
+                  </div>
+                </div>
               </td>
+              <!-- Acciones SEDEDE -->
               <td class="px-5 py-4 text-right">
-                <div class="flex items-center justify-end gap-1.5">
+                <div class="flex items-center justify-end gap-1.5 flex-wrap">
                   <button
                     type="button"
                     @click="openExpediente(m)"
-                    class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    title="Ver expediente documental requerido"
+                    class="rounded-md border border-brand-200 bg-brand-50/60 px-2.5 py-1 text-xs font-bold text-brand-700 hover:bg-brand-100"
+                    title="Ver expediente documental y aprobar legalidad"
                   >
-                    📁 Expediente
+                    📁 Expediente Legal
                   </button>
                   <button
                     type="button"
                     @click="openMiembros(m)"
-                    class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                     title="Ver municipios miembros"
                   >
                     👥 Miembros
@@ -829,7 +1288,7 @@ const getEstadoBadgeClass = (estado) => {
                     type="button"
                     @click="suspenderMancomunidad(m.id)"
                     class="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
-                    title="Suspender mancomunidad"
+                    title="Suspender comunidad"
                   >
                     ⏸️
                   </button>
@@ -838,7 +1297,7 @@ const getEstadoBadgeClass = (estado) => {
                     type="button"
                     @click="reactivarMancomunidad(m.id)"
                     class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-                    title="Reactivar mancomunidad"
+                    title="Reactivar comunidad"
                   >
                     ▶️ Reactivar
                   </button>
@@ -850,8 +1309,31 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- 2. PESTAÑA: SOLICITUDES -->
+    <!-- ================================================================= -->
+    <!-- 3. PESTAÑA: SOLICITUDES Y APOYO DEPORTIVO (AMBOS)                -->
+    <!-- ================================================================= -->
     <div v-if="activeTab === 'solicitudes'" class="space-y-4">
+      <!-- Aviso para Comunidad si no está Vigente -->
+      <div
+        v-if="isComunidad && miComunidad && miComunidad.estado_legal !== 'Vigente'"
+        class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 flex items-center justify-between"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-lg">⚠️</span>
+          <span>
+            Su comunidad aún está en estado <strong>{{ miComunidad.estado_legal }}</strong>. Debe contar con la aprobación legal del SEDEDE para poder enviar solicitudes de apoyo deportivo.
+          </span>
+        </div>
+        <button
+          type="button"
+          @click="activeTab = 'mi_comunidad'"
+          class="rounded-lg bg-amber-600 px-3 py-1 font-bold text-white hover:bg-amber-700"
+        >
+          Ir a Mi Expediente
+        </button>
+      </div>
+
+      <!-- Filtros -->
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-xl border border-slate-200">
         <div class="flex-1 max-w-md relative">
           <input
@@ -889,6 +1371,7 @@ const getEstadoBadgeClass = (estado) => {
         </div>
       </div>
 
+      <!-- Tabla de Solicitudes -->
       <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
           <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
@@ -914,19 +1397,20 @@ const getEstadoBadgeClass = (estado) => {
                 <div class="font-bold text-ink">{{ sol.titulo }}</div>
                 <div class="text-xs text-slate-500">
                   Tipo:
-                  <span class="font-semibold uppercase text-slate-700">{{ sol.tipo }}</span>
+                  <span class="font-semibold uppercase text-slate-700">{{ sol.tipo === 'recursos' ? 'Materiales / Implementos' : 'Escenario' }}</span>
                 </div>
               </td>
               <td class="px-5 py-4 text-xs text-slate-600">
                 <div v-if="sol.tipo === 'recursos'">
                   <span class="font-semibold">Implementos deportivos solicitados</span>
+                  <div class="text-[11px] text-slate-500 mt-0.5">{{ sol.descripcion || 'Sin descripción adicional' }}</div>
                 </div>
                 <div v-else>
                   <div>🏟️ {{ sol.espacio?.nombre || 'Escenario Municipal' }}</div>
                   <div>📅 {{ sol.fecha_uso }} ({{ sol.hora_inicio }} - {{ sol.hora_fin }})</div>
                 </div>
-                <div v-if="sol.motivo_rechazo" class="text-red-600 mt-1">
-                  Rechazo: {{ sol.motivo_rechazo }}
+                <div v-if="sol.motivo_rechazo" class="text-rose-600 mt-1 font-semibold">
+                  Motivo Rechazo: {{ sol.motivo_rechazo }}
                 </div>
                 <div v-if="sol.motivo_anulacion" class="text-slate-500 mt-1 italic">
                   Anulada: {{ sol.motivo_anulacion }}
@@ -939,66 +1423,64 @@ const getEstadoBadgeClass = (estado) => {
               </td>
               <td class="px-5 py-4 text-right">
                 <div class="flex items-center justify-end gap-1.5 flex-wrap">
-                  <!-- Botón Enviar (solo Borrador) -->
+                  <!-- Botón Enviar (solo Borrador) - Disponible para Comunidad y SEDEDE -->
                   <button
                     v-if="sol.estado === 'Borrador'"
                     type="button"
                     @click="enviarSol(sol)"
                     class="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700"
                   >
-                    Enviar
+                    Enviar a SEDEDE
                   </button>
 
-                  <!-- Botón Poner en Revisión (solo Enviada) -->
-                  <button
-                    v-if="sol.estado === 'Enviada'"
-                    type="button"
-                    @click="pasarRevisionSol(sol)"
-                    class="rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-600"
-                  >
-                    Revisar
-                  </button>
+                  <!-- Botones exclusivos para evaluadores SEDEDE -->
+                  <template v-if="isSedede">
+                    <button
+                      v-if="sol.estado === 'Enviada'"
+                      type="button"
+                      @click="pasarRevisionSol(sol)"
+                      class="rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-600"
+                    >
+                      Poner En Revisión
+                    </button>
 
-                  <!-- Botón Resolver (solo EnRevision) -->
-                  <button
-                    v-if="sol.estado === 'EnRevision'"
-                    type="button"
-                    @click="openResolverModal(sol, 'resolver')"
-                    class="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
-                  >
-                    Resolver
-                  </button>
+                    <button
+                      v-if="sol.estado === 'EnRevision'"
+                      type="button"
+                      @click="openResolverModal(sol, 'resolver')"
+                      class="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                    >
+                      Resolver (Aprobar/Rechazar)
+                    </button>
 
-                  <!-- Botón Asignar Stock (solo Aprobada y tipo recursos) -->
-                  <button
-                    v-if="sol.estado === 'Aprobada' && sol.tipo === 'recursos'"
-                    type="button"
-                    @click="asignarStockSol(sol)"
-                    class="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
-                  >
-                    Asignar Stock
-                  </button>
+                    <button
+                      v-if="sol.estado === 'Aprobada' && sol.tipo === 'recursos'"
+                      type="button"
+                      @click="asignarStockSol(sol)"
+                      class="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                    >
+                      Asignar Stock
+                    </button>
 
-                  <!-- Botón Completar (Asignada o Aprobada) -->
-                  <button
-                    v-if="['Asignada', 'Aprobada'].includes(sol.estado)"
-                    type="button"
-                    @click="completarSol(sol)"
-                    class="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800"
-                  >
-                    Completar
-                  </button>
+                    <button
+                      v-if="['Asignada', 'Aprobada'].includes(sol.estado)"
+                      type="button"
+                      @click="completarSol(sol)"
+                      class="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800"
+                    >
+                      Completar Entrega
+                    </button>
 
-                  <!-- Botón Anular (cualquier estado no terminal) -->
-                  <button
-                    v-if="!['Completada', 'Rechazada', 'Anulada'].includes(sol.estado)"
-                    type="button"
-                    @click="openResolverModal(sol, 'anular')"
-                    class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
-                    title="Anular solicitud con motivo"
-                  >
-                    Anular
-                  </button>
+                    <button
+                      v-if="!['Completada', 'Rechazada', 'Anulada'].includes(sol.estado)"
+                      type="button"
+                      @click="openResolverModal(sol, 'anular')"
+                      class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+                      title="Anular solicitud con motivo"
+                    >
+                      Anular
+                    </button>
+                  </template>
                 </div>
               </td>
             </tr>
@@ -1007,8 +1489,10 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- 3. PESTAÑA: RECURSOS PRESTABLES -->
-    <div v-if="activeTab === 'recursos'" class="space-y-4">
+    <!-- ================================================================= -->
+    <!-- 4. PESTAÑA: RECURSOS PRESTABLES (EXCLUSIVA SEDEDE)                -->
+    <!-- ================================================================= -->
+    <div v-if="isSedede && activeTab === 'recursos'" class="space-y-4">
       <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
           <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
@@ -1045,8 +1529,10 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- 4. PESTAÑA: MUNICIPIOS -->
-    <div v-if="activeTab === 'municipios'" class="space-y-4">
+    <!-- ================================================================= -->
+    <!-- 5. PESTAÑA: MUNICIPIOS (EXCLUSIVA SEDEDE)                        -->
+    <!-- ================================================================= -->
+    <div v-if="isSedede && activeTab === 'municipios'" class="space-y-4">
       <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
           <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
@@ -1059,11 +1545,11 @@ const getEstadoBadgeClass = (estado) => {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-for="mun in municipios" :key="mun.id" class="hover:bg-slate-50/70 transition-colors">
-              <td class="px-5 py-4 font-mono text-xs font-bold text-slate-700">{{ mun.codigo }}</td>
+              <td class="px-5 py-4 font-mono font-bold text-xs text-brand-700">{{ mun.codigo }}</td>
               <td class="px-5 py-4 font-bold text-ink">{{ mun.nombre }}</td>
               <td class="px-5 py-4 text-xs text-slate-600">{{ mun.provincia }}</td>
               <td class="px-5 py-4 text-right">
-                <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                <span class="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
                   Activo
                 </span>
               </td>
@@ -1073,44 +1559,152 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- MODAL ALTA / EDICIÓN MANCOMUNIDAD -->
+    <!-- ================================================================= -->
+    <!-- MODALES                                                           -->
+    <!-- ================================================================= -->
+
+    <!-- MODAL NUEVA MANCOMUNIDAD CON USUARIO (SEDEDE) -->
     <div v-if="showMancomunidadModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <h3 class="font-display text-lg font-bold text-ink mb-4">
-          {{ isEditingMancomunidad ? 'Editar Mancomunidad' : 'Registrar Nueva Mancomunidad' }}
+      <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <h3 class="font-display text-lg font-bold text-ink mb-1">
+          {{ isEditingMancomunidad ? 'Editar Comunidad / Mancomunidad' : 'Registrar Nueva Comunidad con Acceso' }}
         </h3>
-        <form @submit.prevent="saveMancomunidad" class="space-y-3 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Nombre Oficial</label>
-            <input v-model="mancomunidadForm.nombre" required type="text" placeholder="Ej: Mancomunidad de Municipios del Chaco Chuquisaqueño" class="w-full rounded-lg border border-slate-300 p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
-          </div>
-          <div class="grid grid-cols-2 gap-3">
+        <p class="text-xs text-slate-500 mb-4">
+          Registre los datos institucionales de la comunidad rural y genere sus credenciales de acceso para entregárselas a sus autoridades.
+        </p>
+
+        <form @submit.prevent="saveMancomunidad" class="space-y-3.5 text-xs">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block font-semibold text-slate-700 mb-1">Sigla</label>
-              <input v-model="mancomunidadForm.sigla" type="text" placeholder="Ej: MMCH" class="w-full rounded-lg border border-slate-300 p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+              <label class="block font-semibold text-slate-700 mb-1">Nombre Oficial de la Comunidad / Mancomunidad *</label>
+              <input v-model="mancomunidadForm.nombre" required type="text" placeholder="Ej: Comunidad Rural San Lucas" class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
             </div>
             <div>
-              <label class="block font-semibold text-slate-700 mb-1">NIT</label>
-              <input v-model="mancomunidadForm.nit" required type="text" placeholder="Ej: 1029384756" class="w-full rounded-lg border border-slate-300 p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+              <label class="block font-semibold text-slate-700 mb-1">Sigla o Identificador Corto</label>
+              <input v-model="mancomunidadForm.sigla" type="text" placeholder="Ej: CRSL" class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">NIT o Código Comunal *</label>
+              <input v-model="mancomunidadForm.nit" required type="text" placeholder="Ej: 9876543210" class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none font-mono" />
+            </div>
             <div>
               <label class="block font-semibold text-slate-700 mb-1">Fecha de Constitución</label>
-              <input v-model="mancomunidadForm.fecha_constitucion" type="date" class="w-full rounded-lg border border-slate-300 p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+              <input v-model="mancomunidadForm.fecha_constitucion" type="date" class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Dirección / Sede Comunal</label>
+            <input v-model="mancomunidadForm.direccion" type="text" placeholder="Ej: Plaza Principal San Lucas s/n" class="w-full rounded-lg border p-2 text-sm text-ink" />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Teléfono de Contacto</label>
+              <input v-model="mancomunidadForm.telefono" type="text" placeholder="Ej: +591 71234567" class="w-full rounded-lg border p-2 text-sm text-ink" />
             </div>
             <div>
-              <label class="block font-semibold text-slate-700 mb-1">Teléfono</label>
-              <input v-model="mancomunidadForm.telefono" type="text" placeholder="+591 4 64XXXX" class="w-full rounded-lg border border-slate-300 p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+              <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico Institucional</label>
+              <input v-model="mancomunidadForm.correo" type="email" placeholder="Ej: contacto@sanlucas.gob.bo" class="w-full rounded-lg border p-2 text-sm text-ink" />
             </div>
           </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Dirección de Sede Principal</label>
-            <input v-model="mancomunidadForm.direccion" type="text" placeholder="Calle o Plaza Principal" class="w-full rounded-lg border border-slate-300 p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico</label>
-            <input v-model="mancomunidadForm.correo" type="email" placeholder="mancomunidad@chuquisaca.gob.bo" class="w-full rounded-lg border border-slate-300 p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+
+          <!-- SECCIÓN DE ASIGNACIÓN / CREACIÓN DE USUARIO DE ACCESO (Solo en creación) -->
+          <div v-if="!isEditingMancomunidad" class="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-3.5 mt-4">
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-2 cursor-pointer font-bold text-navyflag text-sm">
+                <input type="checkbox" v-model="mancomunidadForm.crear_usuario" class="rounded text-brand-600 focus:ring-brand-500" />
+                <span>Asignar Usuario de Acceso a esta Comunidad</span>
+              </label>
+              <span class="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-navyflag uppercase">Para el Representante</span>
+            </div>
+
+            <p class="text-slate-600 text-[11px]">
+              El usuario asignado podrá ingresar al sistema con su rol de <strong>Comunidad</strong> para subir su documentación legal y realizar solicitudes de apoyo deportivo.
+            </p>
+
+            <div v-if="mancomunidadForm.crear_usuario" class="space-y-3 pt-2 border-t border-indigo-100">
+              <!-- Selector de Modo de Usuario -->
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <label :class="['flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors', mancomunidadForm.tipo_usuario === 'existente' ? 'bg-white border-brand-500 font-bold text-brand-700 shadow-xs' : 'bg-white/60 border-slate-200 text-slate-700']">
+                  <input type="radio" value="existente" v-model="mancomunidadForm.tipo_usuario" class="text-brand-600 focus:ring-brand-500" />
+                  <span>Vincular Usuario Existente</span>
+                </label>
+                <label :class="['flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors', mancomunidadForm.tipo_usuario === 'nuevo' ? 'bg-white border-brand-500 font-bold text-brand-700 shadow-xs' : 'bg-white/60 border-slate-200 text-slate-700']">
+                  <input type="radio" value="nuevo" v-model="mancomunidadForm.tipo_usuario" class="text-brand-600 focus:ring-brand-500" />
+                  <span>Crear Nuevo Usuario</span>
+                </label>
+              </div>
+
+              <!-- MODO: VINCULAR USUARIO EXISTENTE -->
+              <div v-if="mancomunidadForm.tipo_usuario === 'existente'" class="space-y-2.5 bg-white p-3 rounded-xl border border-indigo-100">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-semibold text-slate-600">Usuarios comunitarios disponibles:</span>
+                  <button
+                    type="button"
+                    @click="selectComunidadCuentaPrincipal"
+                    class="rounded-md bg-brand-50 border border-brand-200 px-2 py-1 text-[11px] font-bold text-brand-700 hover:bg-brand-100"
+                  >
+                    ⚡ Seleccionar comunidades@sedede.gob.bo
+                  </button>
+                </div>
+
+                <div v-if="usuariosComunidadesDisponibles.length > 0">
+                  <select
+                    v-model="mancomunidadForm.usuario_id_seleccionado"
+                    @change="onSelectUsuarioExistente"
+                    class="w-full rounded-lg border p-2 text-xs bg-slate-50 text-ink focus:border-brand-600 focus:outline-none"
+                  >
+                    <option value="">-- Seleccionar de la lista de usuarios --</option>
+                    <option
+                      v-for="u in usuariosComunidadesDisponibles"
+                      :key="u.id"
+                      :value="u.id"
+                    >
+                      {{ u.name }} ({{ u.email }}) {{ u.mancomunidad ? `— Actual: ${u.mancomunidad.nombre}` : '— Sin comunidad asignada' }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <label class="block font-semibold text-slate-700 mb-0.5 text-[11px]">Correo de Usuario a Vincular *</label>
+                    <input v-model="mancomunidadForm.usuario_email" required type="email" placeholder="comunidades@sedede.gob.bo" class="w-full rounded-lg border p-2 text-xs bg-white text-ink font-mono font-semibold" />
+                  </div>
+                  <div>
+                    <label class="block font-semibold text-slate-700 mb-0.5 text-[11px]">Nombre de Representación *</label>
+                    <input v-model="mancomunidadForm.usuario_nombre" required type="text" placeholder="Representante Mancomunidades" class="w-full rounded-lg border p-2 text-xs bg-white text-ink" />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block font-semibold text-slate-700 mb-0.5 text-[11px]">Contraseña (opcional para cuenta existente)</label>
+                  <input v-model="mancomunidadForm.usuario_password" type="text" placeholder="Dejar en blanco para mantener contraseña actual" class="w-full rounded-lg border p-2 text-xs bg-white text-ink font-mono" />
+                </div>
+              </div>
+
+              <!-- MODO: CREAR NUEVO USUARIO -->
+              <div v-if="mancomunidadForm.tipo_usuario === 'nuevo'" class="space-y-2.5 bg-white p-3 rounded-xl border border-indigo-100">
+                <div>
+                  <label class="block font-semibold text-slate-700 mb-1">Nombre Completo del Representante *</label>
+                  <input v-model="mancomunidadForm.usuario_nombre" required type="text" placeholder="Ej: Don Esteban Quispe Flores" class="w-full rounded-lg border p-2 text-xs bg-white text-ink" />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico Nuevo *</label>
+                    <input v-model="mancomunidadForm.usuario_email" required type="email" placeholder="Ej: sanlucas@sedede.gob.bo" class="w-full rounded-lg border p-2 text-xs bg-white text-ink font-mono" />
+                  </div>
+                  <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Contraseña Inicial *</label>
+                    <input v-model="mancomunidadForm.usuario_password" required type="text" class="w-full rounded-lg border p-2 text-xs bg-white text-ink font-mono font-bold" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="mt-6 flex justify-end gap-3 pt-3 border-t">
@@ -1118,48 +1712,164 @@ const getEstadoBadgeClass = (estado) => {
               Cancelar
             </button>
             <button type="submit" class="btn-primary">
-              Guardar Mancomunidad
+              {{ isEditingMancomunidad ? 'Guardar Cambios' : 'Registrar Comunidad y Asignar Usuario' }}
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- MODAL EXPEDIENTE DOCUMENTAL -->
-    <div v-if="showExpedienteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-      <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-start justify-between border-b pb-3 mb-4">
+    <!-- MODAL CONFIRMACIÓN DE CREDENCIALES CREADAS -->
+    <div v-if="showCredencialesModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl text-center space-y-4">
+        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">
+          🎉
+        </div>
+        <h3 class="font-display text-lg font-bold text-ink">
+          {{ credencialesGeneradas?.vinculado ? '¡Usuario Asignado con Éxito!' : '¡Credenciales Generadas con Éxito!' }}
+        </h3>
+        <p class="text-xs text-slate-600">
+          {{ credencialesGeneradas?.vinculado
+            ? `Se vinculó exitosamente el usuario a la comunidad "${credencialesGeneradas?.comunidad}". Las autoridades ya pueden operar con su cuenta institucional:`
+            : `Entregue los siguientes datos de acceso a las autoridades de la comunidad "${credencialesGeneradas?.comunidad}" para que inicien sesión:`
+          }}
+        </p>
+
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left space-y-2 text-xs font-mono">
           <div>
-            <h3 class="font-display text-lg font-bold text-ink">
-              Expediente Documental Legal: {{ selectedMancomunidad?.nombre }}
-            </h3>
-            <p class="text-xs text-slate-500">
-              Para estar en estado Vigente se exigen los 5 documentos legalmente aprobados.
-            </p>
+            <span class="text-slate-400 block text-[11px] uppercase">Nombre:</span>
+            <span class="font-bold text-ink">{{ credencialesGeneradas?.nombre }}</span>
           </div>
-          <button @click="showExpedienteModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
+          <div>
+            <span class="text-slate-400 block text-[11px] uppercase">Usuario / Email:</span>
+            <span class="font-bold text-brand-700">{{ credencialesGeneradas?.email }}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block text-[11px] uppercase">Contraseña:</span>
+            <span class="font-bold text-indigo-700">{{ credencialesGeneradas?.password }}</span>
+          </div>
         </div>
 
-        <!-- Checklist de Requisitos -->
-        <div class="space-y-3 mb-6">
-          <h4 class="text-xs font-bold uppercase text-slate-700">Checklist de los 5 Documentos Obligatorios</h4>
-          <div class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+        <div class="flex gap-2">
+          <button
+            type="button"
+            @click="copyToClipboard(`Usuario: ${credencialesGeneradas?.email}\nContraseña: ${credencialesGeneradas?.password}`)"
+            class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+          >
+            📋 Copiar Datos de Acceso
+          </button>
+          <button
+            type="button"
+            @click="showCredencialesModal = false"
+            class="flex-1 btn-primary text-xs py-2"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL GESTIONAR / ASIGNAR USUARIO A COMUNIDAD EXISTENTE -->
+    <div v-if="showUsuarioModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4 text-xs">
+        <h3 class="font-display text-base font-bold text-ink">
+          Usuario de Acceso: {{ selectedComunidadForUser?.nombre }}
+        </h3>
+        <p class="text-slate-500">
+          Asigne o restablezca las credenciales para que la comunidad pueda ingresar y subir su documentación. Puede seleccionar una cuenta institucional existente o crear credenciales específicas.
+        </p>
+
+        <form @submit.prevent="saveUsuarioComunidad" class="space-y-3">
+          <!-- Selector de Modo de Asignación -->
+          <div class="flex items-center justify-between pb-1 border-b">
+            <span class="font-semibold text-slate-700">Acceso rápido:</span>
+            <button
+              type="button"
+              @click="selectComunidadCuentaPrincipalEnModal"
+              class="rounded-md bg-brand-50 border border-brand-200 px-2 py-1 text-[11px] font-bold text-brand-700 hover:bg-brand-100"
+            >
+              ⚡ Asignar comunidades@sedede.gob.bo
+            </button>
+          </div>
+
+          <div v-if="usuariosComunidadesDisponibles.length > 0">
+            <label class="block font-semibold text-slate-700 mb-1">O seleccionar de los usuarios registrados:</label>
+            <select
+              v-model="usuarioForm.usuario_id_seleccionado"
+              @change="onSelectUsuarioExistenteEnModal"
+              class="w-full rounded-lg border p-2 text-xs bg-slate-50 text-ink focus:border-brand-600 focus:outline-none"
+            >
+              <option value="">-- Seleccionar usuario registrado --</option>
+              <option
+                v-for="u in usuariosComunidadesDisponibles"
+                :key="u.id"
+                :value="u.id"
+              >
+                {{ u.name }} ({{ u.email }})
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nombre del Representante *</label>
+            <input v-model="usuarioForm.name" required type="text" class="w-full rounded-lg border p-2 bg-white text-ink" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Email de Acceso *</label>
+            <input v-model="usuarioForm.email" required type="email" class="w-full rounded-lg border p-2 bg-white text-ink font-mono font-semibold" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Contraseña (Nueva o Actual) *</label>
+            <input v-model="usuarioForm.password" required type="text" class="w-full rounded-lg border p-2 bg-white text-ink font-mono font-bold" />
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" @click="showUsuarioModal = false" class="rounded-lg bg-slate-100 px-3 py-1.5 font-semibold text-slate-700">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary">
+              Guardar y Asignar Credenciales
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL EXPEDIENTE DOCUMENTAL (SEDEDE) -->
+    <div v-if="showExpedienteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b pb-3 mb-4">
+          <div>
+            <h3 class="font-display text-lg font-bold text-ink">
+              Expediente Legal: {{ selectedMancomunidad?.nombre }}
+            </h3>
+            <p class="text-xs text-slate-500">
+              Estado legal actual: <span class="font-bold uppercase text-brand-700">{{ selectedMancomunidad?.estado_legal }}</span>
+            </p>
+          </div>
+          <button type="button" @click="showExpedienteModal = false" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <!-- Checklist de los 5 Requisitos Obligatorios -->
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-5">
+          <h4 class="text-xs font-bold uppercase text-slate-700 mb-2">Checklist de Requisitos para Aprobación</h4>
+          <div class="grid grid-cols-1 divide-y divide-slate-200">
             <div
               v-for="tipo in tiposDocumentos"
               :key="tipo.value"
               class="flex items-center justify-between p-2.5 text-xs"
             >
               <div class="flex items-center gap-2">
-                <span v-if="expedienteDocs.some(d => d.tipo === tipo.value && d.estado_verificacion === 'Aprobado')" class="text-emerald-600 font-bold">✓</span>
-                <span v-else-if="expedienteDocs.some(d => d.tipo === tipo.value && d.estado_verificacion === 'Pendiente')" class="text-amber-500 font-bold">⏳</span>
-                <span v-else class="text-red-500 font-bold">✗</span>
+                <span v-if="expedienteDocs.some(d => d.tipo === tipo.value && d.estado_verificacion === 'Aprobado')" class="text-emerald-600 font-bold text-base">✓</span>
+                <span v-else-if="expedienteDocs.some(d => d.tipo === tipo.value && d.estado_verificacion === 'Pendiente')" class="text-amber-500 font-bold text-base">⏳</span>
+                <span v-else class="text-rose-500 font-bold text-base">✗</span>
                 <span class="font-medium text-slate-800">{{ tipo.label }}</span>
               </div>
 
               <div>
                 <span
                   v-if="expedienteDocs.find(d => d.tipo === tipo.value)"
-                  :class="['rounded px-2 py-0.5 text-[11px] font-bold', getEstadoBadgeClass(expedienteDocs.find(d => d.tipo === tipo.value).estado_verificacion)]"
+                  :class="['rounded px-2 py-0.5 text-[11px] font-bold border', getEstadoBadgeClass(expedienteDocs.find(d => d.tipo === tipo.value).estado_verificacion)]"
                 >
                   {{ expedienteDocs.find(d => d.tipo === tipo.value).estado_verificacion }}
                 </span>
@@ -1169,18 +1879,19 @@ const getEstadoBadgeClass = (estado) => {
           </div>
         </div>
 
-        <!-- Subir Documento -->
+        <!-- Subir Documento por SEDEDE en ventanilla -->
         <div class="rounded-xl border border-brand-200 bg-brand-50/30 p-4 mb-6">
-          <h4 class="text-xs font-bold text-brand-900 mb-2">Cargar Documento al Expediente</h4>
+          <h4 class="text-xs font-bold text-brand-900 mb-1">Cargar Documento a nombre de la Comunidad</h4>
+          <p class="text-[11px] text-slate-500 mb-2">Use esta opción si las autoridades comunales entregaron sus documentos impresos en el SEDEDE.</p>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div class="text-xs">
-              <label class="block font-semibold text-slate-700 mb-1">Tipo Requerido</label>
+              <label class="block font-semibold text-slate-700 mb-1">Tipo de Documento</label>
               <select v-model="newDocType" class="w-full rounded-lg border border-slate-300 p-2 text-xs bg-white">
                 <option v-for="t in tiposDocumentos" :key="t.value" :value="t.value">{{ t.label }}</option>
               </select>
             </div>
             <div class="text-xs">
-              <label class="block font-semibold text-slate-700 mb-1">Archivo (PDF, Imagen)</label>
+              <label class="block font-semibold text-slate-700 mb-1">Archivo (PDF o Imagen)</label>
               <input type="file" @change="handleFileSelect" class="w-full text-xs text-slate-600 file:rounded-md file:border-0 file:bg-brand-600 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-white" />
             </div>
             <div>
@@ -1196,9 +1907,9 @@ const getEstadoBadgeClass = (estado) => {
           </div>
         </div>
 
-        <!-- Tabla de Documentos Subidos con Aprobación/Rechazo -->
+        <!-- Tabla de Documentos Subidos con Aprobación/Rechazo de SEDEDE -->
         <div class="space-y-2">
-          <h4 class="text-xs font-bold uppercase text-slate-700">Documentos del Archivo Digital</h4>
+          <h4 class="text-xs font-bold uppercase text-slate-700">Archivos Digitales Registrados</h4>
           <table class="w-full text-xs text-left divide-y divide-slate-200 border rounded-lg overflow-hidden">
             <thead class="bg-slate-50 text-slate-500 font-semibold uppercase">
               <tr>
@@ -1209,11 +1920,18 @@ const getEstadoBadgeClass = (estado) => {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
+              <tr v-if="expedienteDocs.length === 0">
+                <td colspan="4" class="p-4 text-center text-slate-400">Aún no se han cargado documentos en este expediente.</td>
+              </tr>
               <tr v-for="d in expedienteDocs" :key="d.id" class="hover:bg-slate-50">
                 <td class="p-2.5 font-bold text-slate-800">{{ d.tipo }}</td>
-                <td class="p-2.5 font-mono text-[11px] text-slate-500">{{ d.nombre_archivo }}</td>
+                <td class="p-2.5 font-mono text-[11px] text-slate-500">
+                  <a href="#" @click.prevent="descargarDoc(d)" class="text-brand-600 underline">
+                    {{ d.nombre_archivo }}
+                  </a>
+                </td>
                 <td class="p-2.5">
-                  <span :class="['rounded px-2 py-0.5 text-[10px] font-bold', getEstadoBadgeClass(d.estado_verificacion)]">
+                  <span :class="['rounded px-2 py-0.5 text-[10px] font-bold border', getEstadoBadgeClass(d.estado_verificacion)]">
                     {{ d.estado_verificacion }}
                   </span>
                 </td>
@@ -1223,17 +1941,17 @@ const getEstadoBadgeClass = (estado) => {
                       v-if="d.estado_verificacion !== 'Aprobado'"
                       type="button"
                       @click="aprobarDoc(d)"
-                      class="rounded bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
+                      class="rounded bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
                     >
-                      Aprobar
+                      ✓ Aprobar
                     </button>
                     <button
                       v-if="d.estado_verificacion !== 'Rechazado'"
                       type="button"
                       @click="rechazarDoc(d)"
-                      class="rounded bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100"
+                      class="rounded bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 border border-rose-200"
                     >
-                      Rechazar
+                      ✗ Rechazar
                     </button>
                   </div>
                 </td>
@@ -1246,11 +1964,11 @@ const getEstadoBadgeClass = (estado) => {
           <button
             type="button"
             @click="verificarYOficializarExpediente"
-            class="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 flex items-center gap-1.5"
+            class="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 flex items-center gap-1.5 shadow-xs"
           >
-            🛡️ Oficializar y Dejar Vigente
+            🛡️ Oficializar y Aprobar Comunidad (Pasar a Vigente)
           </button>
-          <button type="button" @click="showExpedienteModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700">
+          <button type="button" @click="showExpedienteModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">
             Cerrar Expediente
           </button>
         </div>
@@ -1265,7 +1983,6 @@ const getEstadoBadgeClass = (estado) => {
         </h3>
         <p class="text-xs text-slate-500 mb-4">Padrón de municipios integrados y sus autoridades designadas.</p>
 
-        <!-- Formulario agregar miembro -->
         <div class="rounded-xl border bg-slate-50 p-3 mb-4 space-y-2 text-xs">
           <div class="grid grid-cols-2 gap-2">
             <div>
@@ -1313,24 +2030,39 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- MODAL NUEVA SOLICITUD -->
+    <!-- MODAL NUEVA SOLICITUD DE APOYO -->
     <div v-if="showSolicitudModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <h3 class="font-display text-lg font-bold text-ink mb-1">
           Nueva Solicitud de Apoyo Comunitario
         </h3>
         <p class="text-xs text-slate-500 mb-4">
-          Solicitud de materiales deportivos prestables o uso preferente de escenarios para municipios.
+          {{ isSedede ? 'Registro institucional de solicitud a nombre de comunidad rural.' : 'Complete los requerimientos para el apoyo deportivo de su comunidad.' }}
         </p>
 
         <form @submit.prevent="saveSolicitud" class="space-y-3.5 text-xs">
+          <!-- Comunidad Solicitante -->
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Mancomunidad Solicitante</label>
-            <select v-model="solicitudForm.solicitante_id" required class="w-full rounded-lg border p-2 text-sm bg-white">
+            <label class="block font-semibold text-slate-700 mb-1">Comunidad Solicitante</label>
+            <!-- Si es SEDEDE, puede elegir cualquier comunidad del dropdown -->
+            <select
+              v-if="isSedede"
+              v-model="solicitudForm.solicitante_id"
+              required
+              class="w-full rounded-lg border p-2 text-sm bg-white"
+            >
               <option v-for="m in mancomunidades" :key="m.id" :value="m.id">
                 {{ m.nombre }} ({{ m.sigla || m.nit }}) - {{ m.estado_legal }}
               </option>
             </select>
+            <!-- Si es Comunidad, bloqueado con su comunidad -->
+            <input
+              v-else
+              type="text"
+              :value="miComunidad?.nombre"
+              disabled
+              class="w-full rounded-lg border p-2 text-sm bg-slate-100 font-bold text-slate-800"
+            />
           </div>
 
           <div>
@@ -1344,7 +2076,7 @@ const getEstadoBadgeClass = (estado) => {
                 ]"
                 @click="solicitudForm.tipo = 'recursos'"
               >
-                📦 Implementos / Recursos
+                📦 Implementos / Materiales
               </button>
               <button
                 type="button"
@@ -1354,19 +2086,19 @@ const getEstadoBadgeClass = (estado) => {
                 ]"
                 @click="solicitudForm.tipo = 'espacio'"
               >
-                🏟️ Escenario Deportivo
+                🏟️ Escenario Deportivo SEDEDE
               </button>
             </div>
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Título de la Solicitud / Proyecto</label>
-            <input v-model="solicitudForm.titulo" required type="text" placeholder="Ej: Campeonato Intercomunal de Fútbol de Salón" class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+            <label class="block font-semibold text-slate-700 mb-1">Título de la Solicitud / Proyecto *</label>
+            <input v-model="solicitudForm.titulo" required type="text" placeholder="Ej: Material para Campeonato Intercomunal de Futsal Sub-16" class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Justificación / Descripción</label>
-            <textarea v-model="solicitudForm.descripcion" rows="2" placeholder="Describa el objetivo social o deportivo..." class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"></textarea>
+            <label class="block font-semibold text-slate-700 mb-1">Justificación / Descripción de Beneficiarios</label>
+            <textarea v-model="solicitudForm.descripcion" rows="2" placeholder="Describa el objetivo social o deportivo y las comunidades beneficiadas..." class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"></textarea>
           </div>
 
           <!-- Campos específicos: Recursos -->
@@ -1433,7 +2165,7 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- MODAL RESOLVER / ANULAR TRANSICIÓN -->
+    <!-- MODAL RESOLVER / ANULAR TRANSICIÓN (SEDEDE) -->
     <div v-if="showTransicionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-xs space-y-4">
         <h3 class="font-display text-base font-bold text-ink">
@@ -1490,7 +2222,7 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- MODAL RECURSO -->
+    <!-- MODAL RECURSO (SEDEDE) -->
     <div v-if="showRecursoModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-xs space-y-3">
         <h3 class="font-display text-base font-bold text-ink">
@@ -1534,7 +2266,7 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- MODAL MUNICIPIO -->
+    <!-- MODAL MUNICIPIO (SEDEDE) -->
     <div v-if="showMunicipioModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-xs space-y-3">
         <h3 class="font-display text-base font-bold text-ink">
@@ -1556,7 +2288,7 @@ const getEstadoBadgeClass = (estado) => {
           <button type="button" @click="showMunicipioModal = false" class="rounded-lg bg-slate-100 px-3 py-1.5 font-semibold text-slate-700">
             Cancelar
           </button>
-          <button type="button" @click="saveMunicipio" class="btn-primary">
+          <button type="submit" @click="saveMunicipio" class="btn-primary">
             Guardar Municipio
           </button>
         </div>
