@@ -159,14 +159,29 @@ async function loadAll() {
       mancomunidadService.listSolicitudes(),
       mancomunidadService.listRecursos(),
       mancomunidadService.listMunicipios(),
-      escenarioService.listEscenarios(),
+      escenarioService.list ? escenarioService.list() : Promise.resolve([]),
     ])
 
-    if (mancomRes.status === 'fulfilled') mancomunidades.value = mancomRes.value.data || []
-    if (solRes.status === 'fulfilled') solicitudes.value = solRes.value.data || []
-    if (recRes.status === 'fulfilled') recursos.value = recRes.value.data || []
-    if (munRes.status === 'fulfilled') municipios.value = munRes.value || []
-    if (escRes.status === 'fulfilled') escenarios.value = escRes.value || []
+    if (mancomRes.status === 'fulfilled') {
+      const val = mancomRes.value
+      mancomunidades.value = Array.isArray(val) ? val : (val?.data || [])
+    }
+    if (solRes.status === 'fulfilled') {
+      const val = solRes.value
+      solicitudes.value = Array.isArray(val) ? val : (val?.data || [])
+    }
+    if (recRes.status === 'fulfilled') {
+      const val = recRes.value
+      recursos.value = Array.isArray(val) ? val : (val?.data || [])
+    }
+    if (munRes.status === 'fulfilled') {
+      const val = munRes.value
+      municipios.value = Array.isArray(val) ? val : (val?.data || [])
+    }
+    if (escRes.status === 'fulfilled') {
+      const val = escRes.value
+      escenarios.value = Array.isArray(val) ? val : (val?.data || [])
+    }
 
     // Si es usuario comunidad, establecer pestaña inicial y cargar su expediente
     if (isComunidad.value) {

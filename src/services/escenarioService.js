@@ -6,6 +6,10 @@ export const escenarioService = {
     return data.data
   },
 
+  async listEscenarios() {
+    return this.list()
+  },
+
   async get(id) {
     const { data } = await api.get(`/escenarios/${id}`)
     return data.data
