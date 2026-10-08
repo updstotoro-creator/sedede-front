@@ -6,7 +6,7 @@ import api from './api'
  */
 export const roleService = {
   async list() {
-    const { data } = await api.get('/roles')
+    const { data } = await api.get('/core/roles')
     return data.data
   },
 }
