@@ -69,6 +69,11 @@ const routes = [
         name: 'dashboard-calendario-anual',
         component: () => import('../views/CalendarioAnualView.vue'),
       },
+      {
+        path: 'formacion/inscripciones',
+        name: 'dashboard-formacion-inscripciones',
+        component: () => import('../views/InscripcionEscuelasView.vue'),
+      },
     ],
   },
 ]

@@ -33,11 +33,17 @@ const groups = [
       { to: '/dashboard/tramites', label: 'Trámites' },
     ]
   },
-  {
+    {
     id: 'escenarios-tarifario',
     links: [
       { to: '/dashboard/escenarios', label: 'Escenarios' },
       { to: '/dashboard/tarifario', label: 'Tarifario' },
+    ]
+  },
+  {
+    id: 'formacion',
+    links: [
+      { to: '/dashboard/formacion/inscripciones', label: 'Escuelas' },
     ]
   },
 ]
