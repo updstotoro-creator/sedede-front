@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL
-const prefix = import.meta.env.VITE_API_PREFIX ?? '/api/v1/core'
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/sedede/api'
+const prefix = import.meta.env.VITE_API_PREFIX || '/v1'
 
 // Cliente para el consumo de la API REST del backend (Laravel Sanctum,
 // autenticación por token Bearer — sin cookies, sin csrf-cookie).
@@ -25,11 +25,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginRequest = error.config?.url?.includes('/login')
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('sedede_token')
-      // Evita loop si ya estamos en /login
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login'
+      const base = import.meta.env.BASE_URL || '/sedede/'
+      const loginUrl = `${base}login`.replace(/\/+/g, '/')
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = loginUrl
       }
     }
     return Promise.reject(error)

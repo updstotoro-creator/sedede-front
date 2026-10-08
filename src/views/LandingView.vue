@@ -13,9 +13,9 @@ import SiteFooter from '../components/landing/SiteFooter.vue'
   <div class="min-h-screen bg-paper">
     <NavBar />
     <HeroSection />
+    <EventsSection />
     <AboutSection />
     <FocusAreasSection />
-    <EventsSection />
     <NewsSection />
     <ContactSection />
     <SiteFooter />

@@ -6,6 +6,7 @@ export default {
       colors: {
         // Paleta institucional SEDEDE Chuquisaca (deportiva)
         brand: {
+          900: '#5A0B17',
           800: '#7A0F1F',
           700: '#9F1327', // rojo institucional oscuro (footer, textos fuertes)
           600: '#C41230', // rojo primario (botones, acentos, navbar)

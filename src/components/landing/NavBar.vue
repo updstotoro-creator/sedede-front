@@ -5,8 +5,8 @@ import logo from '../../assets/images/logo-sedede.png'
 const open = ref(false)
 const links = [
   { label: 'Inicio', href: '#inicio' },
+  { label: 'Calendario Deportivo', href: '#calendario' },
   { label: 'Novedades', href: '#noticias' },
-  { label: 'Eventos', href: '#eventos' },
   { label: 'Instalaciones', href: '#areas' },
   { label: 'Contacto', href: '#contacto' },
 ]

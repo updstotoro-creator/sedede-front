@@ -20,8 +20,7 @@ export const userService = {
     return data.data
   },
 
-  // "Desactivar" no borra al usuario: solo cambia el campo activo,
-  // reutilizando el mismo endpoint de edición.
+  // "Desactivar" no borra al usuario: solo cambia el campo activo
   async setActive(id, activo) {
     const { data } = await api.put(`/core/users/${id}`, { activo })
     return data.data

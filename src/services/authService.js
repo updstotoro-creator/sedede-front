@@ -8,9 +8,11 @@ export const authService = {
   async login({ email, password }) {
     const { data } = await api.post('/core/login', { email, password })
 
-    localStorage.setItem('sedede_token', data.token)
+    if (data?.token) {
+      localStorage.setItem('sedede_token', data.token)
+    }
 
-    return data.data // el usuario viene dentro de "data.data"
+    return data?.data ?? data?.user ?? data
   },
 
   async logout() {
@@ -23,6 +25,6 @@ export const authService = {
 
   async me() {
     const { data } = await api.get('/core/me')
-    return data.data
+    return data?.data ?? data
   },
 }

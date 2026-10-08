@@ -45,6 +45,37 @@ const routes = [
         component: () => import('../views/ClubDetailView.vue'),
       },
       {
+        path: 'deportistas',
+        name: 'dashboard-deportistas',
+        component: () => import('../views/DeportistasView.vue'),
+      },
+      {
+        path: 'escenarios',
+        name: 'dashboard-escenarios',
+        component: () => import('../views/EscenariosView.vue'),
+      },
+      {
+        path: 'tramites',
+        name: 'dashboard-tramites',
+        component: () => import('../views/TramitesView.vue'),
+      },
+      {
+        path: 'tarifario',
+        name: 'dashboard-tarifario',
+        component: () => import('../views/TarifarioView.vue'),
+      },
+      {
+        path: 'calendario-anual',
+        name: 'dashboard-calendario-anual',
+        component: () => import('../views/CalendarioAnualView.vue'),
+      },
+      {
+        path: 'comunidades',
+        name: 'dashboard-comunidades',
+        component: () => import('../views/MancomunidadesView.vue'),
+      },
+      // Inventario
+      {
         path: 'inventario/tipos-item',
         name: 'dashboard-inventario-tipos-item',
         component: () => import('../views/TiposItemView.vue'),
@@ -79,6 +110,7 @@ const routes = [
         name: 'dashboard-inventario-existencias',
         component: () => import('../views/ExistenciasView.vue'),
       },
+      // POA
       {
         path: 'poa',
         name: 'dashboard-poa',
@@ -114,7 +146,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 
@@ -127,8 +159,23 @@ router.beforeEach((to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (guestOnly && auth.isAuthenticated) {
+    const role = auth.user?.role?.nombre
+    if (role === 'comunidades' || role === 'representante_mancomunidad') {
+      return { name: 'dashboard-comunidades' }
+    }
     return { name: 'dashboard' }
   }
+
+  // Restricción estricta de navegación: rol comunidades sólo puede acceder a su módulo
+  if (auth.isAuthenticated) {
+    const role = auth.user?.role?.nombre
+    if (role === 'comunidades' || role === 'representante_mancomunidad') {
+      if (to.name !== 'dashboard-comunidades' && to.path !== '/dashboard/comunidades') {
+        return { name: 'dashboard-comunidades' }
+      }
+    }
+  }
+
   return true
 })
 
