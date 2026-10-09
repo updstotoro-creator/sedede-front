@@ -18,6 +18,7 @@ const titles = {
   'dashboard-users': 'Usuarios',
   'dashboard-roles': 'Roles',
   'dashboard-asociaciones': 'Asociaciones',
+  'dashboard-clubes': 'Clubes',
   'dashboard-asociacion-detalle': 'Clubes',
   'dashboard-club-detalle': 'Deportistas del Club',
   'dashboard-deportistas': 'Deportistas',

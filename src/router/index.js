@@ -40,6 +40,11 @@ const routes = [
         component: () => import('../views/AsociacionDetailView.vue'),
       },
       {
+        path: 'clubes',
+        name: 'dashboard-clubes',
+        component: () => import('../views/ClubesView.vue'),
+      },
+      {
         path: 'asociaciones/:asociacionId/clubes/:clubId',
         name: 'dashboard-club-detalle',
         component: () => import('../views/ClubDetailView.vue'),

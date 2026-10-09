@@ -57,6 +57,7 @@ const groups = computed(() => {
       id: 'asociaciones-calendario',
       links: [
         { to: '/dashboard/asociaciones', label: 'Asociaciones' },
+        { to: '/dashboard/clubes', label: 'Clubes' },
         { to: '/dashboard/calendario-anual', label: 'Calendario Anual' },
       ]
     },
