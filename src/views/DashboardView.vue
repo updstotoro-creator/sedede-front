@@ -300,6 +300,7 @@ onUnmounted(() => {
               v-model="searchQuery"
               type="text"
               placeholder="Buscar en el menú..."
+              aria-label="Buscar en el menú"
               class="w-full rounded-lg border border-transparent bg-slate-100 py-1.5 pl-9 pr-12 text-xs transition-all placeholder-slate-400 focus:border-brand-700 focus:bg-white focus:ring-1 focus:ring-brand-700"
             />
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 font-mono text-[10px] text-slate-400">Ctrl+K</span>

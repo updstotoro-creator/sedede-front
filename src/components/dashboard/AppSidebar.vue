@@ -172,7 +172,7 @@ function initials(name) {
             >
               <a
                 :href="href"
-                class="flex items-center gap-3 rounded-lg border-l-4 px-3 py-2.5 text-sm font-semibold transition-all"
+                class="group flex items-center gap-3 rounded-lg border-l-4 px-3 py-2.5 text-sm font-semibold transition-all"
                 :class="(link.exact ? isExactActive : isActive)
                   ? 'border-brand-800 bg-brand-50 text-brand-800 shadow-sm'
                   : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-brand-800'"
@@ -180,7 +180,7 @@ function initials(name) {
               >
                 <svg
                   class="h-5 w-5 shrink-0"
-                  :class="(link.exact ? isExactActive : isActive) ? 'text-brand-700' : 'text-slate-400'"
+                  :class="(link.exact ? isExactActive : isActive) ? 'text-brand-700' : 'text-slate-400 group-hover:text-brand-700'"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"

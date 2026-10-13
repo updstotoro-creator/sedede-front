@@ -22,6 +22,9 @@ export default {
         ink: '#1F2937',
         paper: '#F7F8FA',
       },
+      boxShadow: {
+        xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+      },
       fontFamily: {
         display: ['"Libre Franklin"', 'sans-serif'],
         body: ['Inter', 'sans-serif'],
