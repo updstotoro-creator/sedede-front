@@ -105,7 +105,18 @@ const esMenorDeportista = computed(() => {
   return deportistaEdad.value !== null && deportistaEdad.value < 18
 })
 
+const anioActual = new Date().getFullYear()
+const presetActivo = ref(null)
+
+const tramitesConcluidos = computed(() => {
+  const t = metrics.value?.tramites
+  if (!t) return null
+  const rest = (t.total_tramites || 0) - (t.en_revision || 0)
+  return rest >= 0 ? rest : null
+})
+
 function setPresetFecha(preset) {
+  presetActivo.value = preset
   const hoy = new Date()
   if (preset === 'hoy') {
     const str = hoy.toISOString().split('T')[0]
@@ -684,147 +695,203 @@ onUnmounted(() => {
           <!-- 2. VISTA EJECUTIVA GENERAL (PARA DIRECTORES / REVISORES) -->
           <!-- ======================================================== -->
           <div v-else class="space-y-6">
-            <!-- Banner Superior Limpio y Directo -->
-            <div
-              class="rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
-              style="background: linear-gradient(135deg, #5A0B17 0%, #7A0F1F 45%, #9F1327 100%);"
+            <!-- Banner Superior Institucional -->
+            <section
+              class="relative overflow-hidden rounded-2xl p-7 text-white shadow-lg shadow-brand-950/15"
+              style="background-color: #800020; background-image: radial-gradient(circle at 10% 20%, rgba(219, 39, 119, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 35%);"
             >
-              <div>
-                <h1 class="text-2xl font-display font-bold tracking-tight text-white">Resumen</h1>
-                <p class="text-red-100 text-xs mt-1">
-                  Recaudación, trámites, notificaciones y agenda de escenarios.
-                </p>
+              <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div class="max-w-2xl">
+                  <div class="mb-3 inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold backdrop-blur-sm">
+                    <span>Gobierno Autónomo Departamental de Chuquisaca</span>
+                  </div>
+                  <h2 class="text-2xl md:text-3xl font-display font-extrabold tracking-tight">Resumen Departamental de Gestión</h2>
+                  <p class="mt-1.5 text-sm font-normal leading-relaxed text-brand-100">
+                    Consolidado de recaudación por uso de escenarios deportivos, seguimiento a trámites de apoyo a asociaciones y monitoreo presupuestario POA.
+                  </p>
+                </div>
+                <div class="flex shrink-0 flex-wrap items-center gap-2.5">
+                  <button @click="navTo('/dashboard/tramites')" class="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/15 px-4 py-2.5 text-xs font-semibold text-white backdrop-blur-sm transition-all shadow-sm hover:bg-white/25">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                    <span>Trámites</span>
+                  </button>
+                  <button @click="navTo('/dashboard/tarifario')" class="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/15 px-4 py-2.5 text-xs font-semibold text-white backdrop-blur-sm transition-all shadow-sm hover:bg-white/25">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
+                    <span>Tarifario Oficial</span>
+                  </button>
+                  <button @click="navTo('/dashboard/calendario-anual')" class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-brand-900 transition-all shadow-md hover:bg-brand-50">
+                    <svg class="h-4 w-4 text-brand-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                    <span>Calendario Anual</span>
+                  </button>
+                </div>
               </div>
-
-              <div class="flex flex-wrap gap-2">
-                <button @click="navTo('/dashboard/tramites')" class="px-3 py-1.5 rounded-lg text-white text-xs font-semibold backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all" style="background-color: rgba(255, 255, 255, 0.15);">
-                  Trámites
-                </button>
-                <button @click="navTo('/dashboard/tarifario')" class="px-3 py-1.5 rounded-lg text-white text-xs font-semibold backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all" style="background-color: rgba(255, 255, 255, 0.15);">
-                  Tarifario
-                </button>
-                <button @click="navTo('/dashboard/calendario-anual')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-red-50 transition-all" style="background-color: #ffffff; color: #7A0F1F;">
-                  Calendario Anual
-                </button>
-              </div>
-            </div>
+            </section>
 
             <!-- Filtro por Rango de Fechas para Recaudación -->
-            <div class="rounded-xl border border-brand-500 bg-white p-3.5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div class="flex items-center gap-2 font-bold text-slate-800">
-                <span>Recaudación por Fechas:</span>
+            <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                  <div class="h-2 w-2 rounded-full bg-brand-800"></div>
+                  <span class="text-xs font-bold uppercase tracking-wide text-slate-800">Filtro de Recaudación por Fechas:</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <div class="flex items-center gap-2 text-xs">
+                    <label class="font-medium text-slate-500" for="fecha-desde">Desde:</label>
+                    <input id="fecha-desde" type="date" v-model="fechaDesde" @change="presetActivo = null; fetchMetrics()" class="rounded-lg border-slate-300 py-1.5 px-3 text-xs font-semibold text-slate-800 focus:border-brand-700 focus:ring-brand-700" />
+                  </div>
+                  <div class="flex items-center gap-2 text-xs">
+                    <label class="font-medium text-slate-500" for="fecha-hasta">Hasta:</label>
+                    <input id="fecha-hasta" type="date" v-model="fechaHasta" @change="presetActivo = null; fetchMetrics()" class="rounded-lg border-slate-300 py-1.5 px-3 text-xs font-semibold text-slate-800 focus:border-brand-700 focus:ring-brand-700" />
+                  </div>
+                  <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium">
+                    <button @click="setPresetFecha('hoy')" class="rounded-md px-3 py-1 transition" :class="presetActivo === 'hoy' ? 'bg-white font-bold text-brand-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">Hoy</button>
+                    <button @click="setPresetFecha('mes')" class="rounded-md px-3 py-1 transition" :class="presetActivo === 'mes' ? 'bg-white font-bold text-brand-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">Este Mes</button>
+                    <button @click="setPresetFecha('anio')" class="rounded-md px-3 py-1 transition" :class="presetActivo === 'anio' ? 'bg-white font-bold text-brand-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">{{ anioActual }}</button>
+                    <button @click="setPresetFecha('todo')" class="rounded-md px-3 py-1 transition" :class="presetActivo === 'todo' ? 'bg-white font-bold text-brand-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">Todo</button>
+                  </div>
+                  <button @click="fetchMetrics" class="flex items-center gap-1.5 rounded-lg bg-brand-800 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-brand-900">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>
+                    <span>Aplicar</span>
+                  </button>
+                </div>
               </div>
+            </section>
 
-              <div class="flex flex-wrap items-center gap-2">
-                <div class="flex items-center gap-1">
-                  <span class="text-slate-500">Desde:</span>
-                  <input type="date" v-model="fechaDesde" @change="fetchMetrics" class="rounded-lg border-slate-300 text-xs py-1 px-2 font-semibold text-slate-800" />
-                </div>
-                <div class="flex items-center gap-1">
-                  <span class="text-slate-500">Hasta:</span>
-                  <input type="date" v-model="fechaHasta" @change="fetchMetrics" class="rounded-lg border-slate-300 text-xs py-1 px-2 font-semibold text-slate-800" />
-                </div>
-                <div class="flex items-center gap-1 pl-2">
-                  <button @click="setPresetFecha('hoy')" class="px-2 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-700 rounded font-semibold text-[11px]">Hoy</button>
-                  <button @click="setPresetFecha('mes')" class="px-2 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-700 rounded font-semibold text-[11px]">Este Mes</button>
-                  <button @click="setPresetFecha('anio')" class="px-2 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-700 rounded font-semibold text-[11px]">2026</button>
-                  <button @click="setPresetFecha('todo')" class="px-2 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-700 rounded font-semibold text-[11px]">Todo</button>
-                </div>
-              </div>
+            <!-- Indicador de Carga / Error -->
+            <div v-if="isLoading" class="flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white p-10 text-sm text-slate-500">
+              <span class="inline-block h-6 w-6 animate-spin rounded-full border-[3px] border-brand-600 border-r-transparent"></span>
+              Cargando datos del resumen...
             </div>
-
-            <!-- Indicador de Carga -->
-            <div v-if="isLoading" class="p-8 text-center text-slate-500">Cargando datos...</div>
-            <div v-else-if="errorMessage" role="alert" class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div v-else-if="errorMessage" role="alert" class="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-800">
               {{ errorMessage }}
             </div>
 
             <div v-else class="space-y-6">
-              <!-- Fila 1: Tarjetas KPI Limpias -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- KPI 1: Recaudación -->
-                <div class="rounded-xl border border-brand-500 bg-white p-4 shadow-sm">
-                  <div class="flex justify-between items-start">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Recaudado</span>
-                    <span class="text-base">💳</span>
+              <!-- KPIs -->
+              <section class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                <!-- KPI 1: Total Recaudado -->
+                <div class="relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-md">
+                  <div class="absolute left-0 right-0 top-0 h-1 bg-brand-700"></div>
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Recaudado</p>
+                      <h3 class="mt-2 text-2xl font-black text-slate-900">Bs {{ formatMoney(metrics?.recaudacion?.total_recaudado) }}</h3>
+                    </div>
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600">
+                      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
+                    </div>
                   </div>
-                  <div class="mt-2 text-2xl font-bold font-mono text-brand-700">
-                    Bs {{ formatMoney(metrics?.recaudacion?.total_recaudado) }}
-                  </div>
-                  <div class="mt-1 text-[11px] text-slate-500">
-                    {{ metrics?.recaudacion?.total_transacciones || 0 }} pagos registrados
-                  </div>
-                </div>
-
-                <!-- KPI 2: Trámites -->
-                <div class="rounded-xl border border-brand-500 bg-white p-4 shadow-sm">
-                  <div class="flex justify-between items-start">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Trámites de Apoyo</span>
-                    <span class="text-base">📑</span>
-                  </div>
-                  <div class="mt-2 text-2xl font-bold font-mono text-slate-900">
-                    {{ metrics?.tramites?.total_tramites || 0 }}
-                  </div>
-                  <div class="mt-1 text-[11px] text-amber-600 font-semibold">
-                    {{ metrics?.tramites?.en_revision || 0 }} en curso
+                  <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
+                    <span class="text-slate-400 font-medium">{{ metrics?.recaudacion?.total_transacciones || 0 }} pagos registrados</span>
                   </div>
                 </div>
 
-                <!-- KPI 3: Monto Apoyado -->
-                <div class="rounded-xl border border-brand-500 bg-white p-4 shadow-sm">
-                  <div class="flex justify-between items-start">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Presupuesto Apoyos</span>
-                    <span class="text-base">🏆</span>
+                <!-- KPI 2: Trámites de Apoyo -->
+                <div class="relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-md">
+                  <div class="absolute left-0 right-0 top-0 h-1 bg-brand-700"></div>
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Trámites de Apoyo</p>
+                      <h3 class="mt-2 text-2xl font-black text-slate-900">{{ metrics?.tramites?.total_tramites || 0 }} <span class="text-sm font-semibold text-slate-400">Solicitudes</span></h3>
+                    </div>
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
+                      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                    </div>
                   </div>
-                  <div class="mt-2 text-2xl font-bold font-mono text-slate-900">
-                    Bs {{ formatMoney(metrics?.tramites?.monto_aprobado_total) }}
+                  <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
+                    <span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">{{ metrics?.tramites?.en_revision || 0 }} en curso</span>
+                    <span v-if="tramitesConcluidos !== null" class="font-semibold text-emerald-600">{{ tramitesConcluidos }} concluidos</span>
                   </div>
-                  <div class="mt-1 text-[11px] text-slate-500">
-                    Monto aprobado acumulado
+                </div>
+
+                <!-- KPI 3: Presupuesto Apoyos -->
+                <div class="relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-md">
+                  <div class="absolute left-0 right-0 top-0 h-1 bg-brand-700"></div>
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Presupuesto Apoyos</p>
+                      <h3 class="mt-2 text-2xl font-black text-slate-900">Bs {{ formatMoney(metrics?.tramites?.monto_aprobado_total) }}</h3>
+                    </div>
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-200/60 bg-amber-50 text-amber-700">
+                      <svg class="h-6 w-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </div>
+                  </div>
+                  <div class="mt-4 border-t border-slate-100 pt-3 text-xs">
+                    <span class="text-slate-500 font-medium">Monto aprobado acumulado</span>
                   </div>
                 </div>
 
-                <!-- KPI 4: Escenarios Ocupados -->
-                <div class="rounded-xl border border-brand-500 bg-white p-4 shadow-sm">
-                  <div class="flex justify-between items-start">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Eventos en Agenda</span>
-                    <span class="text-base">🏟️</span>
+                <!-- KPI 4: Eventos en Agenda -->
+                <div class="relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all hover:shadow-md">
+                  <div class="absolute left-0 right-0 top-0 h-1 bg-brand-700"></div>
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Eventos en Agenda</p>
+                      <h3 class="mt-2 text-2xl font-black text-slate-900">{{ metrics?.escenarios?.total_reservas_activas || 0 }} <span class="text-sm font-semibold text-slate-400">Reservas</span></h3>
+                    </div>
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-purple-100 bg-purple-50 text-purple-700">
+                      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
+                    </div>
                   </div>
-                  <div class="mt-2 text-2xl font-bold font-mono text-slate-900">
-                    {{ metrics?.escenarios?.total_reservas_activas || 0 }}
-                  </div>
-                  <div class="mt-1 text-[11px] text-slate-500">
-                    Reservas y eventos oficiales
+                  <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
+                    <span class="font-medium text-slate-600">Reservas y eventos oficiales</span>
+                    <button @click="navTo('/dashboard/calendario-anual')" class="cursor-pointer font-bold text-brand-700 hover:underline">Ver agenda →</button>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <!-- Fila 2: Accesos Rápidos -->
-              <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 class="mb-3 font-display text-xs font-bold uppercase tracking-wider text-slate-400">Accesos Rápidos</h3>
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <button @click="navTo('/dashboard/tramites')" class="rounded-xl border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 p-3 text-left transition-all group">
-                    <span class="block text-base">📑</span>
-                    <span class="font-bold text-xs text-slate-800 group-hover:text-brand-700">Nuevo Trámite</span>
-                  </button>
-
-                  <button @click="navTo('/dashboard/tarifario')" class="rounded-xl border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 p-3 text-left transition-all group">
-                    <span class="block text-base">💳</span>
-                    <span class="font-bold text-xs text-slate-800 group-hover:text-brand-700">Cotizar Tarifario</span>
-                  </button>
-
-                  <button @click="navTo('/dashboard/calendario-anual')" class="rounded-xl border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 p-3 text-left transition-all group">
-                    <span class="block text-base">📅</span>
-                    <span class="font-bold text-xs text-slate-800 group-hover:text-brand-700">Calendario Deportivo</span>
-                  </button>
-
-                  <button @click="navTo('/dashboard/asociaciones')" class="rounded-xl border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 p-3 text-left transition-all group">
-                    <span class="block text-base">🏆</span>
-                    <span class="font-bold text-xs text-slate-800 group-hover:text-brand-700">Asociaciones</span>
-                  </button>
+              <!-- Accesos Rápidos -->
+              <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+                <div class="mb-4 flex items-center justify-between">
+                  <h4 class="text-xs font-bold uppercase tracking-widest text-slate-400">Accesos Rápidos y Operativos</h4>
+                  <span class="text-xs text-slate-400">Atajos frecuentes para gestión diaria</span>
                 </div>
-              </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <a @click.prevent="navTo('/dashboard/tramites')" href="#" class="group flex cursor-pointer items-center gap-3.5 rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:border-brand-600 hover:bg-brand-50/40">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-xs transition-colors group-hover:border-brand-800 group-hover:bg-brand-800 group-hover:text-white">
+                      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16m8-8H4" /></svg>
+                    </div>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800 transition-colors group-hover:text-brand-900">Nuevo Trámite</p>
+                      <p class="text-xs text-slate-500">Solicitud de personería o apoyo</p>
+                    </div>
+                  </a>
+                  <a @click.prevent="navTo('/dashboard/tarifario')" href="#" class="group flex cursor-pointer items-center gap-3.5 rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:border-brand-600 hover:bg-brand-50/40">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-xs transition-colors group-hover:border-brand-800 group-hover:bg-brand-800 group-hover:text-white">
+                      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                    </div>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800 transition-colors group-hover:text-brand-900">Cotizar Tarifario</p>
+                      <p class="text-xs text-slate-500">Cálculo de alquiler y garantías</p>
+                    </div>
+                  </a>
+                  <a @click.prevent="navTo('/dashboard/calendario-anual')" href="#" class="group flex cursor-pointer items-center gap-3.5 rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:border-brand-600 hover:bg-brand-50/40">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-xs transition-colors group-hover:border-brand-800 group-hover:bg-brand-800 group-hover:text-white">
+                      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                    </div>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800 transition-colors group-hover:text-brand-900">Calendario Deportivo</p>
+                      <p class="text-xs text-slate-500">Fechas de torneos nacionales</p>
+                    </div>
+                  </a>
+                  <a @click.prevent="navTo('/dashboard/asociaciones')" href="#" class="group flex cursor-pointer items-center gap-3.5 rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:border-brand-600 hover:bg-brand-50/40">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-xs transition-colors group-hover:border-brand-800 group-hover:bg-brand-800 group-hover:text-white">
+                      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>
+                    </div>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800 transition-colors group-hover:text-brand-900">Asociaciones</p>
+                      <p class="text-xs text-slate-500">Padrón de federaciones</p>
+                    </div>
+                  </a>
+                </div>
+              </section>
             </div>
+
+            <!-- Footer Institucional -->
+            <footer class="flex flex-col items-center justify-between gap-3 border-t border-slate-200 pb-6 pt-2 text-center text-xs text-slate-400 md:flex-row">
+              <p>© {{ anioActual }} Servicio Departamental de Deportes (SEDEDE) - Chuquisaca. Todos los derechos reservados.</p>
+              <p class="font-medium text-slate-500">Plataforma Centralizada de Deporte Departamental</p>
+            </footer>
           </div>
 
         </div>
