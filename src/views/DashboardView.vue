@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AppSidebar from '../components/dashboard/AppSidebar.vue'
@@ -75,6 +75,20 @@ const perfilForm = reactive({
   tutor_nombre: '',
   tutor_ci: '',
   tutor_telefono: '',
+})
+
+const searchQuery = ref('')
+const searchInput = ref(null)
+
+function onGlobalKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    searchInput.value?.focus()
+  }
+}
+
+watch(() => route.fullPath, () => {
+  searchQuery.value = ''
 })
 
 const deportistaEdad = computed(() => {
@@ -232,37 +246,63 @@ function navTo(path) {
 }
 
 onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
   if (isDeportista.value) {
     fetchDeportistaData()
   } else {
     fetchMetrics()
   }
 })
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+})
 </script>
 
 <template>
   <div class="flex bg-paper min-h-screen">
     <!-- Sidebar de Navegación Lateral -->
-    <AppSidebar />
+    <AppSidebar :filter="searchQuery" />
 
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Header Superior Limpio -->
-      <header class="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-4 shadow-sm">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-brand-700">SEDEDE CHUQUISACA</p>
-          <h1 class="font-display text-xl font-bold text-slate-900">
+      <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8 shadow-xs">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">SEDEDE Chuquisaca</span>
+          <svg class="h-4 w-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+          <h1 class="text-sm font-bold text-slate-900">
             {{ isDeportista ? 'Portal del Atleta & Trámites' : (titles[route.name] ?? 'Panel') }}
           </h1>
         </div>
 
-        <div v-if="isDeportista && deportistaPerfil" class="flex items-center gap-3">
-          <div class="text-right hidden sm:block">
-            <p class="text-xs font-bold text-slate-800">{{ deportistaPerfil.nombres }} {{ deportistaPerfil.apellidos }}</p>
-            <p class="text-[11px] text-brand-700 font-semibold">{{ deportistaPerfil.disciplina }} · {{ deportistaPerfil.asociacion?.sigla || 'Deportista' }}</p>
+        <div class="flex items-center gap-4">
+          <div class="relative w-64">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+            </div>
+            <input
+              ref="searchInput"
+              v-model="searchQuery"
+              type="text"
+              placeholder="Buscar en el menú..."
+              class="w-full rounded-lg border border-transparent bg-slate-100 py-1.5 pl-9 pr-12 text-xs transition-all placeholder-slate-400 focus:border-brand-700 focus:bg-white focus:ring-1 focus:ring-brand-700"
+            />
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 font-mono text-[10px] text-slate-400">Ctrl+K</span>
           </div>
-          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-800 font-bold text-xs border border-brand-300">
-            {{ deportistaPerfil.nombres?.[0] }}{{ deportistaPerfil.apellidos?.[0] }}
-          </span>
+
+          <div v-if="isDeportista && deportistaPerfil" class="flex items-center gap-3">
+            <div class="hidden text-right sm:block">
+              <p class="text-xs font-bold text-slate-800">{{ deportistaPerfil.nombres }} {{ deportistaPerfil.apellidos }}</p>
+              <p class="text-[11px] font-semibold text-brand-700">{{ deportistaPerfil.disciplina }} · {{ deportistaPerfil.asociacion?.sigla || 'Deportista' }}</p>
+            </div>
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-brand-300 bg-brand-100 text-xs font-bold text-brand-800">
+              {{ deportistaPerfil.nombres?.[0] }}{{ deportistaPerfil.apellidos?.[0] }}
+            </span>
+          </div>
         </div>
       </header>
 
