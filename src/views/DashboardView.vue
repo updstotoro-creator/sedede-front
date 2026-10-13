@@ -277,8 +277,8 @@ onMounted(() => {
           <div v-if="isDeportista" class="space-y-6">
             <!-- Banner de Bienvenida Deportista -->
             <div
-              class="rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-red-950/20"
-              style="background: linear-gradient(135deg, #5A0B17 0%, #7A0F1F 45%, #9F1327 100%);"
+              class="rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-brand-950/20"
+              style="background: linear-gradient(135deg, #400210 0%, #690b21 45%, #800020 100%);"
             >
               <div>
                 <div class="flex items-center gap-2">
@@ -292,7 +292,7 @@ onMounted(() => {
                 <h1 class="text-2xl font-display font-bold tracking-tight mt-2 text-white">
                   ¡Hola, {{ deportistaPerfil?.nombres || 'Deportista' }}!
                 </h1>
-                <p class="text-red-100 text-xs mt-1 max-w-2xl leading-relaxed">
+                <p class="text-brand-100 text-xs mt-1 max-w-2xl leading-relaxed">
                   Bienvenido a tu panel integral del Servicio Departamental de Deportes. Desde aquí puedes tramitar apoyos económicos, premios al mérito deportivo e indumentaria según el procedimiento oficial de 17 etapas.
                 </p>
               </div>
@@ -300,8 +300,8 @@ onMounted(() => {
               <div class="flex flex-wrap gap-2.5 shrink-0">
                 <button
                   @click="navTo('/dashboard/tramites')"
-                  class="px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-red-50 transition-all flex items-center gap-1.5"
-                  style="background-color: #ffffff; color: #7A0F1F;"
+                  class="px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-brand-50 transition-all flex items-center gap-1.5"
+                  style="background-color: #ffffff; color: #800020;"
                 >
                   <span class="font-black text-sm">+</span>
                   <span>Nueva Solicitud de Apoyo</span>

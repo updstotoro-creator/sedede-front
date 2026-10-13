@@ -4,15 +4,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Paleta institucional SEDEDE Chuquisaca (deportiva)
+        // Paleta institucional SEDEDE Chuquisaca — vino oficial #800020
         brand: {
-          900: '#5A0B17',
-          800: '#7A0F1F',
-          700: '#9F1327', // rojo institucional oscuro (footer, textos fuertes)
-          600: '#C41230', // rojo primario (botones, acentos, navbar)
-          500: '#DC2B45',
-          100: '#FBE4E7',
-          50: '#FDF3F4',
+          50: '#fdf2f4',
+          100: '#fbe6e9',
+          200: '#f7cfd6',
+          300: '#efa9b8',
+          400: '#e0758a',
+          500: '#d44562',
+          600: '#b91c3c',
+          700: '#991532',
+          800: '#800020', // vino oficial institucional Chuquisaca
+          900: '#690b21',
+          950: '#400210',
         },
         navyflag: '#1E3A8A', // azul de detalle (franja bandera)
         ink: '#1F2937',
