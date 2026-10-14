@@ -7,6 +7,20 @@ const auth = useAuthStore()
 
 const groups = computed(() => {
   const role = auth.user?.role?.nombre
+  // 1. Rol Comunidades / Representante Mancomunidad: Exclusivo su módulo
+  if (role === 'comunidades' || role === 'representante_mancomunidad') {
+    return [
+      {
+        id: 'gestion-comunidades',
+        standalone: true,
+        links: [
+          { to: '/dashboard/comunidades', label: 'Mi Registro & Solicitudes de Apoyo', exact: true },
+        ]
+      }
+    ]
+  }
+
+  // 2. Rol Deportista: Panel personal, trámites y calendario
   if (role === 'deportista') {
     return [
       {
@@ -26,18 +40,216 @@ const groups = computed(() => {
     ]
   }
 
-  if (role === 'representante_mancomunidad' || role === 'comunidades') {
+  // 3. Rol Encargado de Inventarios / Almacenes: Solo Inventario
+  if (role === 'encargado_inventarios') {
     return [
       {
-        id: 'gestion-comunidades',
+        id: 'resumen',
         standalone: true,
         links: [
-          { to: '/dashboard/comunidades', label: 'Mi Registro & Solicitudes de Apoyo', exact: true },
+          { to: '/dashboard', label: 'Resumen Operativo', exact: true },
         ]
-      }
+      },
+      {
+        id: 'inventario-almacenes',
+        links: [
+          { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
+          { to: '/dashboard/inventario/tipos-item', label: 'Familias de Ítems' },
+          { to: '/dashboard/inventario/existencias', label: 'Existencias' },
+          { to: '/dashboard/inventario/lotes', label: 'Lotes de Inventario' },
+          { to: '/dashboard/inventario/movimientos', label: 'Movimientos (Kardex)' },
+        ]
+      },
     ]
   }
 
+  // 4. Rol Coordinador POA / Encargado Contable: Solo POA y Tarifario
+  if (role === 'coordinador_poa' || role === 'encargado_contable') {
+    return [
+      {
+        id: 'resumen',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Resumen Financiero', exact: true },
+        ]
+      },
+      {
+        id: 'poa-gestion',
+        links: [
+          { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
+          { to: '/dashboard/poa/planes', label: 'Planes POA' },
+          { to: '/dashboard/poa', label: 'Estructura POA' },
+          { to: '/dashboard/poa/techos', label: 'Techos Presupuestarios' },
+          { to: '/dashboard/poa/bitacora', label: 'Bitácora POA' },
+        ]
+      },
+      {
+        id: 'escenarios-tarifario',
+        links: [
+          { to: '/dashboard/tarifario', label: 'Tarifario Institucional' },
+        ]
+      },
+    ]
+  }
+
+  // 5. Rol Coordinador de Eventos / Infraestructura: Escenarios, Tarifario y Calendario
+  if (role === 'coordinador_eventos') {
+    return [
+      {
+        id: 'resumen',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Resumen Escenarios', exact: true },
+        ]
+      },
+      {
+        id: 'escenarios-tarifario',
+        links: [
+          { to: '/dashboard/escenarios', label: 'Escenarios Deportivos' },
+          { to: '/dashboard/tarifario', label: 'Tarifario' },
+          { to: '/dashboard/calendario-anual', label: 'Calendario Anual' },
+        ]
+      },
+    ]
+  }
+
+  // 6. Rol Asociaciones Deportivas: Asociaciones, Clubes, Trámites, Calendario
+  if (role === 'asociacion' || role === 'coordinador_asociacion') {
+    return [
+      {
+        id: 'resumen',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Panel Asociación', exact: true },
+        ]
+      },
+      {
+        id: 'asociaciones-calendario',
+        links: [
+          { to: '/dashboard/asociaciones', label: 'Padrón de Asociación' },
+          { to: '/dashboard/clubes', label: 'Clubes Afiliados' },
+          { to: '/dashboard/calendario-anual', label: 'Calendario Anual' },
+        ]
+      },
+      {
+        id: 'deportistas-tramites',
+        links: [
+          { to: '/dashboard/tramites', label: 'Gestión de Trámites' },
+          { to: '/dashboard/escenarios', label: 'Consulta de Escenarios' },
+        ]
+      },
+    ]
+  }
+
+  // 7. Rol Club Deportivo: Club, Atletas, Trámites
+  if (role === 'club') {
+    return [
+      {
+        id: 'resumen',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Panel Club', exact: true },
+        ]
+      },
+      {
+        id: 'club-gestion',
+        links: [
+          { to: '/dashboard/clubes', label: 'Ficha de Club' },
+          { to: '/dashboard/deportistas', label: 'Atletas Registrados' },
+          { to: '/dashboard/tramites', label: 'Trámites' },
+        ]
+      },
+    ]
+  }
+
+  // 8. Rol Entrenador / Escuelas: Escuelas Deportivas y Escenarios
+  if (role === 'entrenador') {
+    return [
+      {
+        id: 'resumen',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Panel Técnico', exact: true },
+        ]
+      },
+      {
+        id: 'formacion-escuelas',
+        links: [
+          { to: '/dashboard/formacion/inscripciones', label: 'Escuelas Deportivas' },
+          { to: '/dashboard/escenarios', label: 'Disponibilidad de Escenarios' },
+        ]
+      },
+    ]
+  }
+
+  // 9. Rol SEDEDE / Personal Administrativo: Todos los módulos operativos (sin Gestión de Usuarios ni Roles)
+  if (role === 'sedede' || role === 'personal_sedede') {
+    return [
+      {
+        id: 'resumen',
+        standalone: true,
+        links: [
+          { to: '/dashboard', label: 'Resumen Ejecutivo', exact: true },
+        ]
+      },
+      {
+        id: 'asociaciones-calendario',
+        links: [
+          { to: '/dashboard/asociaciones', label: 'Asociaciones' },
+          { to: '/dashboard/clubes', label: 'Clubes' },
+          { to: '/dashboard/calendario-anual', label: 'Calendario Anual' },
+        ]
+      },
+      {
+        id: 'deportistas-tramites',
+        links: [
+          { to: '/dashboard/deportistas', label: 'Deportistas' },
+          { to: '/dashboard/tramites', label: 'Trámites' },
+        ]
+      },
+      {
+        id: 'mancomunidades-rural',
+        links: [
+          { to: '/dashboard/comunidades', label: 'Mancomunidades Rurales' },
+        ]
+      },
+      {
+        id: 'escenarios-tarifario',
+        links: [
+          { to: '/dashboard/escenarios', label: 'Escenarios' },
+          { to: '/dashboard/tarifario', label: 'Tarifario' },
+        ]
+      },
+      {
+        id: 'formacion-escuelas',
+        links: [
+          { to: '/dashboard/formacion/inscripciones', label: 'Escuelas Deportivas' },
+        ]
+      },
+      {
+        id: 'poa-gestion',
+        links: [
+          { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
+          { to: '/dashboard/poa/planes', label: 'Planes POA' },
+          { to: '/dashboard/poa', label: 'Estructura POA' },
+          { to: '/dashboard/poa/techos', label: 'Techos Presupuestarios' },
+          { to: '/dashboard/poa/bitacora', label: 'Bitácora POA' },
+        ]
+      },
+      {
+        id: 'inventario-almacenes',
+        links: [
+          { to: '/dashboard/inventario/almacenes', label: 'Almacenes' },
+          { to: '/dashboard/inventario/tipos-item', label: 'Familias de Ítems' },
+          { to: '/dashboard/inventario/existencias', label: 'Existencias' },
+          { to: '/dashboard/inventario/lotes', label: 'Lotes de Inventario' },
+          { to: '/dashboard/inventario/movimientos', label: 'Movimientos (Kardex)' },
+        ]
+      },
+    ]
+  }
+
+  // 10. Rol Admin / Superusuario: Acceso COMPLETO (incluyendo Usuarios y Roles de Seguridad)
   return [
     {
       id: 'resumen',
@@ -82,6 +294,12 @@ const groups = computed(() => {
       ]
     },
     {
+      id: 'formacion-escuelas',
+      links: [
+        { to: '/dashboard/formacion/inscripciones', label: 'Escuelas Deportivas' },
+      ]
+    },
+    {
       id: 'poa-gestion',
       links: [
         { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
@@ -99,12 +317,6 @@ const groups = computed(() => {
         { to: '/dashboard/inventario/existencias', label: 'Existencias' },
         { to: '/dashboard/inventario/lotes', label: 'Lotes de Inventario' },
         { to: '/dashboard/inventario/movimientos', label: 'Movimientos (Kardex)' },
-      ]
-    },
-    {
-      id: 'formacion-escuelas',
-      links: [
-        { to: '/dashboard/formacion/inscripciones', label: 'Escuelas Deportivas' },
       ]
     },
   ]
