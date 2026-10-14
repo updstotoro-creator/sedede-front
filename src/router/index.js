@@ -141,6 +141,12 @@ const routes = [
         name: 'dashboard-poa-bitacora',
         component: () => import('../views/PoaBitacoraView.vue'),
       },
+      // Formación deportiva
+      {
+        path: 'formacion/inscripciones',
+        name: 'dashboard-formacion-inscripciones',
+        component: () => import('../views/InscripcionEscuelasView.vue'),
+      },
     ],
   },
 ]

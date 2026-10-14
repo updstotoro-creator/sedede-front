@@ -101,6 +101,12 @@ const groups = computed(() => {
         { to: '/dashboard/inventario/movimientos', label: 'Movimientos (Kardex)' },
       ]
     },
+    {
+      id: 'formacion-escuelas',
+      links: [
+        { to: '/dashboard/formacion/inscripciones', label: 'Escuelas Deportivas' },
+      ]
+    },
   ]
 })
 
