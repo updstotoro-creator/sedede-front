@@ -1,437 +1,130 @@
 import { defineStore } from 'pinia'
-import { poaService } from '@/services/poaService'
+import { poaService, mensajeError } from '@/services/poaService'
+import { useAuthStore } from '@/stores/auth'
+
+const CLAVE_PLAN = 'sedede_poa_plan_id'
+
+function leerPlanGuardado() {
+  try {
+    const id = Number(localStorage.getItem(CLAVE_PLAN))
+    return id || null
+  } catch {
+    return null
+  }
+}
 
 export const usePoaStore = defineStore('poa', {
   state: () => ({
     dashboard: null,
     arbol: [],
-    programas: [],
-    proyectos: [],
     planes: [],
-    actividades: [],
-    indicadores: [],
-    metas: [],
+    // Plan sobre el que trabajan el árbol, los techos y el dashboard.
+    planId: leerPlanGuardado(),
     techos: [],
     transiciones: [],
+    unidades: [],
     loading: false,
     error: null,
   }),
 
-  actions: {
-    setLoading(val) {
-      this.loading = val
+  getters: {
+    planActivo: (state) => state.planes.find((p) => p.id === state.planId) ?? null,
+    planEditable() {
+      return this.planActivo?.estado === 'borrador'
     },
+    nombreUnidad: (state) => (id) => state.unidades.find((u) => u.id === id)?.nombre ?? (id ? `Unidad #${id}` : '—'),
+    // Permisos poa.* del rol, para ocultar lo que el backend rechazaría con
+    // 403. Sin datos del rol (p. ej. tras recargar) no se oculta nada: el
+    // backend sigue siendo quien autoriza.
+    puede() {
+      return (permiso) => {
+        let permisos = useAuthStore().user?.role?.permisos
+        if (typeof permisos === 'string') {
+          try { permisos = JSON.parse(permisos) } catch { permisos = null }
+        }
+        return Array.isArray(permisos) ? permisos.includes(permiso) : true
+      }
+    },
+  },
 
+  actions: {
     setError(msg) {
       this.error = msg
     },
 
-    // ── Dashboard ────────────────────────────────────────────
-    async fetchDashboard() {
-      this.setLoading(true)
-      this.setError(null)
+    // Envuelve una carga: activa `loading`, limpia y registra el error.
+    async cargar(fn, porDefecto) {
+      this.loading = true
+      this.error = null
       try {
-        this.dashboard = await poaService.getDashboard()
+        return await fn()
       } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar dashboard')
+        this.error = mensajeError(e, porDefecto)
       } finally {
-        this.setLoading(false)
+        this.loading = false
       }
     },
 
-    // ── Árbol jerárquico ─────────────────────────────────────
-    async fetchArbol(params) {
-      this.setLoading(true)
-      this.setError(null)
+    seleccionarPlan(id) {
+      this.planId = id || null
       try {
-        const res = await poaService.getArbol(params)
-        this.arbol = res.data
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar árbol')
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    // ── Programas ────────────────────────────────────────────
-    async fetchProgramas(params) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.listProgramas(params)
-        this.programas = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar programas')
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async createPrograma(payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.createPrograma(payload)
-        this.programas.push(res.data)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al crear programa')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async updatePrograma(id, payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.updatePrograma(id, payload)
-        const idx = this.programas.findIndex((p) => p.id === id)
-        if (idx !== -1) this.programas[idx] = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al actualizar programa')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async deletePrograma(id) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.deletePrograma(id)
-        this.programas = this.programas.filter((p) => p.id !== id)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al eliminar programa')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    // ── Proyectos ────────────────────────────────────────────
-    async fetchProyectos(params) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.listProyectos(params)
-        this.proyectos = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar proyectos')
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async createProyecto(payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.createProyecto(payload)
-        this.proyectos.push(res.data)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al crear proyecto')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async updateProyecto(id, payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.updateProyecto(id, payload)
-        const idx = this.proyectos.findIndex((p) => p.id === id)
-        if (idx !== -1) this.proyectos[idx] = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al actualizar proyecto')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async deleteProyecto(id) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.deleteProyecto(id)
-        this.proyectos = this.proyectos.filter((p) => p.id !== id)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al eliminar proyecto')
-        throw e
-      } finally {
-        this.setLoading(false)
+        if (this.planId) localStorage.setItem(CLAVE_PLAN, String(this.planId))
+        else localStorage.removeItem(CLAVE_PLAN)
+      } catch {
+        // Sin almacenamiento local la selección dura solo la sesión.
       }
     },
 
     // ── Planes ───────────────────────────────────────────────
-    async fetchPlanes(params) {
-      this.setLoading(true)
-      this.setError(null)
+    async fetchPlanes() {
+      await this.cargar(async () => {
+        this.planes = await poaService.listPlanes()
+        // Si no hay plan elegido (o ya no existe), se toma el más reciente.
+        if (!this.planes.some((p) => p.id === this.planId)) {
+          this.seleccionarPlan(this.planes[0]?.id ?? null)
+        }
+      }, 'Error al cargar planes')
+    },
+
+    // ── Catálogo de unidades (se carga una vez) ──────────────
+    async fetchUnidades() {
+      if (this.unidades.length) return
       try {
-        const res = await poaService.listPlanes(params)
-        this.planes = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar planes')
-      } finally {
-        this.setLoading(false)
+        this.unidades = await poaService.listUnidades()
+      } catch {
+        // Sin catálogo se muestran los IDs; no bloquea la vista.
       }
     },
 
-    async createPlan(payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.createPlan(payload)
-        this.planes.push(res.data)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al crear plan')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
+    // ── Dashboard ────────────────────────────────────────────
+    async fetchDashboard() {
+      await this.cargar(async () => {
+        this.dashboard = await poaService.getDashboard(this.planId ? { plan_id: this.planId } : {})
+      }, 'Error al cargar el dashboard')
     },
 
-    async aprobarPlan(id) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.aprobarPlan(id)
-        const idx = this.planes.findIndex((p) => p.id === id)
-        if (idx !== -1) this.planes[idx] = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al aprobar plan')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    // ── Actividades ──────────────────────────────────────────
-    async fetchActividades(params) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.listActividades(params)
-        this.actividades = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar actividades')
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async createActividad(payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.createActividad(payload)
-        this.actividades.push(res.data)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al crear actividad')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async updateActividad(id, payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.updateActividad(id, payload)
-        const idx = this.actividades.findIndex((a) => a.id === id)
-        if (idx !== -1) this.actividades[idx] = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al actualizar actividad')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async deleteActividad(id) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.deleteActividad(id)
-        this.actividades = this.actividades.filter((a) => a.id !== id)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al eliminar actividad')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    // ── Indicadores ──────────────────────────────────────────
-    async fetchIndicadores(params) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.listIndicadores(params)
-        this.indicadores = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar indicadores')
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async createIndicador(payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.createIndicador(payload)
-        this.indicadores.push(res.data)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al crear indicador')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async updateIndicador(id, payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.updateIndicador(id, payload)
-        const idx = this.indicadores.findIndex((i) => i.id === id)
-        if (idx !== -1) this.indicadores[idx] = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al actualizar indicador')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async deleteIndicador(id) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.deleteIndicador(id)
-        this.indicadores = this.indicadores.filter((i) => i.id !== id)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al eliminar indicador')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    // ── Metas ────────────────────────────────────────────────
-    async fetchMetas(params) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.listMetas(params)
-        this.metas = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar metas')
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async createMeta(payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.createMeta(payload)
-        this.metas.push(res.data)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al crear meta')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    async updateMeta(id, payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.updateMeta(id, payload)
-        const idx = this.metas.findIndex((m) => m.id === id)
-        if (idx !== -1) this.metas[idx] = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al actualizar meta')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
+    // ── Árbol ────────────────────────────────────────────────
+    async fetchArbol() {
+      await this.cargar(async () => {
+        this.arbol = await poaService.getArbol(this.planId ? { plan_id: this.planId } : {})
+      }, 'Error al cargar la estructura')
     },
 
     // ── Techos ───────────────────────────────────────────────
-    async fetchTechos(params) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.listTechos(params)
-        this.techos = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar techos')
-      } finally {
-        this.setLoading(false)
-      }
+    async fetchTechos(params = {}) {
+      await this.cargar(async () => {
+        this.techos = await poaService.listTechos({
+          ...(this.planId ? { plan_id: this.planId } : {}),
+          ...params,
+        })
+      }, 'Error al cargar techos')
     },
 
-    async createTecho(payload) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.createTecho(payload)
-        this.techos.push(res.data)
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al crear techo')
-        throw e
-      } finally {
-        this.setLoading(false)
-      }
-    },
-
-    // ── Transiciones ─────────────────────────────────────────
-    async fetchTransiciones(params) {
-      this.setLoading(true)
-      this.setError(null)
-      try {
-        const res = await poaService.listTransiciones(params)
-        this.transiciones = res.data
-        return res
-      } catch (e) {
-        this.setError(e.response?.data?.message || 'Error al cargar transiciones')
-      } finally {
-        this.setLoading(false)
-      }
+    // ── Bitácora ─────────────────────────────────────────────
+    async fetchTransiciones(params = {}) {
+      await this.cargar(async () => {
+        this.transiciones = await poaService.listTransiciones(params)
+      }, 'Error al cargar la bitácora')
     },
   },
 })

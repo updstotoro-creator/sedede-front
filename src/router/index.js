@@ -154,6 +154,12 @@ const routes = [
         meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_poa', 'encargado_contable'] },
       },
       {
+        path: 'poa/seguimiento',
+        name: 'dashboard-poa-seguimiento',
+        component: () => import('../views/PoaSeguimientoView.vue'),
+        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_poa', 'encargado_contable'] },
+      },
+      {
         path: 'poa/techos',
         name: 'dashboard-poa-techos',
         component: () => import('../views/PoaTechosView.vue'),

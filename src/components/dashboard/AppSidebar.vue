@@ -79,6 +79,7 @@ const groups = computed(() => {
           { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
           { to: '/dashboard/poa/planes', label: 'Planes POA' },
           { to: '/dashboard/poa', label: 'Estructura POA' },
+          { to: '/dashboard/poa/seguimiento', label: 'Seguimiento POA' },
           { to: '/dashboard/poa/techos', label: 'Techos Presupuestarios' },
           { to: '/dashboard/poa/bitacora', label: 'Bitácora POA' },
         ]
@@ -232,6 +233,7 @@ const groups = computed(() => {
           { to: '/dashboard/poa/dashboard', label: 'Dashboard POA' },
           { to: '/dashboard/poa/planes', label: 'Planes POA' },
           { to: '/dashboard/poa', label: 'Estructura POA' },
+          { to: '/dashboard/poa/seguimiento', label: 'Seguimiento POA' },
           { to: '/dashboard/poa/techos', label: 'Techos Presupuestarios' },
           { to: '/dashboard/poa/bitacora', label: 'Bitácora POA' },
         ]
