@@ -6,6 +6,7 @@ const open = ref(false)
 const links = [
   { label: 'Inicio', href: '#inicio' },
   { label: 'Calendario Deportivo', href: '#calendario' },
+  { label: 'Ranking', href: '#ranking' },
   { label: 'Novedades', href: '#noticias' },
   { label: 'Instalaciones', href: '#areas' },
   { label: 'Contacto', href: '#contacto' },

@@ -1,6 +1,12 @@
 import api from './api'
 
 export const deportistaService = {
+  // Ranking público para la landing (sin sesión), agrupado por disciplina.
+  async getRankingPublico(params = {}) {
+    const { data } = await api.get('/deportistas/publico/ranking', { params })
+    return data.data
+  },
+
   async list(params = {}) {
     const { data } = await api.get('/deportistas', { params })
     return { items: data.data, meta: data.meta }
