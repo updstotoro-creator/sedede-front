@@ -27,4 +27,11 @@ export const authService = {
     const { data } = await api.get('/core/me')
     return data?.data ?? data
   },
+
+  async actualizarPreferenciaAlertas(alertasHabilitadas) {
+    const { data } = await api.patch('/core/me/alertas', {
+      alertas_habilitadas: alertasHabilitadas,
+    })
+    return data?.data ?? data
+  },
 }

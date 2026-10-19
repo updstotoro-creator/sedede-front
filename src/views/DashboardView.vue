@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AppSidebar from '../components/dashboard/AppSidebar.vue'
@@ -45,6 +45,19 @@ const titles = {
 const isLoading = ref(true)
 const errorMessage = ref('')
 const metrics = ref(null)
+
+const alertasHabilitadas = ref(auth.user?.alertas_habilitadas ?? true)
+const alertasGuardando = ref(false)
+const alertasError = ref('')
+const alertasSwitch = ref(null)
+
+const alertas = computed(() => metrics.value?.alertas ?? [])
+const alertasTotal = computed(() => metrics.value?.alertas_total ?? 0)
+const alertasPorNivel = computed(() => ({
+  urgente: metrics.value?.alertas_por_nivel?.urgente ?? 0,
+  advertencia: metrics.value?.alertas_por_nivel?.advertencia ?? 0,
+  info: metrics.value?.alertas_por_nivel?.info ?? 0,
+}))
 
 const fechaDesde = ref('')
 const fechaHasta = ref('')
@@ -137,9 +150,11 @@ function setPresetFecha(preset) {
   fetchMetrics()
 }
 
-async function fetchMetrics() {
-  isLoading.value = true
-  errorMessage.value = ''
+async function fetchMetrics({ silent = false } = {}) {
+  if (!silent) {
+    isLoading.value = true
+    errorMessage.value = ''
+  }
   try {
     const params = {}
     if (fechaDesde.value) params.fecha_desde = fechaDesde.value
@@ -147,10 +162,13 @@ async function fetchMetrics() {
 
     const res = await dashboardService.getExecutiveMetrics(params)
     metrics.value = res
+    alertasHabilitadas.value = res.alertas_habilitadas ?? true
+    alertasError.value = ''
   } catch (e) {
+    if (silent) throw e
     errorMessage.value = e.response?.data?.error || 'Error al cargar datos'
   } finally {
-    isLoading.value = false
+    if (!silent) isLoading.value = false
   }
 }
 
@@ -250,6 +268,74 @@ async function guardarPerfilDeportista() {
 function formatMoney(amount) {
   if (!amount) return '0,00'
   return Number(amount).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+const ALERTA_ESTILOS = {
+  urgente: {
+    card: 'border-red-200 bg-red-50',
+    badge: 'bg-red-100 text-red-700',
+  },
+  advertencia: {
+    card: 'border-amber-200 bg-amber-50',
+    badge: 'bg-amber-100 text-amber-700',
+  },
+  info: {
+    card: 'border-blue-200 bg-blue-50',
+    badge: 'bg-blue-100 text-blue-700',
+  },
+}
+
+function estiloAlerta(nivel) {
+  return ALERTA_ESTILOS[nivel] ?? ALERTA_ESTILOS.info
+}
+
+function formatFechaAlerta(fecha) {
+  if (!fecha) return ''
+  const valor = new Date(String(fecha).replace(' ', 'T'))
+  if (Number.isNaN(valor.getTime())) return ''
+  return valor.toLocaleDateString('es-BO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+async function toggleAlertas() {
+  if (alertasGuardando.value) return
+
+  const nuevoValor = !alertasHabilitadas.value
+  alertasGuardando.value = true
+  alertasError.value = ''
+
+  try {
+    try {
+      const usuario = await auth.actualizarAlertas(nuevoValor)
+      alertasHabilitadas.value = usuario?.alertas_habilitadas ?? nuevoValor
+    } catch {
+      alertasError.value = 'No se pudo guardar la preferencia de alertas. Intenta nuevamente.'
+      return
+    }
+
+    if (alertasHabilitadas.value) {
+      try {
+        await fetchMetrics({ silent: true })
+      } catch {
+        alertasError.value = 'La preferencia se guardó, pero no se pudieron actualizar las alertas. Recarga la página para intentarlo de nuevo.'
+      }
+    } else {
+      metrics.value = {
+        ...metrics.value,
+        alertas: [],
+        alertas_total: 0,
+        alertas_por_nivel: { urgente: 0, advertencia: 0, info: 0 },
+        alertas_habilitadas: false,
+      }
+    }
+  } finally {
+    alertasGuardando.value = false
+    await nextTick()
+    alertasSwitch.value?.focus()
+  }
 }
 
 function navTo(path) {
@@ -838,6 +924,132 @@ onUnmounted(() => {
                     <span class="font-medium text-slate-600">Reservas y eventos oficiales</span>
                     <button @click="navTo('/dashboard/calendario-anual')" class="cursor-pointer font-bold text-brand-700 hover:underline">Ver agenda →</button>
                   </div>
+                </div>
+              </section>
+
+              <!-- Centro de Alertas -->
+              <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h4 class="text-xs font-bold uppercase tracking-widest text-slate-400">Centro de Alertas</h4>
+                      <span
+                        v-if="alertasHabilitadas"
+                        class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-800"
+                      >
+                        {{ alertasTotal }}
+                      </span>
+                    </div>
+                    <p class="mt-1 text-sm text-slate-500">
+                      {{ alertasHabilitadas
+                        ? 'Situaciones que requieren atención en los módulos del SEDEDE.'
+                        : 'Las alertas están ocultas y no se calculan mientras el switch esté apagado.' }}
+                    </p>
+                  </div>
+
+                  <div class="flex items-center gap-3">
+                    <span
+                      class="text-xs font-semibold"
+                      :class="alertasHabilitadas ? 'text-brand-800' : 'text-slate-400'"
+                    >
+                      {{ alertasHabilitadas ? 'Alertas activas' : 'Alertas desactivadas' }}
+                    </span>
+                    <button
+                      ref="alertasSwitch"
+                      type="button"
+                      role="switch"
+                      :aria-checked="alertasHabilitadas"
+                      aria-label="Mostrar alertas del dashboard"
+                      :disabled="alertasGuardando"
+                      class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                      :class="alertasHabilitadas ? 'bg-brand-800' : 'bg-slate-300'"
+                      @click="toggleAlertas"
+                    >
+                      <span
+                        class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
+                        :class="alertasHabilitadas ? 'translate-x-5' : 'translate-x-0'"
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <p
+                  v-if="alertasError"
+                  role="alert"
+                  class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+                >
+                  {{ alertasError }}
+                </p>
+
+                <div v-if="alertasHabilitadas" class="mt-5">
+                  <div class="mb-4 flex flex-wrap gap-2 text-[11px] font-semibold">
+                    <span class="rounded-full bg-red-50 px-2 py-0.5 text-red-700">
+                      {{ alertasPorNivel.urgente }} urgentes
+                    </span>
+                    <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                      {{ alertasPorNivel.advertencia }} advertencias
+                    </span>
+                    <span class="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
+                      {{ alertasPorNivel.info }} informativas
+                    </span>
+                  </div>
+
+                  <div v-if="alertas.length > 0" class="space-y-3">
+                    <article
+                      v-for="alerta in alertas"
+                      :key="alerta.id"
+                      class="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start sm:justify-between"
+                      :class="estiloAlerta(alerta.nivel).card"
+                    >
+                      <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <span
+                            class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                            :class="estiloAlerta(alerta.nivel).badge"
+                          >
+                            {{ alerta.nivel }}
+                          </span>
+                          <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            {{ alerta.tipo }}
+                          </span>
+                          <h5 class="text-sm font-bold text-slate-900">{{ alerta.titulo }}</h5>
+                        </div>
+                        <p class="mt-1.5 text-xs font-medium leading-relaxed text-slate-600">
+                          {{ alerta.mensaje }}
+                        </p>
+                      </div>
+                      <time class="shrink-0 text-[11px] font-semibold text-slate-400">
+                        {{ formatFechaAlerta(alerta.fecha) }}
+                      </time>
+                    </article>
+
+                    <p
+                      v-if="alertasTotal > alertas.length"
+                      class="text-right text-[11px] font-semibold text-slate-400"
+                    >
+                      Mostrando {{ alertas.length }} de {{ alertasTotal }}
+                    </p>
+                  </div>
+
+                  <div
+                    v-else
+                    class="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-6 py-8 text-center"
+                  >
+                    <p class="text-sm font-semibold text-slate-600">Sin alertas activas</p>
+                    <p class="mt-1 text-xs text-slate-400">
+                      No hay situaciones pendientes por atender en este momento.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  v-else
+                  class="mt-5 flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-6 py-8 text-center"
+                >
+                  <p class="text-sm font-semibold text-slate-600">Alertas desactivadas</p>
+                  <p class="mt-1 text-xs text-slate-400">
+                    Activa el switch para volver a ver y calcular las alertas del dashboard.
+                  </p>
                 </div>
               </section>
 

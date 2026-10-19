@@ -34,6 +34,12 @@ export const useAuthStore = defineStore('auth', {
       this.status = 'idle'
     },
 
+    async actualizarAlertas(habilitadas) {
+      const user = await authService.actualizarPreferenciaAlertas(habilitadas)
+      this.user = { ...this.user, ...user }
+      return this.user
+    },
+
     mapError(error) {
       const status = error.response?.status
       const backendMessage = error.response?.data?.error
