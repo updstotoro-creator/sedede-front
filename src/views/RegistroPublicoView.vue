@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { registroService } from '../services/registroService'
 import logo from '../assets/images/logo-sedede.png'
@@ -129,6 +129,55 @@ const clubesFiltrados = computed(() => {
   )
 })
 
+// Cálculo de edad para autodetección de menor de edad
+function calcularEdad(fechaStr) {
+  if (!fechaStr) return null
+  let y, m, d
+  if (fechaStr.includes('-')) {
+    const parts = fechaStr.split('-')
+    y = parseInt(parts[0], 10)
+    m = parseInt(parts[1], 10) - 1
+    d = parseInt(parts[2], 10)
+  } else if (fechaStr.includes('/')) {
+    const parts = fechaStr.split('/')
+    d = parseInt(parts[0], 10)
+    m = parseInt(parts[1], 10) - 1
+    y = parseInt(parts[2], 10)
+  } else {
+    return null
+  }
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null
+  const hoy = new Date()
+  let edad = hoy.getFullYear() - y
+  const mesActual = hoy.getMonth()
+  const diaActual = hoy.getDate()
+  if (mesActual < m || (mesActual === m && diaActual < d)) {
+    edad--
+  }
+  return edad >= 0 ? edad : null
+}
+
+const edadDeportista = computed(() => calcularEdad(formDeportista.fecha_nacimiento))
+const esMenorCalculado = computed(() => {
+  const edad = edadDeportista.value
+  return edad !== null && edad < 18
+})
+
+// Observador para desplegar el apartado de tutor automáticamente cuando sea menor de edad
+watch(
+  () => formDeportista.fecha_nacimiento,
+  (nuevaFecha) => {
+    const edad = calcularEdad(nuevaFecha)
+    if (edad !== null) {
+      if (edad < 18) {
+        formDeportista.es_menor_de_edad = true
+      } else {
+        formDeportista.es_menor_de_edad = false
+      }
+    }
+  }
+)
+
 // Manejo de carga de documento
 function onFileChange(e) {
   const file = e.target.files[0]
@@ -222,6 +271,7 @@ async function submitDeportista() {
   isSubmitting.value = true
   submitError.value = null
   try {
+    const isMinor = Boolean(formDeportista.es_menor_de_edad || esMenorCalculado.value)
     const payload = {
       nombres: formDeportista.nombres,
       apellidos: formDeportista.apellidos,
@@ -237,10 +287,10 @@ async function submitDeportista() {
       direccion: formDeportista.direccion || 'Chuquisaca',
       email: formDeportista.email,
       password: formDeportista.password,
-      es_menor_de_edad: formDeportista.es_menor_de_edad,
-      tutor_nombre: formDeportista.es_menor_de_edad ? formDeportista.tutor_nombre : null,
-      tutor_ci: formDeportista.es_menor_de_edad ? formDeportista.tutor_ci : null,
-      tutor_telefono: formDeportista.es_menor_de_edad ? formDeportista.tutor_telefono : null,
+      es_menor_de_edad: isMinor,
+      tutor_nombre: isMinor ? formDeportista.tutor_nombre : null,
+      tutor_ci: isMinor ? formDeportista.tutor_ci : null,
+      tutor_telefono: isMinor ? formDeportista.tutor_telefono : null,
     }
 
     const res = await registroService.registrarDeportista(payload)
@@ -691,7 +741,19 @@ async function submitClub() {
               </div>
 
               <div>
-                <label class="block font-semibold text-slate-300 mb-1">Fecha de Nacimiento *</label>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block font-semibold text-slate-300">Fecha de Nacimiento *</label>
+                  <span
+                    v-if="edadDeportista !== null"
+                    class="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 transition-all"
+                    :class="esMenorCalculado 
+                      ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-xs' 
+                      : 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'"
+                  >
+                    <span>{{ esMenorCalculado ? '👶 Menor de Edad' : '👤 Mayor de Edad' }}</span>
+                    <span>({{ edadDeportista }} años)</span>
+                  </span>
+                </div>
                 <input
                   v-model="formDeportista.fecha_nacimiento"
                   required
@@ -751,49 +813,81 @@ async function submitClub() {
               </div>
             </div>
 
-            <!-- Menor de Edad Checkbox y Datos de Tutor -->
-            <div class="rounded-xl border border-slate-700/80 bg-slate-800/40 p-4 space-y-3">
+            <!-- Apartado de Tutor Legal (Desplegado automáticamente al detectar menor de edad) -->
+            <div
+              v-if="formDeportista.es_menor_de_edad || esMenorCalculado"
+              class="rounded-2xl border border-amber-500/50 bg-gradient-to-br from-amber-950/40 via-slate-900/90 to-slate-900/95 p-5 space-y-4 shadow-xl ring-1 ring-amber-500/20 transition-all duration-300"
+            >
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/25 pb-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-2xl">🛡️</span>
+                  <div>
+                    <h4 class="font-bold text-amber-300 text-xs flex items-center gap-2">
+                      <span>Apartado Obligatorio: Tutor Legal o Apoderado</span>
+                      <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 text-[10px] font-black border border-amber-500/40">
+                        {{ edadDeportista !== null ? `${edadDeportista} Años (Menor de Edad)` : 'Menor de Edad' }}
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-amber-200/80 mt-0.5">
+                      Desplegado automáticamente según la fecha de nacimiento. Todo deportista menor de 18 años requiere datos y autorización de su tutor legal acreditado.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-[11px] font-bold border border-amber-500/30">
+                    ✓ Requerido por Ley
+                  </span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label class="block font-semibold text-slate-300 mb-1">Nombre Completo del Tutor *</label>
+                  <input
+                    v-model="formDeportista.tutor_nombre"
+                    :required="formDeportista.es_menor_de_edad || esMenorCalculado"
+                    type="text"
+                    placeholder="Ej: Marcelo Martins Padre"
+                    class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-300 mb-1">Cédula de Identidad (CI) Tutor *</label>
+                  <input
+                    v-model="formDeportista.tutor_ci"
+                    :required="formDeportista.es_menor_de_edad || esMenorCalculado"
+                    type="text"
+                    placeholder="Ej: 3456789 CH"
+                    class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-300 mb-1">Teléfono / WhatsApp Tutor *</label>
+                  <input
+                    v-model="formDeportista.tutor_telefono"
+                    :required="formDeportista.es_menor_de_edad || esMenorCalculado"
+                    type="text"
+                    placeholder="Ej: +591 76543210"
+                    class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Opción si es mayor de 18 años pero requiere tutor voluntario -->
+            <div v-else class="rounded-xl border border-slate-700/80 bg-slate-800/40 p-3 flex items-center justify-between">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   v-model="formDeportista.es_menor_de_edad"
                   class="rounded text-cyan-500 focus:ring-0 h-4 w-4 bg-slate-900 border-slate-700"
                 />
-                <span class="font-semibold text-slate-200">El deportista es menor de edad (Requiere tutor legal)</span>
+                <span class="font-semibold text-slate-300 text-xs">Acreditar tutor o representante legal adicional</span>
               </label>
-
-              <div v-if="formDeportista.es_menor_de_edad" class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-700/60">
-                <div>
-                  <label class="block font-semibold text-slate-300 mb-1">Nombre Completo del Tutor *</label>
-                  <input
-                    v-model="formDeportista.tutor_nombre"
-                    required
-                    type="text"
-                    placeholder="Padre / Madre / Tutor"
-                    class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label class="block font-semibold text-slate-300 mb-1">CI del Tutor *</label>
-                  <input
-                    v-model="formDeportista.tutor_ci"
-                    required
-                    type="text"
-                    placeholder="CI Tutor"
-                    class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label class="block font-semibold text-slate-300 mb-1">Teléfono del Tutor *</label>
-                  <input
-                    v-model="formDeportista.tutor_telefono"
-                    required
-                    type="text"
-                    placeholder="Celular Tutor"
-                    class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                  />
-                </div>
-              </div>
+              <span class="text-[11px] text-slate-500 hidden sm:inline">
+                (El formulario de tutor se desplegará de forma automática si la fecha indica menor de 18 años)
+              </span>
             </div>
 
             <!-- Contacto y Credenciales -->
