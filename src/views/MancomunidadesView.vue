@@ -74,33 +74,43 @@ const nuevoMiembro = reactive({
   cargo: 'alcalde',
 })
 
-const showSolicitudModal = ref(false)
-const solicitudForm = reactive({
-  tipo: 'recursos',
+// 1. Modal Solicitud de Materiales del Inventario (Exclusivo inventario con existencias)
+const showSolicitudMaterialModal = ref(false)
+const solicitudMaterialForm = reactive({
   solicitante_id: '',
-  solicitante_tipo: 'mancomunidad',
-  titulo: '',
   descripcion: '',
   recursos: [{ recurso_id: '', cantidad_solicitada: 1 }],
-  espacio_id: '',
+})
+
+// 2. Modal Solicitud Escrita (Materiales Fuera de Inventario)
+const showSolicitudEscritaModal = ref(false)
+const solicitudEscritaForm = reactive({
+  solicitante_id: '',
+  materiales_detalle: '',
+  descripcion: '',
+  referencia_nota: '',
+})
+
+// 3. Modal Solicitud de Apoyo Económico / Fondos
+const showSolicitudEconomicaModal = ref(false)
+const solicitudEconomicaForm = reactive({
+  solicitante_id: '',
+  monto: '',
+  descripcion: '',
+  referencia_nota: '',
+})
+
+// 4. Modal Solicitud de Reserva de Escenario Deportivo
+const showSolicitudEscenarioModal = ref(false)
+const solicitudEscenarioForm = reactive({
+  solicitante_id: '',
   actividad: '',
+  espacio_id: '',
   fecha_uso: '',
   hora_inicio: '08:00',
   hora_fin: '12:00',
   numero_personas: 50,
-})
-
-// Modal y formulario para Solicitud de Apoyo Escrito / Económico
-const showSolicitudEscritaModal = ref(false)
-const solicitudEscritaForm = reactive({
-  solicitante_id: '',
-  subtipo: 'economico', // 'economico' | 'material_extra'
-  titulo: '',
-  monto_economico: '',
-  concepto_gasto: '',
-  materiales_detalle: '',
   descripcion: '',
-  referencia_nota: '',
 })
 
 // Selector estrictamente de ítems que figuren en inventario con existencias
@@ -379,6 +389,7 @@ function openCreateMancomunidad() {
 
 function openEditMancomunidad(m) {
   isEditingMancomunidad.value = true
+  const existingUser = m.users?.[0]
   Object.assign(mancomunidadForm, {
     id: m.id,
     nombre: m.nombre,
@@ -387,12 +398,12 @@ function openEditMancomunidad(m) {
     fecha_constitucion: m.fecha_constitucion ? m.fecha_constitucion.substring(0, 10) : '',
     direccion: m.direccion || '',
     telefono: m.telefono || '',
-    correo: m.correo || '',
+    correo: existingUser?.email || m.correo || '',
     crear_usuario: false,
     tipo_usuario: 'ninguno',
     usuario_id_seleccionado: '',
-    usuario_nombre: '',
-    usuario_email: '',
+    usuario_nombre: existingUser?.name || '',
+    usuario_email: existingUser?.email || m.correo || '',
     usuario_password: '',
   })
   showMancomunidadModal.value = true
@@ -401,8 +412,19 @@ function openEditMancomunidad(m) {
 async function saveMancomunidad() {
   try {
     if (isEditingMancomunidad.value) {
-      await mancomunidadService.updateMancomunidad(mancomunidadForm.id, mancomunidadForm)
-      showNotice('Comunidad actualizada correctamente')
+      const payload = {
+        nombre: mancomunidadForm.nombre,
+        sigla: mancomunidadForm.sigla,
+        nit: mancomunidadForm.nit,
+        fecha_constitucion: mancomunidadForm.fecha_constitucion,
+        direccion: mancomunidadForm.direccion,
+        telefono: mancomunidadForm.telefono,
+        correo: mancomunidadForm.correo,
+        usuario_nombre: mancomunidadForm.usuario_nombre || undefined,
+        usuario_password: mancomunidadForm.usuario_password || undefined,
+      }
+      await mancomunidadService.updateMancomunidad(mancomunidadForm.id, payload)
+      showNotice('Comunidad y credenciales actualizadas y sincronizadas con éxito')
       showMancomunidadModal.value = false
     } else {
       const payload = { ...mancomunidadForm }
@@ -651,8 +673,10 @@ async function deleteMiembroFromMancomunidad(miembroId) {
 }
 
 // --- SOLICITUDES DE APOYO ---
-function openNewSolicitud() {
-  // Verificación para usuario de comunidad
+// -------------------------------------------------------------
+// 1. SOLICITUD DE MATERIALES DEL INVENTARIO (Exclusivo inventario oficial)
+// -------------------------------------------------------------
+function openSolicitudMaterial() {
   if (isComunidad.value) {
     if (!miComunidad.value) {
       showNotice('No se encontró su registro de comunidad', 'error')
@@ -667,83 +691,74 @@ function openNewSolicitud() {
     }
   }
 
-  // Prellenar solicitante
   const preSelectedId = isComunidad.value
     ? miComunidad.value.id
     : (mancomunidades.value[0]?.id || '')
 
   const firstRecursoId = recursosDisponibles.value[0]?.id || recursos.value[0]?.id || ''
 
-  Object.assign(solicitudForm, {
-    tipo: 'recursos',
+  Object.assign(solicitudMaterialForm, {
     solicitante_id: preSelectedId,
-    solicitante_tipo: 'mancomunidad',
-    titulo: '',
     descripcion: '',
     recursos: [{ recurso_id: firstRecursoId, cantidad_solicitada: 1 }],
-    espacio_id: escenarios.value[0]?.id || '',
-    actividad: '',
-    fecha_uso: new Date().toISOString().split('T')[0],
-    hora_inicio: '08:00',
-    hora_fin: '12:00',
-    numero_personas: 50,
   })
 
-  showSolicitudModal.value = true
+  showSolicitudMaterialModal.value = true
 }
 
 function addRenglonRecurso() {
   const firstId = recursosDisponibles.value[0]?.id || recursos.value[0]?.id || ''
-  solicitudForm.recursos.push({ recurso_id: firstId, cantidad_solicitada: 1 })
+  solicitudMaterialForm.recursos.push({ recurso_id: firstId, cantidad_solicitada: 1 })
 }
 
 function removeRenglonRecurso(idx) {
-  if (solicitudForm.recursos.length > 1) {
-    solicitudForm.recursos.splice(idx, 1)
+  if (solicitudMaterialForm.recursos.length > 1) {
+    solicitudMaterialForm.recursos.splice(idx, 1)
   }
 }
 
-async function saveSolicitud() {
+async function saveSolicitudMaterial() {
   try {
-    const payload = {
-      tipo: solicitudForm.tipo,
-      solicitante_id: parseInt(solicitudForm.solicitante_id, 10),
-      solicitante_tipo: 'mancomunidad',
-      titulo: solicitudForm.titulo,
-      descripcion: solicitudForm.descripcion,
-    }
-
-    if (solicitudForm.tipo === 'recursos') {
-      payload.recursos = solicitudForm.recursos.map((r) => ({
+    const validRecursos = solicitudMaterialForm.recursos
+      .filter((r) => r.recurso_id && r.cantidad_solicitada > 0)
+      .map((r) => ({
         recurso_id: parseInt(r.recurso_id, 10),
         cantidad_solicitada: parseInt(r.cantidad_solicitada, 10),
       }))
-    } else {
-      payload.espacio_id = parseInt(solicitudForm.espacio_id, 10)
-      payload.actividad = solicitudForm.actividad
-      payload.fecha_uso = solicitudForm.fecha_uso
-      payload.hora_inicio = solicitudForm.hora_inicio
-      payload.hora_fin = solicitudForm.hora_fin
-      payload.numero_personas = parseInt(solicitudForm.numero_personas, 10)
+
+    if (validRecursos.length === 0) {
+      alert('Debe seleccionar al menos un ítem de material de inventario.')
+      return
+    }
+
+    const payload = {
+      tipo: 'recursos',
+      solicitante_id: parseInt(solicitudMaterialForm.solicitante_id, 10),
+      solicitante_tipo: 'mancomunidad',
+      titulo: 'Dotación de Materiales de Inventario',
+      descripcion: solicitudMaterialForm.descripcion || 'Dotación de implementos deportivos solicitados de almacén central.',
+      recursos: validRecursos,
     }
 
     const created = await mancomunidadService.createSolicitud(payload)
     if (created?.data?.id) {
       await mancomunidadService.enviarSolicitud(created.data.id)
     }
-    showNotice('Solicitud de materiales enviada exitosamente en estado Solicitado')
-    showSolicitudModal.value = false
+    showNotice('Solicitud de materiales de inventario enviada exitosamente en estado Solicitado')
+    showSolicitudMaterialModal.value = false
     loadAll()
   } catch (err) {
-    showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al registrar solicitud', 'error')
+    showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al registrar solicitud de materiales', 'error')
   }
 }
 
-// Formulario de Solicitud Escrita / Apoyo Económico
-function openNewSolicitudEscrita() {
+// -------------------------------------------------------------
+// 2. SOLICITUD ESCRITA (MATERIALES FUERA DE INVENTARIO)
+// -------------------------------------------------------------
+function openSolicitudEscrita() {
   if (isComunidad.value && (!miComunidad.value || miComunidad.value.estado_legal !== 'Vigente')) {
     showNotice(
-      `Su comunidad aún no cuenta con aprobación legal del SEDEDE (Estado: ${miComunidad.value?.estado_legal || 'Pendiente'}). Debe subir sus documentos en la pestaña 'Mi Registro' y esperar la aprobación.`,
+      `Su comunidad aún no cuenta con aprobación legal del SEDEDE (Estado: ${miComunidad.value?.estado_legal || 'Pendiente'}).`,
       'error'
     )
     return
@@ -755,10 +770,6 @@ function openNewSolicitudEscrita() {
 
   Object.assign(solicitudEscritaForm, {
     solicitante_id: preSelectedId,
-    subtipo: 'economico',
-    titulo: '',
-    monto_economico: '',
-    concepto_gasto: '',
     materiales_detalle: '',
     descripcion: '',
     referencia_nota: '',
@@ -769,25 +780,24 @@ function openNewSolicitudEscrita() {
 
 async function saveSolicitudEscrita() {
   try {
-    const isEcon = solicitudEscritaForm.subtipo === 'economico'
-    const tituloPrefijo = isEcon ? '[APOYO ECONÓMICO]' : '[SOLICITUD ESCRITA]'
-    const tituloFinal = `${tituloPrefijo} ${solicitudEscritaForm.titulo}`
-
-    let descripcionFinal = ''
-    if (isEcon) {
-      descripcionFinal = `Monto Solicitado: Bs. ${solicitudEscritaForm.monto_economico}\nConcepto: ${solicitudEscritaForm.concepto_gasto}\nJustificación: ${solicitudEscritaForm.descripcion}`
-    } else {
-      descripcionFinal = `Materiales Solicitados (Fuera de Inventario):\n${solicitudEscritaForm.materiales_detalle}\nJustificación: ${solicitudEscritaForm.descripcion}`
+    if (!solicitudEscritaForm.materiales_detalle?.trim()) {
+      alert('Debe detallar los materiales o implementos que está solicitando.')
+      return
     }
-    if (solicitudEscritaForm.referencia_nota) {
-      descripcionFinal += `\nNota de Referencia: ${solicitudEscritaForm.referencia_nota}`
+
+    let descripcionFinal = `Materiales Requeridos (Fuera de Inventario):\n${solicitudEscritaForm.materiales_detalle}`
+    if (solicitudEscritaForm.descripcion?.trim()) {
+      descripcionFinal += `\n\nJustificación / Motivo:\n${solicitudEscritaForm.descripcion}`
+    }
+    if (solicitudEscritaForm.referencia_nota?.trim()) {
+      descripcionFinal += `\n\nNota de Referencia: ${solicitudEscritaForm.referencia_nota}`
     }
 
     const payload = {
       tipo: 'recursos',
       solicitante_id: parseInt(solicitudEscritaForm.solicitante_id, 10),
       solicitante_tipo: 'mancomunidad',
-      titulo: tituloFinal,
+      titulo: '[SOLICITUD ESCRITA] Materiales fuera de inventario',
       descripcion: descripcionFinal,
       recursos: [],
     }
@@ -796,11 +806,141 @@ async function saveSolicitudEscrita() {
     if (created?.data?.id) {
       await mancomunidadService.enviarSolicitud(created.data.id)
     }
-    showNotice('Solicitud de apoyo enviada con éxito al SEDEDE en estado Solicitado')
+    showNotice('Solicitud escrita de materiales fuera de inventario enviada con éxito')
     showSolicitudEscritaModal.value = false
     loadAll()
   } catch (err) {
     showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al registrar solicitud escrita', 'error')
+  }
+}
+
+// -------------------------------------------------------------
+// 3. SOLICITUD DE APOYO ECONÓMICO / FONDOS
+// -------------------------------------------------------------
+function openSolicitudEconomica() {
+  if (isComunidad.value && (!miComunidad.value || miComunidad.value.estado_legal !== 'Vigente')) {
+    showNotice(
+      `Su comunidad aún no cuenta con aprobación legal del SEDEDE (Estado: ${miComunidad.value?.estado_legal || 'Pendiente'}).`,
+      'error'
+    )
+    return
+  }
+
+  const preSelectedId = isComunidad.value
+    ? miComunidad.value?.id
+    : (mancomunidades.value[0]?.id || '')
+
+  Object.assign(solicitudEconomicaForm, {
+    solicitante_id: preSelectedId,
+    monto: '',
+    descripcion: '',
+    referencia_nota: '',
+  })
+
+  showSolicitudEconomicaModal.value = true
+}
+
+async function saveSolicitudEconomica() {
+  try {
+    if (!solicitudEconomicaForm.monto || parseFloat(solicitudEconomicaForm.monto) <= 0) {
+      alert('Debe ingresar un monto económico válido en Bolivianos.')
+      return
+    }
+
+    const montoNum = parseFloat(solicitudEconomicaForm.monto).toFixed(2)
+    let descripcionFinal = `Monto Solicitado: Bs. ${montoNum}`
+    if (solicitudEconomicaForm.descripcion?.trim()) {
+      descripcionFinal += `\n\nDetalle / Descripción:\n${solicitudEconomicaForm.descripcion}`
+    }
+    if (solicitudEconomicaForm.referencia_nota?.trim()) {
+      descripcionFinal += `\n\nNota de Referencia: ${solicitudEconomicaForm.referencia_nota}`
+    }
+
+    const payload = {
+      tipo: 'recursos',
+      solicitante_id: parseInt(solicitudEconomicaForm.solicitante_id, 10),
+      solicitante_tipo: 'mancomunidad',
+      titulo: `[APOYO ECONÓMICO] Bs. ${montoNum}`,
+      descripcion: descripcionFinal,
+      recursos: [],
+    }
+
+    const created = await mancomunidadService.createSolicitud(payload)
+    if (created?.data?.id) {
+      await mancomunidadService.enviarSolicitud(created.data.id)
+    }
+    showNotice('Solicitud de apoyo económico enviada con éxito al SEDEDE')
+    showSolicitudEconomicaModal.value = false
+    loadAll()
+  } catch (err) {
+    showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al registrar solicitud económica', 'error')
+  }
+}
+
+// -------------------------------------------------------------
+// 4. SOLICITUD DE RESERVA DE ESCENARIO DEPORTIVO
+// -------------------------------------------------------------
+function openSolicitudEscenario() {
+  if (isComunidad.value && (!miComunidad.value || miComunidad.value.estado_legal !== 'Vigente')) {
+    showNotice(
+      `Su comunidad aún no cuenta con aprobación legal del SEDEDE (Estado: ${miComunidad.value?.estado_legal || 'Pendiente'}).`,
+      'error'
+    )
+    return
+  }
+
+  const preSelectedId = isComunidad.value
+    ? miComunidad.value?.id
+    : (mancomunidades.value[0]?.id || '')
+
+  Object.assign(solicitudEscenarioForm, {
+    solicitante_id: preSelectedId,
+    actividad: '',
+    espacio_id: escenarios.value[0]?.id || '',
+    fecha_uso: new Date().toISOString().split('T')[0],
+    hora_inicio: '08:00',
+    hora_fin: '12:00',
+    numero_personas: 50,
+    descripcion: '',
+  })
+
+  showSolicitudEscenarioModal.value = true
+}
+
+async function saveSolicitudEscenario() {
+  try {
+    if (!solicitudEscenarioForm.actividad?.trim()) {
+      alert('Debe ingresar el nombre de la actividad deportiva.')
+      return
+    }
+    if (!solicitudEscenarioForm.espacio_id) {
+      alert('Debe seleccionar un escenario o cancha deportiva.')
+      return
+    }
+
+    const payload = {
+      tipo: 'espacio',
+      solicitante_id: parseInt(solicitudEscenarioForm.solicitante_id, 10),
+      solicitante_tipo: 'mancomunidad',
+      titulo: `Reserva Escenario: ${solicitudEscenarioForm.actividad}`,
+      espacio_id: parseInt(solicitudEscenarioForm.espacio_id, 10),
+      actividad: solicitudEscenarioForm.actividad,
+      fecha_uso: solicitudEscenarioForm.fecha_uso,
+      hora_inicio: solicitudEscenarioForm.hora_inicio,
+      hora_fin: solicitudEscenarioForm.hora_fin,
+      numero_personas: parseInt(solicitudEscenarioForm.numero_personas, 10) || 50,
+      descripcion: solicitudEscenarioForm.descripcion || `Actividad: ${solicitudEscenarioForm.actividad}`,
+    }
+
+    const created = await mancomunidadService.createSolicitud(payload)
+    if (created?.data?.id) {
+      await mancomunidadService.enviarSolicitud(created.data.id)
+    }
+    showNotice('Solicitud de reserva de escenario enviada exitosamente en estado Solicitado')
+    showSolicitudEscenarioModal.value = false
+    loadAll()
+  } catch (err) {
+    showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al solicitar escenario deportivo', 'error')
   }
 }
 
@@ -1039,24 +1179,42 @@ const getEstadoBadgeClass = (estado) => {
           Nueva Comunidad con Usuario
         </button>
 
-        <!-- Botones de Solicitud (Materiales de Inventario y Apoyo Escrito/Económico) -->
+        <!-- Botones de Solicitud (4 modalidades independientes) -->
         <template v-if="activeTab === 'solicitudes'">
           <button
             type="button"
-            @click="openNewSolicitud"
-            class="rounded-xl bg-brand-600 hover:bg-brand-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all flex items-center gap-1.5"
+            @click="openSolicitudMaterial"
+            class="rounded-xl bg-brand-600 hover:bg-brand-500 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all flex items-center gap-1.5"
           >
             <span>📦</span>
-            <span>Solicitar Materiales de Inventario</span>
+            <span>Materiales de Inventario</span>
           </button>
 
           <button
             type="button"
-            @click="openNewSolicitudEscrita"
-            class="rounded-xl border border-brand-600 bg-white hover:bg-brand-50 px-3.5 py-2 text-xs font-bold text-brand-700 shadow-sm transition-all flex items-center gap-1.5"
+            @click="openSolicitudEscrita"
+            class="rounded-xl border border-indigo-600 bg-white hover:bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 shadow-sm transition-all flex items-center gap-1.5"
           >
             <span>📝</span>
-            <span>Solicitud de Apoyo Escrito / Económico</span>
+            <span>Fuera de Inventario</span>
+          </button>
+
+          <button
+            type="button"
+            @click="openSolicitudEconomica"
+            class="rounded-xl border border-emerald-600 bg-white hover:bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 shadow-sm transition-all flex items-center gap-1.5"
+          >
+            <span>💰</span>
+            <span>Apoyo Económico</span>
+          </button>
+
+          <button
+            type="button"
+            @click="openSolicitudEscenario"
+            class="rounded-xl border border-amber-600 bg-white hover:bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm transition-all flex items-center gap-1.5"
+          >
+            <span>🏟️</span>
+            <span>Reserva de Escenario</span>
           </button>
         </template>
 
@@ -1845,8 +2003,34 @@ const getEstadoBadgeClass = (estado) => {
               <input v-model="mancomunidadForm.telefono" type="text" placeholder="Ej: +591 71234567" class="w-full rounded-lg border p-2 text-sm text-ink" />
             </div>
             <div>
-              <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico Institucional</label>
-              <input v-model="mancomunidadForm.correo" type="email" placeholder="Ej: contacto@sanlucas.gob.bo" class="w-full rounded-lg border p-2 text-sm text-ink" />
+              <label class="block font-semibold text-slate-700 mb-1">Correo Oficial (Usuario de Acceso) *</label>
+              <input v-model="mancomunidadForm.correo" required type="email" placeholder="Ej: representante@comunidad.gob.bo" class="w-full rounded-lg border p-2 text-sm text-ink font-semibold" />
+              <p class="text-[10px] text-slate-500 mt-0.5">Correo único oficial de contacto y credencial de inicio de sesión.</p>
+            </div>
+          </div>
+
+          <!-- SECCIÓN DE AUTORIDAD Y ROTACIÓN DE CREDENCIALES (En edición SEDEDE) -->
+          <div v-if="isEditingMancomunidad" class="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2.5 mt-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                👤 Autoridad / Representante & Acceso
+              </span>
+              <span class="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                Rotación de Mando
+              </span>
+            </div>
+            <p class="text-[11px] text-amber-800 leading-relaxed">
+              Si las autoridades de la comunidad cambiaron por rotación de mando, actualice el nombre del nuevo representante y asigne una nueva contraseña si es necesario. Al guardar, el correo oficial y las credenciales se sincronizan en el acto.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Nombre de la Autoridad / Representante</label>
+                <input v-model="mancomunidadForm.usuario_nombre" type="text" placeholder="Ej: Juan Pérez (Presidente Comunal)" class="w-full rounded-lg border bg-white p-2 text-xs text-ink focus:border-brand-600 focus:outline-none" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Nueva Contraseña (Opcional)</label>
+                <input v-model="mancomunidadForm.usuario_password" type="text" placeholder="Dejar en blanco para conservar actual" class="w-full rounded-lg border bg-white p-2 text-xs text-ink font-mono focus:border-brand-600 focus:outline-none" />
+              </div>
             </div>
           </div>
 
@@ -2269,7 +2453,7 @@ const getEstadoBadgeClass = (estado) => {
     </div>
 
     <!-- MODAL 1: SOLICITUD DE MATERIALES DE INVENTARIO -->
-    <div v-if="showSolicitudModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <div v-if="showSolicitudMaterialModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center gap-2 text-brand-700 text-xs font-bold uppercase tracking-wider mb-1">
           <span>📦 Almacén Central SEDEDE</span>
@@ -2280,16 +2464,16 @@ const getEstadoBadgeClass = (estado) => {
           Solicitud de Materiales del Inventario
         </h3>
         <p class="text-xs text-slate-500 mb-4">
-          Seleccione únicamente los implementos y materiales deportivos que figuren en las existencias del inventario del SEDEDE.
+          Seleccione únicamente los implementos y materiales deportivos existentes en el almacén del SEDEDE.
         </p>
 
-        <form @submit.prevent="saveSolicitud" class="space-y-3.5 text-xs">
+        <form @submit.prevent="saveSolicitudMaterial" class="space-y-4 text-xs">
           <!-- Comunidad Solicitante -->
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Comunidad Solicitante</label>
             <select
               v-if="isSedede"
-              v-model="solicitudForm.solicitante_id"
+              v-model="solicitudMaterialForm.solicitante_id"
               required
               class="w-full rounded-lg border p-2 text-sm bg-white"
             >
@@ -2306,55 +2490,8 @@ const getEstadoBadgeClass = (estado) => {
             />
           </div>
 
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Tipo de Solicitud</label>
-            <div class="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                :class="[
-                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
-                  solicitudForm.tipo === 'recursos' ? 'bg-brand-50 border-brand-600 text-brand-700' : 'bg-slate-50 border-slate-200 text-slate-600'
-                ]"
-                @click="solicitudForm.tipo = 'recursos'"
-              >
-                📦 Materiales del Inventario
-              </button>
-              <button
-                type="button"
-                :class="[
-                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
-                  solicitudForm.tipo === 'espacio' ? 'bg-brand-50 border-brand-600 text-brand-700' : 'bg-slate-50 border-slate-200 text-slate-600'
-                ]"
-                @click="solicitudForm.tipo = 'espacio'"
-              >
-                🏟️ Escenario Deportivo SEDEDE
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Título de la Solicitud / Proyecto *</label>
-            <input
-              v-model="solicitudForm.titulo"
-              required
-              type="text"
-              placeholder="Ej: Dotación de balones para campeonato intercomunal"
-              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Justificación / Beneficiarios de la Comunidad</label>
-            <textarea
-              v-model="solicitudForm.descripcion"
-              rows="2"
-              placeholder="Describa el objetivo social o deportivo y las comunidades beneficiadas..."
-              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
-            ></textarea>
-          </div>
-
-          <!-- Campos específicos: Recursos con selector estricto de existencias -->
-          <div v-if="solicitudForm.tipo === 'recursos'" class="space-y-2 border-t pt-3">
+          <!-- Selector estricto de existencias de inventario -->
+          <div class="space-y-2 border-t pt-3">
             <div class="flex items-center justify-between">
               <div>
                 <label class="font-bold text-slate-800 text-xs">Lista de Material Solicitado</label>
@@ -2363,22 +2500,22 @@ const getEstadoBadgeClass = (estado) => {
               <button
                 type="button"
                 @click="addRenglonRecurso"
-                class="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 px-2 py-1 rounded border border-brand-200"
+                class="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200"
               >
                 + Añadir Ítem
               </button>
             </div>
 
             <div v-if="recursosDisponibles.length === 0" class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs">
-              ⚠️ No hay materiales con stock disponible en este momento en el inventario. Puede usar el botón de <strong>Solicitud de Apoyo Escrito / Económico</strong>.
+              ⚠️ No hay materiales con stock disponible en este momento en el inventario. Si requiere materiales fuera de existencias, use el botón de <strong>Fuera de Inventario</strong>.
             </div>
 
-            <div v-for="(item, idx) in solicitudForm.recursos" :key="idx" class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <div v-for="(item, idx) in solicitudMaterialForm.recursos" :key="idx" class="flex items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
               <div class="flex-1">
                 <select
                   v-model="item.recurso_id"
                   required
-                  class="w-full rounded-md border border-slate-300 p-1.5 text-xs bg-white text-slate-800 font-medium"
+                  class="w-full rounded-md border border-slate-300 p-2 text-xs bg-white text-slate-800 font-semibold"
                 >
                   <option v-for="r in recursosDisponibles" :key="r.id" :value="r.id">
                     {{ r.nombre }} (Stock: {{ r.cantidad_disponible }} {{ r.unidad }})
@@ -2393,8 +2530,8 @@ const getEstadoBadgeClass = (estado) => {
                   type="number"
                   placeholder="Cant."
                   required
-                  class="w-full rounded-md border border-slate-300 p-1.5 text-xs font-bold text-ink"
-                  title="Cantidad solicitada (no puede superar el stock disponible)"
+                  class="w-full rounded-md border border-slate-300 p-2 text-xs font-bold text-ink"
+                  title="Cantidad solicitada (máximo según existencias)"
                 />
               </div>
               <button
@@ -2408,66 +2545,44 @@ const getEstadoBadgeClass = (estado) => {
             </div>
           </div>
 
-          <!-- Campos específicos: Espacio -->
-          <div v-else class="space-y-3 border-t pt-3">
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Escenario / Cancha Solicitada</label>
-              <select v-model="solicitudForm.espacio_id" required class="w-full rounded-lg border p-2 text-xs bg-white">
-                <option v-for="esc in escenarios" :key="esc.id" :value="esc.id">
-                  {{ esc.nombre }} - {{ esc.espacio }}
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Actividad</label>
-              <input v-model="solicitudForm.actividad" required type="text" placeholder="Ej: Inauguración de Juegos Deportivos Rurales" class="w-full rounded-lg border p-2 text-xs text-ink" />
-            </div>
-
-            <div class="grid grid-cols-3 gap-2">
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Fecha</label>
-                <input v-model="solicitudForm.fecha_uso" required type="date" class="w-full rounded-lg border p-1.5 text-xs" />
-              </div>
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Hora Inicio</label>
-                <input v-model="solicitudForm.hora_inicio" required type="time" class="w-full rounded-lg border p-1.5 text-xs" />
-              </div>
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Hora Fin</label>
-                <input v-model="solicitudForm.hora_fin" required type="time" class="w-full rounded-lg border p-1.5 text-xs" />
-              </div>
-            </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Justificación o Motivo de la Solicitud</label>
+            <textarea
+              v-model="solicitudMaterialForm.descripcion"
+              rows="3"
+              placeholder="Describa el objetivo social o deportivo y las comunidades beneficiadas..."
+              class="w-full rounded-lg border p-2.5 text-xs text-ink focus:border-brand-600 focus:outline-none"
+            ></textarea>
           </div>
 
           <div class="mt-6 flex justify-end gap-3 pt-3 border-t">
-            <button type="button" @click="showSolicitudModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+            <button type="button" @click="showSolicitudMaterialModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">
               Cancelar
             </button>
             <button type="submit" class="btn-primary">
-              Enviar Solicitud a SEDEDE
+              Enviar Solicitud de Materiales
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- MODAL 2: SOLICITUD DE APOYO ESCRITO / ECONÓMICO -->
+    <!-- MODAL 2: SOLICITUD ESCRITA DE MATERIALES (FUERA DE INVENTARIO) -->
     <div v-if="showSolicitudEscritaModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center gap-2 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
-          <span>📝 Formulario Especial</span>
+        <div class="flex items-center gap-2 text-indigo-700 text-xs font-bold uppercase tracking-wider mb-1">
+          <span>📝 Formulario Escrito</span>
           <span>•</span>
-          <span>Apoyo Escrito / Económico</span>
+          <span>Materiales Fuera de Inventario</span>
         </div>
         <h3 class="font-display text-lg font-bold text-ink mb-1">
-          Solicitud de Apoyo Escrito o Presupuestario
+          Solicitud Escrita de Materiales
         </h3>
         <p class="text-xs text-slate-500 mb-4">
-          Para solicitar apoyo económico o materiales que no se encuentran disponibles en las existencias actuales de almacén.
+          Para solicitar implementos deportivos que NO se encuentran disponibles en el inventario actual de almacén (ej: sogas de saltar, redes especiales, etc.).
         </p>
 
-        <form @submit.prevent="saveSolicitudEscrita" class="space-y-3.5 text-xs">
+        <form @submit.prevent="saveSolicitudEscrita" class="space-y-4 text-xs">
           <!-- Comunidad Solicitante -->
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Comunidad Solicitante</label>
@@ -2490,105 +2605,35 @@ const getEstadoBadgeClass = (estado) => {
             />
           </div>
 
-          <!-- Selector de Modalidad -->
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Modalidad del Requerimiento *</label>
-            <div class="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                :class="[
-                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
-                  solicitudEscritaForm.subtipo === 'economico'
-                    ? 'bg-emerald-50 border-emerald-600 text-emerald-800 shadow-xs'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
-                ]"
-                @click="solicitudEscritaForm.subtipo = 'economico'"
-              >
-                💰 Apoyo Económico / Fondos
-              </button>
-              <button
-                type="button"
-                :class="[
-                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
-                  solicitudEscritaForm.subtipo === 'material_extra'
-                    ? 'bg-indigo-50 border-indigo-600 text-indigo-800 shadow-xs'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
-                ]"
-                @click="solicitudEscritaForm.subtipo = 'material_extra'"
-              >
-                📝 Material Fuera de Inventario
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Título de la Solicitud / Proyecto *</label>
-            <input
-              v-model="solicitudEscritaForm.titulo"
-              required
-              type="text"
-              :placeholder="solicitudEscritaForm.subtipo === 'economico' ? 'Ej: Apoyo para transporte de delegación juvenil intercomunal' : 'Ej: Dotación de 50 busos deportivos de delegación'"
-              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
-            />
-          </div>
-
-          <!-- Campos específicos si es Apoyo Económico -->
-          <div v-if="solicitudEscritaForm.subtipo === 'economico'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200">
-            <div>
-              <label class="block font-semibold text-emerald-900 mb-1">Monto Solicitado (Bs.) *</label>
-              <input
-                v-model="solicitudEscritaForm.monto_economico"
-                required
-                type="number"
-                min="1"
-                step="0.01"
-                placeholder="Ej: 3500.00"
-                class="w-full rounded-lg border border-emerald-300 p-2 text-sm font-bold text-ink bg-white"
-              />
-            </div>
-            <div>
-              <label class="block font-semibold text-emerald-900 mb-1">Concepto o Destino del Gasto *</label>
-              <input
-                v-model="solicitudEscritaForm.concepto_gasto"
-                required
-                type="text"
-                placeholder="Ej: Pasajes y alimentación de delegación"
-                class="w-full rounded-lg border border-emerald-300 p-2 text-xs bg-white"
-              />
-            </div>
-          </div>
-
-          <!-- Campos específicos si es Material fuera de inventario -->
-          <div v-else class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200 space-y-2">
+          <div class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200 space-y-2">
             <label class="block font-semibold text-indigo-900">
-              Detalle de Implementos o Materiales Requeridos (No existentes en almacén) *
+              Implementos o Materiales Solicitados *
             </label>
             <textarea
               v-model="solicitudEscritaForm.materiales_detalle"
               required
               rows="3"
-              placeholder="Especifique los materiales solicitados (ej: 40 Busos deportivos tallas S, M y L con distintivo comunal, 2 redes metálicas de cancha múltiple...)"
-              class="w-full rounded-lg border border-indigo-300 p-2 text-xs bg-white"
+              placeholder="Ej: 20 sogas de saltar de velocidad, 2 redes de voleibol profesionales, 3 juegos de petos deportivos..."
+              class="w-full rounded-lg border border-indigo-300 p-2 text-xs bg-white text-ink"
             ></textarea>
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Justificación Social / Comunidades Beneficiadas *</label>
+            <label class="block font-semibold text-slate-700 mb-1">Justificación o Motivo del Requerimiento</label>
             <textarea
               v-model="solicitudEscritaForm.descripcion"
-              required
-              rows="2"
-              placeholder="Explique el impacto deportivo y las comunidades rurales beneficiarias de este apoyo..."
-              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
+              rows="3"
+              placeholder="Describa el motivo social o deportivo y las comunidades beneficiarias..."
+              class="w-full rounded-lg border p-2.5 text-xs text-ink focus:border-indigo-600 focus:outline-none"
             ></textarea>
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Referencia de Nota o Carta Comunal (Opcional)</label>
+            <label class="block font-semibold text-slate-700 mb-1">Nota o Referencia Oficial (Opcional)</label>
             <input
               v-model="solicitudEscritaForm.referencia_nota"
               type="text"
-              placeholder="Ej: Nota CITE Nº 014/2026 de la Subalcaldía o Autoridad Comunal"
+              placeholder="Ej: Nota CITE Nº 15/2026 de la autoridad comunal"
               class="w-full rounded-lg border p-2 text-xs text-ink"
             />
           </div>
@@ -2597,8 +2642,186 @@ const getEstadoBadgeClass = (estado) => {
             <button type="button" @click="showSolicitudEscritaModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">
               Cancelar
             </button>
-            <button type="submit" class="btn-primary">
-              Enviar Solicitud Escrita / Económica
+            <button type="submit" class="btn-primary bg-indigo-700 hover:bg-indigo-800">
+              Enviar Solicitud Escrita
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 3: SOLICITUD DE APOYO ECONÓMICO -->
+    <div v-if="showSolicitudEconomicaModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center gap-2 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
+          <span>💰 Apoyo Económico</span>
+          <span>•</span>
+          <span>Fondos Presupuestarios</span>
+        </div>
+        <h3 class="font-display text-lg font-bold text-ink mb-1">
+          Solicitud de Apoyo Económico
+        </h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Solicitud de respaldo financiero institucional del SEDEDE para eventos, transporte o actividades deportivas.
+        </p>
+
+        <form @submit.prevent="saveSolicitudEconomica" class="space-y-4 text-xs">
+          <!-- Comunidad Solicitante -->
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Comunidad Solicitante</label>
+            <select
+              v-if="isSedede"
+              v-model="solicitudEconomicaForm.solicitante_id"
+              required
+              class="w-full rounded-lg border p-2 text-sm bg-white"
+            >
+              <option v-for="m in mancomunidades" :key="m.id" :value="m.id">
+                {{ m.nombre }} ({{ m.sigla || m.nit }}) - {{ m.estado_legal }}
+              </option>
+            </select>
+            <input
+              v-else
+              type="text"
+              :value="miComunidad?.nombre"
+              disabled
+              class="w-full rounded-lg border p-2 text-sm bg-slate-100 font-bold text-slate-800"
+            />
+          </div>
+
+          <div class="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200">
+            <label class="block font-semibold text-emerald-900 mb-1 text-xs">Monto Solicitado (Bs.) *</label>
+            <input
+              v-model="solicitudEconomicaForm.monto"
+              required
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="Ej: 3500.00"
+              class="w-full rounded-lg border border-emerald-300 p-2.5 text-sm font-bold text-ink bg-white focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Detalle o Descripción de la Solicitud (Opcional)</label>
+            <textarea
+              v-model="solicitudEconomicaForm.descripcion"
+              rows="3"
+              placeholder="Detalle del destino de los fondos o justificación de la necesidad (opcional)..."
+              class="w-full rounded-lg border p-2.5 text-xs text-ink focus:border-emerald-600 focus:outline-none"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nota o Referencia Oficial (Opcional)</label>
+            <input
+              v-model="solicitudEconomicaForm.referencia_nota"
+              type="text"
+              placeholder="Ej: Nota CITE N° 20/2026 de la Subalcaldía"
+              class="w-full rounded-lg border p-2 text-xs text-ink"
+            />
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3 pt-3 border-t">
+            <button type="button" @click="showSolicitudEconomicaModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary bg-emerald-700 hover:bg-emerald-800">
+              Enviar Solicitud de Apoyo Económico
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 4: SOLICITUD DE RESERVA DE ESCENARIO DEPORTIVO -->
+    <div v-if="showSolicitudEscenarioModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center gap-2 text-amber-700 text-xs font-bold uppercase tracking-wider mb-1">
+          <span>🏟️ Infraestructura Deportiva</span>
+          <span>•</span>
+          <span>Escenarios SEDEDE</span>
+        </div>
+        <h3 class="font-display text-lg font-bold text-ink mb-1">
+          Solicitud de Reserva de Escenario Deportivo
+        </h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Reserva oficial de coliseos, canchas y escenarios deportivos administrados por el SEDEDE para la comunidad.
+        </p>
+
+        <form @submit.prevent="saveSolicitudEscenario" class="space-y-4 text-xs">
+          <!-- Comunidad Solicitante -->
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Comunidad Solicitante</label>
+            <select
+              v-if="isSedede"
+              v-model="solicitudEscenarioForm.solicitante_id"
+              required
+              class="w-full rounded-lg border p-2 text-sm bg-white"
+            >
+              <option v-for="m in mancomunidades" :key="m.id" :value="m.id">
+                {{ m.nombre }} ({{ m.sigla || m.nit }}) - {{ m.estado_legal }}
+              </option>
+            </select>
+            <input
+              v-else
+              type="text"
+              :value="miComunidad?.nombre"
+              disabled
+              class="w-full rounded-lg border p-2 text-sm bg-slate-100 font-bold text-slate-800"
+            />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nombre de la Actividad Deportiva *</label>
+            <input
+              v-model="solicitudEscenarioForm.actividad"
+              required
+              type="text"
+              placeholder="Ej: Inauguración de Juegos Deportivos Rurales Intercomunales"
+              class="w-full rounded-lg border p-2.5 text-xs text-ink focus:border-amber-600 focus:outline-none font-semibold"
+            />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Escenario / Cancha Solicitada *</label>
+            <select v-model="solicitudEscenarioForm.espacio_id" required class="w-full rounded-lg border p-2 text-xs bg-white text-ink">
+              <option v-for="esc in escenarios" :key="esc.id" :value="esc.id">
+                {{ esc.nombre }} - {{ esc.espacio }}
+              </option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Fecha de Uso *</label>
+              <input v-model="solicitudEscenarioForm.fecha_uso" required type="date" class="w-full rounded-lg border p-1.5 text-xs text-ink" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Hora Inicio *</label>
+              <input v-model="solicitudEscenarioForm.hora_inicio" required type="time" class="w-full rounded-lg border p-1.5 text-xs text-ink" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Hora Fin *</label>
+              <input v-model="solicitudEscenarioForm.hora_fin" required type="time" class="w-full rounded-lg border p-1.5 text-xs text-ink" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Justificación del Uso / Objetivo del Evento</label>
+            <textarea
+              v-model="solicitudEscenarioForm.descripcion"
+              rows="3"
+              placeholder="Describa el objetivo social o deportivo y las delegaciones participantes..."
+              class="w-full rounded-lg border p-2.5 text-xs text-ink focus:border-amber-600 focus:outline-none"
+            ></textarea>
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3 pt-3 border-t">
+            <button type="button" @click="showSolicitudEscenarioModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary bg-amber-700 hover:bg-amber-800">
+              Enviar Solicitud de Escenario
             </button>
           </div>
         </form>
