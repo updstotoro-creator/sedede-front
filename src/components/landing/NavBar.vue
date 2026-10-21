@@ -36,7 +36,10 @@ const links = [
         </a>
       </nav>
 
-      <div class="hidden md:block">
+      <div class="hidden md:flex items-center gap-3">
+        <router-link to="/registro" class="rounded-lg border border-brand-600 px-3.5 py-1.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 transition-colors">
+          Registrarse
+        </router-link>
         <router-link to="/login" class="btn-primary">
           Acceder al sistema
         </router-link>
@@ -53,6 +56,9 @@ const links = [
       <a v-for="link in links" :key="link.href" :href="link.href" class="block py-2 text-sm text-slate-600">
         {{ link.label }}
       </a>
+      <router-link to="/registro" class="mt-2 block rounded-md border border-brand-600 px-4 py-2 text-center text-sm font-semibold text-brand-700">
+        Registrarse (Atletas, Clubes, Comunidades)
+      </router-link>
       <router-link to="/login" class="mt-2 block rounded-md bg-brand-600 px-4 py-2 text-center text-sm font-semibold text-white">
         Acceder al sistema
       </router-link>

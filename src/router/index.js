@@ -14,6 +14,18 @@ const routes = [
     meta: { guestOnly: true },
   },
   {
+    path: '/registro',
+    name: 'registro-publico',
+    component: () => import('../views/RegistroPublicoView.vue'),
+    meta: { guestOnly: true },
+  },
+  {
+    path: '/registro/:tipo',
+    name: 'registro-publico-tipo',
+    component: () => import('../views/RegistroPublicoView.vue'),
+    meta: { guestOnly: true },
+  },
+  {
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('../views/DashboardView.vue'),

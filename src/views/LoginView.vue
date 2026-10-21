@@ -35,6 +35,43 @@ import logo from '../assets/images/logo-sedede.png'
         <h2 class="mb-1 font-display text-2xl font-bold text-brand-700">Iniciar sesión</h2>
         <p class="mb-8 text-sm text-slate-500">Ingresa con tus credenciales institucionales.</p>
         <LoginForm />
+
+        <!-- Enlaces a registros públicos -->
+        <div class="mt-8 pt-6 border-t border-slate-200">
+          <p class="text-xs font-semibold text-slate-500 mb-3 text-center">
+            ¿No tienes cuenta? Inicia tu registro oficial:
+          </p>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <router-link
+              to="/registro/comunidad"
+              class="flex items-center gap-2 p-2.5 rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100 text-amber-900 font-bold transition-colors"
+            >
+              <span>🏛️</span>
+              <span>Comunidad</span>
+            </router-link>
+            <router-link
+              to="/registro/deportista"
+              class="flex items-center gap-2 p-2.5 rounded-xl border border-cyan-200 bg-cyan-50/70 hover:bg-cyan-100 text-cyan-900 font-bold transition-colors"
+            >
+              <span>🏃</span>
+              <span>Deportista</span>
+            </router-link>
+            <router-link
+              to="/registro/asociacion"
+              class="flex items-center gap-2 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900 font-bold transition-colors"
+            >
+              <span>🏆</span>
+              <span>Asociación</span>
+            </router-link>
+            <router-link
+              to="/registro/club"
+              class="flex items-center gap-2 p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-900 font-bold transition-colors"
+            >
+              <span>⚽</span>
+              <span>Club</span>
+            </router-link>
+          </div>
+        </div>
       </div>
     </div>
   </div>

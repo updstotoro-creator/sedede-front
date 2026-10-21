@@ -90,6 +90,48 @@ const solicitudForm = reactive({
   numero_personas: 50,
 })
 
+// Modal y formulario para Solicitud de Apoyo Escrito / Económico
+const showSolicitudEscritaModal = ref(false)
+const solicitudEscritaForm = reactive({
+  solicitante_id: '',
+  subtipo: 'economico', // 'economico' | 'material_extra'
+  titulo: '',
+  monto_economico: '',
+  concepto_gasto: '',
+  materiales_detalle: '',
+  descripcion: '',
+  referencia_nota: '',
+})
+
+// Selector estrictamente de ítems que figuren en inventario con existencias
+const recursosDisponibles = computed(() => {
+  return recursos.value.filter((r) => r.activo && r.cantidad_disponible > 0)
+})
+
+function getMaxStock(recursoId) {
+  const item = recursos.value.find((r) => r.id === parseInt(recursoId, 10))
+  return item ? item.cantidad_disponible : 9999
+}
+
+function formatEstado(estado) {
+  if (['Enviada', 'EnRevision', 'Borrador'].includes(estado)) return 'Solicitado'
+  if (estado === 'Aprobada') return 'Aprobado'
+  if (['Asignada', 'Completada'].includes(estado)) return 'Entregado'
+  if (estado === 'Rechazada') return 'Rechazado'
+  if (estado === 'Anulada') return 'Anulada'
+  return estado
+}
+
+function getEstadoIcon(estado) {
+  switch (estado) {
+    case 'Solicitado': return '⏳'
+    case 'Aprobado': return '✅'
+    case 'Entregado': return '📦'
+    case 'Rechazado': return '❌'
+    default: return '📄'
+  }
+}
+
 const showRecursoModal = ref(false)
 const recursoForm = reactive({
   id: null,
@@ -249,7 +291,10 @@ const filteredMancomunidades = computed(() => {
 
 const filteredSolicitudes = computed(() => {
   return solicitudes.value.filter((s) => {
-    if (filterEstadoSolicitud.value !== 'TODOS' && s.estado !== filterEstadoSolicitud.value) return false
+    if (filterEstadoSolicitud.value !== 'TODOS') {
+      const mapped = formatEstado(s.estado)
+      if (mapped !== filterEstadoSolicitud.value && s.estado !== filterEstadoSolicitud.value) return false
+    }
     if (filterTipoSolicitud.value !== 'TODOS' && s.tipo !== filterTipoSolicitud.value) return false
     if (searchSolicitud.value.trim() !== '') {
       const q = searchSolicitud.value.toLowerCase().trim()
@@ -627,13 +672,15 @@ function openNewSolicitud() {
     ? miComunidad.value.id
     : (mancomunidades.value[0]?.id || '')
 
+  const firstRecursoId = recursosDisponibles.value[0]?.id || recursos.value[0]?.id || ''
+
   Object.assign(solicitudForm, {
     tipo: 'recursos',
     solicitante_id: preSelectedId,
     solicitante_tipo: 'mancomunidad',
     titulo: '',
     descripcion: '',
-    recursos: [{ recurso_id: recursos.value[0]?.id || '', cantidad_solicitada: 1 }],
+    recursos: [{ recurso_id: firstRecursoId, cantidad_solicitada: 1 }],
     espacio_id: escenarios.value[0]?.id || '',
     actividad: '',
     fecha_uso: new Date().toISOString().split('T')[0],
@@ -646,7 +693,8 @@ function openNewSolicitud() {
 }
 
 function addRenglonRecurso() {
-  solicitudForm.recursos.push({ recurso_id: recursos.value[0]?.id || '', cantidad_solicitada: 1 })
+  const firstId = recursosDisponibles.value[0]?.id || recursos.value[0]?.id || ''
+  solicitudForm.recursos.push({ recurso_id: firstId, cantidad_solicitada: 1 })
 }
 
 function removeRenglonRecurso(idx) {
@@ -679,12 +727,80 @@ async function saveSolicitud() {
       payload.numero_personas = parseInt(solicitudForm.numero_personas, 10)
     }
 
-    await mancomunidadService.createSolicitud(payload)
-    showNotice('Solicitud de apoyo registrada exitosamente en borrador')
+    const created = await mancomunidadService.createSolicitud(payload)
+    if (created?.data?.id) {
+      await mancomunidadService.enviarSolicitud(created.data.id)
+    }
+    showNotice('Solicitud de materiales enviada exitosamente en estado Solicitado')
     showSolicitudModal.value = false
     loadAll()
   } catch (err) {
     showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al registrar solicitud', 'error')
+  }
+}
+
+// Formulario de Solicitud Escrita / Apoyo Económico
+function openNewSolicitudEscrita() {
+  if (isComunidad.value && (!miComunidad.value || miComunidad.value.estado_legal !== 'Vigente')) {
+    showNotice(
+      `Su comunidad aún no cuenta con aprobación legal del SEDEDE (Estado: ${miComunidad.value?.estado_legal || 'Pendiente'}). Debe subir sus documentos en la pestaña 'Mi Registro' y esperar la aprobación.`,
+      'error'
+    )
+    return
+  }
+
+  const preSelectedId = isComunidad.value
+    ? miComunidad.value?.id
+    : (mancomunidades.value[0]?.id || '')
+
+  Object.assign(solicitudEscritaForm, {
+    solicitante_id: preSelectedId,
+    subtipo: 'economico',
+    titulo: '',
+    monto_economico: '',
+    concepto_gasto: '',
+    materiales_detalle: '',
+    descripcion: '',
+    referencia_nota: '',
+  })
+
+  showSolicitudEscritaModal.value = true
+}
+
+async function saveSolicitudEscrita() {
+  try {
+    const isEcon = solicitudEscritaForm.subtipo === 'economico'
+    const tituloPrefijo = isEcon ? '[APOYO ECONÓMICO]' : '[SOLICITUD ESCRITA]'
+    const tituloFinal = `${tituloPrefijo} ${solicitudEscritaForm.titulo}`
+
+    let descripcionFinal = ''
+    if (isEcon) {
+      descripcionFinal = `Monto Solicitado: Bs. ${solicitudEscritaForm.monto_economico}\nConcepto: ${solicitudEscritaForm.concepto_gasto}\nJustificación: ${solicitudEscritaForm.descripcion}`
+    } else {
+      descripcionFinal = `Materiales Solicitados (Fuera de Inventario):\n${solicitudEscritaForm.materiales_detalle}\nJustificación: ${solicitudEscritaForm.descripcion}`
+    }
+    if (solicitudEscritaForm.referencia_nota) {
+      descripcionFinal += `\nNota de Referencia: ${solicitudEscritaForm.referencia_nota}`
+    }
+
+    const payload = {
+      tipo: 'recursos',
+      solicitante_id: parseInt(solicitudEscritaForm.solicitante_id, 10),
+      solicitante_tipo: 'mancomunidad',
+      titulo: tituloFinal,
+      descripcion: descripcionFinal,
+      recursos: [],
+    }
+
+    const created = await mancomunidadService.createSolicitud(payload)
+    if (created?.data?.id) {
+      await mancomunidadService.enviarSolicitud(created.data.id)
+    }
+    showNotice('Solicitud de apoyo enviada con éxito al SEDEDE en estado Solicitado')
+    showSolicitudEscritaModal.value = false
+    loadAll()
+  } catch (err) {
+    showNotice(err.response?.data?.message || err.response?.data?.error || 'Error al registrar solicitud escrita', 'error')
   }
 }
 
@@ -709,6 +825,35 @@ async function pasarRevisionSol(sol) {
   }
 }
 
+function openAprobarModal(sol) {
+  if (!confirm(`¿Confirma la aprobación de la solicitud ${sol.codigo}? La solicitud pasará a estado Aprobado y el inventario se mantendrá intacto hasta su entrega física.`)) return
+  transicionData.solicitudId = sol.id
+  transicionData.accion = 'resolver'
+  transicionData.decision = 'aprobar'
+  transicionData.motivo = ''
+  executeTransicion()
+}
+
+function openRechazarModal(sol) {
+  transicionData.solicitudId = sol.id
+  transicionData.accion = 'resolver'
+  transicionData.decision = 'rechazar'
+  transicionData.motivo = ''
+  transicionData.titulo = `Rechazar Solicitud ${sol.codigo} (Justificación Obligatoria)`
+  showTransicionModal.value = true
+}
+
+async function entregarMaterial(sol) {
+  if (!confirm(`¿Confirma la entrega de los materiales solicitados para ${sol.codigo}? Al marcar como Entregado, el stock se descontará del inventario del SEDEDE.`)) return
+  try {
+    await mancomunidadService.completarSolicitud(sol.id)
+    showNotice(`¡Entrega física completada con éxito! El inventario ha sido actualizado y descontado.`)
+    loadAll()
+  } catch (err) {
+    showNotice(err.response?.data?.message || 'Error al completar la entrega de la solicitud', 'error')
+  }
+}
+
 function openResolverModal(sol, accion) {
   transicionData.solicitudId = sol.id
   transicionData.accion = accion
@@ -721,12 +866,16 @@ function openResolverModal(sol, accion) {
 async function executeTransicion() {
   try {
     if (transicionData.accion === 'resolver') {
+      if (transicionData.decision === 'rechazar' && (!transicionData.motivo || !transicionData.motivo.trim())) {
+        alert('Debe ingresar obligatoriamente la justificación del rechazo.')
+        return
+      }
       await mancomunidadService.resolverSolicitud(
         transicionData.solicitudId,
         transicionData.decision,
         transicionData.decision === 'rechazar' ? transicionData.motivo : null
       )
-      showNotice(`Solicitud ${transicionData.decision === 'aprobar' ? 'Aprobada' : 'Rechazada'} con éxito`)
+      showNotice(`Solicitud ${transicionData.decision === 'aprobar' ? 'Aprobada (Stock no descontado hasta la entrega)' : 'Rechazada con justificación'} con éxito`)
     } else if (transicionData.accion === 'anular') {
       if (!transicionData.motivo.trim()) {
         alert('Debe especificar el motivo de anulación')
@@ -890,18 +1039,26 @@ const getEstadoBadgeClass = (estado) => {
           Nueva Comunidad con Usuario
         </button>
 
-        <!-- Botón Nueva Solicitud de Apoyo (Para SEDEDE o Comunidad aprobada) -->
-        <button
-          v-if="activeTab === 'solicitudes'"
-          type="button"
-          @click="openNewSolicitud"
-          class="btn-primary flex items-center gap-2"
-        >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          {{ isSedede ? 'Registrar Solicitud (Por SEDEDE)' : 'Nueva Solicitud de Apoyo' }}
-        </button>
+        <!-- Botones de Solicitud (Materiales de Inventario y Apoyo Escrito/Económico) -->
+        <template v-if="activeTab === 'solicitudes'">
+          <button
+            type="button"
+            @click="openNewSolicitud"
+            class="rounded-xl bg-brand-600 hover:bg-brand-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all flex items-center gap-1.5"
+          >
+            <span>📦</span>
+            <span>Solicitar Materiales de Inventario</span>
+          </button>
+
+          <button
+            type="button"
+            @click="openNewSolicitudEscrita"
+            class="rounded-xl border border-brand-600 bg-white hover:bg-brand-50 px-3.5 py-2 text-xs font-bold text-brand-700 shadow-sm transition-all flex items-center gap-1.5"
+          >
+            <span>📝</span>
+            <span>Solicitud de Apoyo Escrito / Económico</span>
+          </button>
+        </template>
 
         <button
           v-if="isSedede && activeTab === 'recursos'"
@@ -1371,17 +1528,13 @@ const getEstadoBadgeClass = (estado) => {
 
           <select
             v-model="filterEstadoSolicitud"
-            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-brand-600 focus:outline-none"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 focus:border-brand-600 focus:outline-none"
           >
             <option value="TODOS">Todos los estados</option>
-            <option value="Borrador">Borrador</option>
-            <option value="Enviada">Enviada</option>
-            <option value="EnRevision">En Revisión</option>
-            <option value="Aprobada">Aprobada</option>
-            <option value="Asignada">Asignada (Stock reservado)</option>
-            <option value="Completada">Completada</option>
-            <option value="Rechazada">Rechazada</option>
-            <option value="Anulada">Anulada</option>
+            <option value="Solicitado">⏳ Solicitado</option>
+            <option value="Aprobado">✅ Aprobado</option>
+            <option value="Entregado">📦 Entregado</option>
+            <option value="Rechazado">❌ Rechazado</option>
           </select>
         </div>
       </div>
@@ -1392,8 +1545,8 @@ const getEstadoBadgeClass = (estado) => {
           <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
               <th class="px-5 py-3">Código</th>
-              <th class="px-5 py-3">Título & Tipo</th>
-              <th class="px-5 py-3">Detalle del Pedido</th>
+              <th class="px-5 py-3">Título & Modalidad</th>
+              <th class="px-5 py-3">Lista de Material Solicitado / Detalle</th>
               <th class="px-5 py-3">Estado</th>
               <th class="px-5 py-3 text-right">Flujo y Acciones</th>
             </tr>
@@ -1405,96 +1558,166 @@ const getEstadoBadgeClass = (estado) => {
               </td>
             </tr>
             <tr v-for="sol in filteredSolicitudes" :key="sol.id" class="hover:bg-slate-50/70 transition-colors">
-              <td class="px-5 py-4 font-mono font-bold text-xs text-brand-700">
+              <td class="px-5 py-4 font-mono font-bold text-xs text-brand-700 whitespace-nowrap">
                 {{ sol.codigo }}
               </td>
               <td class="px-5 py-4">
                 <div class="font-bold text-ink">{{ sol.titulo }}</div>
-                <div class="text-xs text-slate-500">
-                  Tipo:
-                  <span class="font-semibold uppercase text-slate-700">{{ sol.tipo === 'recursos' ? 'Materiales / Implementos' : 'Escenario' }}</span>
+                <div class="text-xs text-slate-500 mt-0.5">
+                  <span v-if="sol.titulo.startsWith('[APOYO ECONÓMICO]')" class="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">
+                    💰 Apoyo Económico / Financiero
+                  </span>
+                  <span v-else-if="sol.titulo.startsWith('[SOLICITUD ESCRITA]')" class="inline-flex items-center gap-1 font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-[11px]">
+                    📝 Solicitud Escrita (Fuera de Inventario)
+                  </span>
+                  <span v-else-if="sol.tipo === 'recursos'" class="inline-flex items-center gap-1 font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 text-[11px]">
+                    📦 Materiales de Almacén SEDEDE
+                  </span>
+                  <span v-else class="inline-flex items-center gap-1 font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 text-[11px]">
+                    🏟️ Uso de Escenario
+                  </span>
                 </div>
               </td>
               <td class="px-5 py-4 text-xs text-slate-600">
-                <div v-if="sol.tipo === 'recursos'">
-                  <span class="font-semibold">Implementos deportivos solicitados</span>
-                  <div class="text-[11px] text-slate-500 mt-0.5">{{ sol.descripcion || 'Sin descripción adicional' }}</div>
+                <!-- Si es solicitud de recursos de inventario -->
+                <div v-if="sol.detalles && sol.detalles.length > 0">
+                  <span class="font-bold text-slate-800 block mb-1">Lista de Material Solicitado:</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span
+                      v-for="det in sol.detalles"
+                      :key="det.id"
+                      class="inline-flex items-center rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700"
+                    >
+                      📦 {{ det.recurso?.nombre || 'Ítem' }}: <strong class="ml-1 text-brand-700">{{ det.cantidad_solicitada }} {{ det.recurso?.unidad || 'unid.' }}</strong>
+                    </span>
+                  </div>
+                  <div v-if="sol.descripcion" class="text-[11px] text-slate-500 mt-1 italic">
+                    {{ sol.descripcion }}
+                  </div>
                 </div>
+
+                <!-- Si es solicitud escrita o económica sin renglones de almacén -->
+                <div v-else-if="sol.tipo === 'recursos'" class="whitespace-pre-line text-slate-700">
+                  {{ sol.descripcion || 'Sin detalle especificado' }}
+                </div>
+
+                <!-- Si es escenario deportivo -->
                 <div v-else>
-                  <div>🏟️ {{ sol.espacio?.nombre || 'Escenario Municipal' }}</div>
+                  <div>🏟️ {{ sol.espacio?.nombre || 'Escenario Deportivo SEDEDE' }}</div>
                   <div>📅 {{ sol.fecha_uso }} ({{ sol.hora_inicio }} - {{ sol.hora_fin }})</div>
                 </div>
-                <div v-if="sol.motivo_rechazo" class="text-rose-600 mt-1 font-semibold">
-                  Motivo Rechazo: {{ sol.motivo_rechazo }}
+
+                <!-- Motivo de Rechazo con Justificación -->
+                <div v-if="sol.motivo_rechazo" class="mt-2 rounded-lg bg-rose-50 border border-rose-200 p-2 text-rose-800 text-[11px] font-medium">
+                  <strong>❌ Justificación de Rechazo:</strong> {{ sol.motivo_rechazo }}
                 </div>
-                <div v-if="sol.motivo_anulacion" class="text-slate-500 mt-1 italic">
+                <div v-if="sol.motivo_anulacion" class="text-slate-500 mt-1 italic text-[11px]">
                   Anulada: {{ sol.motivo_anulacion }}
                 </div>
               </td>
-              <td class="px-5 py-4">
-                <span :class="['inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold', getEstadoBadgeClass(sol.estado)]">
-                  {{ sol.estado }}
+              <td class="px-5 py-4 whitespace-nowrap">
+                <span :class="['inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold', getEstadoBadgeClass(formatEstado(sol.estado))]">
+                  <span class="mr-1.5">{{ getEstadoIcon(formatEstado(sol.estado)) }}</span>
+                  {{ formatEstado(sol.estado) }}
                 </span>
+                <div v-if="formatEstado(sol.estado) === 'Aprobado'" class="text-[10px] text-emerald-700 font-semibold mt-1">
+                  (Pendiente de Entrega)
+                </div>
+                <div v-if="formatEstado(sol.estado) === 'Entregado'" class="text-[10px] text-indigo-700 font-semibold mt-1">
+                  (Stock Descontado)
+                </div>
               </td>
               <td class="px-5 py-4 text-right">
                 <div class="flex items-center justify-end gap-1.5 flex-wrap">
-                  <!-- Botón Enviar (solo Borrador) - Disponible para Comunidad y SEDEDE -->
-                  <button
-                    v-if="sol.estado === 'Borrador'"
-                    type="button"
-                    @click="enviarSol(sol)"
-                    class="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700"
-                  >
-                    Enviar a SEDEDE
-                  </button>
-
-                  <!-- Botones exclusivos para evaluadores SEDEDE -->
+                  <!-- Botones para personal de SEDEDE -->
                   <template v-if="isSedede">
-                    <button
-                      v-if="sol.estado === 'Enviada'"
-                      type="button"
-                      @click="pasarRevisionSol(sol)"
-                      class="rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-600"
-                    >
-                      Poner En Revisión
-                    </button>
+                    <!-- Estado SOLICITADO: Aprobar o Rechazar con justificación -->
+                    <template v-if="formatEstado(sol.estado) === 'Solicitado'">
+                      <button
+                        type="button"
+                        @click="openAprobarModal(sol)"
+                        class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs flex items-center gap-1"
+                        title="Aprobar solicitud oficialmente"
+                      >
+                        <span>✓</span>
+                        <span>Aprobar</span>
+                      </button>
 
-                    <button
-                      v-if="sol.estado === 'EnRevision'"
-                      type="button"
-                      @click="openResolverModal(sol, 'resolver')"
-                      class="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
-                    >
-                      Resolver (Aprobar/Rechazar)
-                    </button>
+                      <button
+                        type="button"
+                        @click="openRechazarModal(sol)"
+                        class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 shadow-xs flex items-center gap-1"
+                        title="Rechazar solicitud con justificación obligatoria"
+                      >
+                        <span>✕</span>
+                        <span>Rechazar</span>
+                      </button>
+                    </template>
 
-                    <button
-                      v-if="sol.estado === 'Aprobada' && sol.tipo === 'recursos'"
-                      type="button"
-                      @click="asignarStockSol(sol)"
-                      class="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
-                    >
-                      Asignar Stock
-                    </button>
+                    <!-- Estado APROBADO: Marcar como Entregado (Descuenta stock) -->
+                    <template v-else-if="formatEstado(sol.estado) === 'Aprobado'">
+                      <button
+                        type="button"
+                        @click="entregarMaterial(sol)"
+                        class="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-md flex items-center gap-1.5 ring-2 ring-indigo-400/40"
+                        title="Marcar entrega física de materiales y descontar inventario"
+                      >
+                        <span>📦</span>
+                        <span>Marcar como Entregado</span>
+                      </button>
 
-                    <button
-                      v-if="['Asignada', 'Aprobada'].includes(sol.estado)"
-                      type="button"
-                      @click="completarSol(sol)"
-                      class="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800"
-                    >
-                      Completar Entrega
-                    </button>
+                      <button
+                        type="button"
+                        @click="openRechazarModal(sol)"
+                        class="rounded-lg border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        title="Rechazar solicitud"
+                      >
+                        Rechazar
+                      </button>
+                    </template>
 
+                    <!-- Estado ENTREGADO -->
+                    <template v-else-if="formatEstado(sol.estado) === 'Entregado'">
+                      <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1">
+                        <span>✓</span>
+                        <span>Material Entregado</span>
+                      </span>
+                    </template>
+
+                    <!-- Estado RECHAZADO -->
+                    <template v-else-if="formatEstado(sol.estado) === 'Rechazado'">
+                      <span class="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1">
+                        <span>✕</span>
+                        <span>Rechazada</span>
+                      </span>
+                    </template>
+
+                    <!-- Botón Anular para estados no terminales -->
                     <button
                       v-if="!['Completada', 'Rechazada', 'Anulada'].includes(sol.estado)"
                       type="button"
                       @click="openResolverModal(sol, 'anular')"
-                      class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
-                      title="Anular solicitud con motivo"
+                      class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                      title="Anular solicitud"
                     >
                       Anular
                     </button>
+                  </template>
+
+                  <!-- Vista para Comunidad -->
+                  <template v-else>
+                    <span v-if="formatEstado(sol.estado) === 'Solicitado'" class="text-xs text-amber-700 font-semibold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                      En revisión técnica
+                    </span>
+                    <span v-else-if="formatEstado(sol.estado) === 'Aprobado'" class="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                      Aprobado (Preparando entrega)
+                    </span>
+                    <span v-else-if="formatEstado(sol.estado) === 'Entregado'" class="text-xs text-indigo-700 font-semibold bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                      Entregado ✓
+                    </span>
+                    <span v-else-if="formatEstado(sol.estado) === 'Rechazado'" class="text-xs text-rose-700 font-semibold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                      Rechazada
+                    </span>
                   </template>
                 </div>
               </td>
@@ -2045,21 +2268,25 @@ const getEstadoBadgeClass = (estado) => {
       </div>
     </div>
 
-    <!-- MODAL NUEVA SOLICITUD DE APOYO -->
+    <!-- MODAL 1: SOLICITUD DE MATERIALES DE INVENTARIO -->
     <div v-if="showSolicitudModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center gap-2 text-brand-700 text-xs font-bold uppercase tracking-wider mb-1">
+          <span>📦 Almacén Central SEDEDE</span>
+          <span>•</span>
+          <span>Existencias Oficiales</span>
+        </div>
         <h3 class="font-display text-lg font-bold text-ink mb-1">
-          Nueva Solicitud de Apoyo Comunitario
+          Solicitud de Materiales del Inventario
         </h3>
         <p class="text-xs text-slate-500 mb-4">
-          {{ isSedede ? 'Registro institucional de solicitud a nombre de comunidad rural.' : 'Complete los requerimientos para el apoyo deportivo de su comunidad.' }}
+          Seleccione únicamente los implementos y materiales deportivos que figuren en las existencias del inventario del SEDEDE.
         </p>
 
         <form @submit.prevent="saveSolicitud" class="space-y-3.5 text-xs">
           <!-- Comunidad Solicitante -->
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Comunidad Solicitante</label>
-            <!-- Si es SEDEDE, puede elegir cualquier comunidad del dropdown -->
             <select
               v-if="isSedede"
               v-model="solicitudForm.solicitante_id"
@@ -2070,7 +2297,6 @@ const getEstadoBadgeClass = (estado) => {
                 {{ m.nombre }} ({{ m.sigla || m.nit }}) - {{ m.estado_legal }}
               </option>
             </select>
-            <!-- Si es Comunidad, bloqueado con su comunidad -->
             <input
               v-else
               type="text"
@@ -2081,22 +2307,22 @@ const getEstadoBadgeClass = (estado) => {
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Tipo de Apoyo</label>
+            <label class="block font-semibold text-slate-700 mb-1">Tipo de Solicitud</label>
             <div class="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 :class="[
-                  'rounded-lg border p-2.5 font-bold transition-colors text-center',
+                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
                   solicitudForm.tipo === 'recursos' ? 'bg-brand-50 border-brand-600 text-brand-700' : 'bg-slate-50 border-slate-200 text-slate-600'
                 ]"
                 @click="solicitudForm.tipo = 'recursos'"
               >
-                📦 Implementos / Materiales
+                📦 Materiales del Inventario
               </button>
               <button
                 type="button"
                 :class="[
-                  'rounded-lg border p-2.5 font-bold transition-colors text-center',
+                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
                   solicitudForm.tipo === 'espacio' ? 'bg-brand-50 border-brand-600 text-brand-700' : 'bg-slate-50 border-slate-200 text-slate-600'
                 ]"
                 @click="solicitudForm.tipo = 'espacio'"
@@ -2108,31 +2334,77 @@ const getEstadoBadgeClass = (estado) => {
 
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Título de la Solicitud / Proyecto *</label>
-            <input v-model="solicitudForm.titulo" required type="text" placeholder="Ej: Material para Campeonato Intercomunal de Futsal Sub-16" class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none" />
+            <input
+              v-model="solicitudForm.titulo"
+              required
+              type="text"
+              placeholder="Ej: Dotación de balones para campeonato intercomunal"
+              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
+            />
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Justificación / Descripción de Beneficiarios</label>
-            <textarea v-model="solicitudForm.descripcion" rows="2" placeholder="Describa el objetivo social o deportivo y las comunidades beneficiadas..." class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"></textarea>
+            <label class="block font-semibold text-slate-700 mb-1">Justificación / Beneficiarios de la Comunidad</label>
+            <textarea
+              v-model="solicitudForm.descripcion"
+              rows="2"
+              placeholder="Describa el objetivo social o deportivo y las comunidades beneficiadas..."
+              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
+            ></textarea>
           </div>
 
-          <!-- Campos específicos: Recursos -->
+          <!-- Campos específicos: Recursos con selector estricto de existencias -->
           <div v-if="solicitudForm.tipo === 'recursos'" class="space-y-2 border-t pt-3">
             <div class="flex items-center justify-between">
-              <label class="font-bold text-slate-800">Renglones de Materiales Solicitados</label>
-              <button type="button" @click="addRenglonRecurso" class="text-xs font-semibold text-brand-600 hover:text-brand-800">
+              <div>
+                <label class="font-bold text-slate-800 text-xs">Lista de Material Solicitado</label>
+                <p class="text-[11px] text-slate-500">Solo ítems disponibles en el inventario oficial.</p>
+              </div>
+              <button
+                type="button"
+                @click="addRenglonRecurso"
+                class="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 px-2 py-1 rounded border border-brand-200"
+              >
                 + Añadir Ítem
               </button>
             </div>
 
-            <div v-for="(item, idx) in solicitudForm.recursos" :key="idx" class="flex items-center gap-2">
-              <select v-model="item.recurso_id" required class="flex-1 rounded-md border p-1.5 text-xs bg-white">
-                <option v-for="r in recursos" :key="r.id" :value="r.id">
-                  {{ r.nombre }} (Stock: {{ r.cantidad_disponible }} {{ r.unidad }})
-                </option>
-              </select>
-              <input v-model.number="item.cantidad_solicitada" min="1" type="number" class="w-20 rounded-md border p-1.5 text-xs font-bold" />
-              <button type="button" @click="removeRenglonRecurso(idx)" class="text-red-500 font-bold px-1">✕</button>
+            <div v-if="recursosDisponibles.length === 0" class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs">
+              ⚠️ No hay materiales con stock disponible en este momento en el inventario. Puede usar el botón de <strong>Solicitud de Apoyo Escrito / Económico</strong>.
+            </div>
+
+            <div v-for="(item, idx) in solicitudForm.recursos" :key="idx" class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+              <div class="flex-1">
+                <select
+                  v-model="item.recurso_id"
+                  required
+                  class="w-full rounded-md border border-slate-300 p-1.5 text-xs bg-white text-slate-800 font-medium"
+                >
+                  <option v-for="r in recursosDisponibles" :key="r.id" :value="r.id">
+                    {{ r.nombre }} (Stock: {{ r.cantidad_disponible }} {{ r.unidad }})
+                  </option>
+                </select>
+              </div>
+              <div class="w-24">
+                <input
+                  v-model.number="item.cantidad_solicitada"
+                  min="1"
+                  :max="getMaxStock(item.recurso_id)"
+                  type="number"
+                  placeholder="Cant."
+                  required
+                  class="w-full rounded-md border border-slate-300 p-1.5 text-xs font-bold text-ink"
+                  title="Cantidad solicitada (no puede superar el stock disponible)"
+                />
+              </div>
+              <button
+                type="button"
+                @click="removeRenglonRecurso(idx)"
+                class="text-red-500 hover:text-red-700 font-bold px-2 py-1"
+                title="Quitar ítem"
+              >
+                ✕
+              </button>
             </div>
           </div>
 
@@ -2173,7 +2445,160 @@ const getEstadoBadgeClass = (estado) => {
               Cancelar
             </button>
             <button type="submit" class="btn-primary">
-              Guardar en Borrador
+              Enviar Solicitud a SEDEDE
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 2: SOLICITUD DE APOYO ESCRITO / ECONÓMICO -->
+    <div v-if="showSolicitudEscritaModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center gap-2 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
+          <span>📝 Formulario Especial</span>
+          <span>•</span>
+          <span>Apoyo Escrito / Económico</span>
+        </div>
+        <h3 class="font-display text-lg font-bold text-ink mb-1">
+          Solicitud de Apoyo Escrito o Presupuestario
+        </h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Para solicitar apoyo económico o materiales que no se encuentran disponibles en las existencias actuales de almacén.
+        </p>
+
+        <form @submit.prevent="saveSolicitudEscrita" class="space-y-3.5 text-xs">
+          <!-- Comunidad Solicitante -->
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Comunidad Solicitante</label>
+            <select
+              v-if="isSedede"
+              v-model="solicitudEscritaForm.solicitante_id"
+              required
+              class="w-full rounded-lg border p-2 text-sm bg-white"
+            >
+              <option v-for="m in mancomunidades" :key="m.id" :value="m.id">
+                {{ m.nombre }} ({{ m.sigla || m.nit }}) - {{ m.estado_legal }}
+              </option>
+            </select>
+            <input
+              v-else
+              type="text"
+              :value="miComunidad?.nombre"
+              disabled
+              class="w-full rounded-lg border p-2 text-sm bg-slate-100 font-bold text-slate-800"
+            />
+          </div>
+
+          <!-- Selector de Modalidad -->
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Modalidad del Requerimiento *</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                :class="[
+                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
+                  solicitudEscritaForm.subtipo === 'economico'
+                    ? 'bg-emerald-50 border-emerald-600 text-emerald-800 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                ]"
+                @click="solicitudEscritaForm.subtipo = 'economico'"
+              >
+                💰 Apoyo Económico / Fondos
+              </button>
+              <button
+                type="button"
+                :class="[
+                  'rounded-lg border p-2.5 font-bold transition-colors text-center text-xs',
+                  solicitudEscritaForm.subtipo === 'material_extra'
+                    ? 'bg-indigo-50 border-indigo-600 text-indigo-800 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                ]"
+                @click="solicitudEscritaForm.subtipo = 'material_extra'"
+              >
+                📝 Material Fuera de Inventario
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Título de la Solicitud / Proyecto *</label>
+            <input
+              v-model="solicitudEscritaForm.titulo"
+              required
+              type="text"
+              :placeholder="solicitudEscritaForm.subtipo === 'economico' ? 'Ej: Apoyo para transporte de delegación juvenil intercomunal' : 'Ej: Dotación de 50 busos deportivos de delegación'"
+              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
+            />
+          </div>
+
+          <!-- Campos específicos si es Apoyo Económico -->
+          <div v-if="solicitudEscritaForm.subtipo === 'economico'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200">
+            <div>
+              <label class="block font-semibold text-emerald-900 mb-1">Monto Solicitado (Bs.) *</label>
+              <input
+                v-model="solicitudEscritaForm.monto_economico"
+                required
+                type="number"
+                min="1"
+                step="0.01"
+                placeholder="Ej: 3500.00"
+                class="w-full rounded-lg border border-emerald-300 p-2 text-sm font-bold text-ink bg-white"
+              />
+            </div>
+            <div>
+              <label class="block font-semibold text-emerald-900 mb-1">Concepto o Destino del Gasto *</label>
+              <input
+                v-model="solicitudEscritaForm.concepto_gasto"
+                required
+                type="text"
+                placeholder="Ej: Pasajes y alimentación de delegación"
+                class="w-full rounded-lg border border-emerald-300 p-2 text-xs bg-white"
+              />
+            </div>
+          </div>
+
+          <!-- Campos específicos si es Material fuera de inventario -->
+          <div v-else class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200 space-y-2">
+            <label class="block font-semibold text-indigo-900">
+              Detalle de Implementos o Materiales Requeridos (No existentes en almacén) *
+            </label>
+            <textarea
+              v-model="solicitudEscritaForm.materiales_detalle"
+              required
+              rows="3"
+              placeholder="Especifique los materiales solicitados (ej: 40 Busos deportivos tallas S, M y L con distintivo comunal, 2 redes metálicas de cancha múltiple...)"
+              class="w-full rounded-lg border border-indigo-300 p-2 text-xs bg-white"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Justificación Social / Comunidades Beneficiadas *</label>
+            <textarea
+              v-model="solicitudEscritaForm.descripcion"
+              required
+              rows="2"
+              placeholder="Explique el impacto deportivo y las comunidades rurales beneficiarias de este apoyo..."
+              class="w-full rounded-lg border p-2 text-sm text-ink focus:border-brand-600 focus:outline-none"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Referencia de Nota o Carta Comunal (Opcional)</label>
+            <input
+              v-model="solicitudEscritaForm.referencia_nota"
+              type="text"
+              placeholder="Ej: Nota CITE Nº 014/2026 de la Subalcaldía o Autoridad Comunal"
+              class="w-full rounded-lg border p-2 text-xs text-ink"
+            />
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3 pt-3 border-t">
+            <button type="button" @click="showSolicitudEscritaModal = false" class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary">
+              Enviar Solicitud Escrita / Económica
             </button>
           </div>
         </form>
