@@ -120,16 +120,44 @@ function formatDateISO(date) {
   return `${y}-${m}-${d}`
 }
 
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null
+  const cleanStr = String(dateStr).split('T')[0].split(' ')[0]
+  const parts = cleanStr.split('-')
+  if (parts.length < 3) return null
+  const [year, month, day] = parts.map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return ''
+  const clean = String(dateStr).split('T')[0].split(' ')[0]
+  const [y, m, d] = clean.split('-')
+  if (!y || !m || !d) return dateStr
+  return `${d}/${m}/${y}`
+}
+
+function formatDisplayRange(inicioStr, finStr) {
+  if (!inicioStr) return ''
+  const fIni = formatDisplayDate(inicioStr)
+  const fFin = finStr ? formatDisplayDate(finStr) : fIni
+  return fIni === fFin ? fIni : `${fIni} al ${fFin}`
+}
+
 // Agrupación de eventos por fecha
 const eventosByDate = computed(() => {
   const map = {}
   eventos.value.forEach(evt => {
     if (!evt.fecha_inicio) return
-    const inicio = new Date(evt.fecha_inicio + 'T00:00:00')
-    const fin = evt.fecha_fin ? new Date(evt.fecha_fin + 'T00:00:00') : inicio
+    const inicio = parseLocalDate(evt.fecha_inicio)
+    if (!inicio) return
+    const fin = evt.fecha_fin ? (parseLocalDate(evt.fecha_fin) || inicio) : inicio
 
-    let curr = new Date(inicio)
-    while (curr <= fin) {
+    let curr = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate())
+    const end = new Date(fin.getFullYear(), fin.getMonth(), fin.getDate())
+
+    while (curr <= end) {
       const key = formatDateISO(curr)
       if (!map[key]) map[key] = []
       if (!map[key].some(e => e.id === evt.id)) {
@@ -715,7 +743,7 @@ onMounted(async () => {
             <div class="mt-3 rounded-lg bg-slate-50 p-3 text-xs space-y-1">
               <div class="flex justify-between text-slate-600">
                 <span>Fechas:</span>
-                <strong class="text-slate-800">{{ new Date(evt.fecha_inicio).toLocaleDateString('es-BO') }} al {{ new Date(evt.fecha_fin).toLocaleDateString('es-BO') }}</strong>
+                <strong class="text-slate-800">{{ formatDisplayRange(evt.fecha_inicio, evt.fecha_fin) }}</strong>
               </div>
               <div class="flex justify-between text-slate-600">
                 <span>Escenario:</span>
@@ -784,7 +812,7 @@ onMounted(async () => {
           </p>
           <ul class="list-disc pl-4 mt-1 space-y-0.5">
             <li v-for="c in conflictosDetectados.eventos_cruzados" :key="c.id">
-              <strong>{{ c.nombre_evento }}</strong> ({{ c.asociacion?.sigla || c.disciplina }}): {{ new Date(c.fecha_inicio).toLocaleDateString('es-BO') }} al {{ new Date(c.fecha_fin).toLocaleDateString('es-BO') }}
+              <strong>{{ c.nombre_evento }}</strong> ({{ c.asociacion?.sigla || c.disciplina }}): {{ formatDisplayRange(c.fecha_inicio, c.fecha_fin) }}
             </li>
           </ul>
           <p class="mt-2 text-[11px] font-semibold text-amber-950">
@@ -816,7 +844,7 @@ onMounted(async () => {
           <div class="rounded-lg bg-slate-50 p-3">
             <span class="block text-slate-500 font-semibold">Fechas Programadas</span>
             <strong class="text-slate-800 text-sm">
-              {{ new Date(selectedEventoDetail?.fecha_inicio).toLocaleDateString('es-BO') }} al {{ new Date(selectedEventoDetail?.fecha_fin).toLocaleDateString('es-BO') }}
+              {{ formatDisplayRange(selectedEventoDetail?.fecha_inicio, selectedEventoDetail?.fecha_fin) }}
             </strong>
           </div>
 
