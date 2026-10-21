@@ -6,6 +6,10 @@ const props = defineProps({
   node: { type: Object, required: true },
   tipo: { type: String, required: true },
   level: { type: Number, default: 0 },
+  // Plan aprobado: actividades e indicadores ya no se agregan, editan ni borran.
+  bloqueado: { type: Boolean, default: false },
+  // Rol sin poa.crear ni poa.editar: solo se navega.
+  soloLectura: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['edit', 'add-child', 'delete'])
@@ -17,9 +21,10 @@ const childTipo = computed(() => {
     programa: 'proyecto',
     proyecto: 'actividad',
     actividad: 'indicador',
-    indicador: 'meta',
   }
-  return map[props.tipo] ?? null
+  const hijo = map[props.tipo] ?? null
+  if (props.soloLectura) return null
+  return props.bloqueado && ['actividad', 'indicador'].includes(hijo) ? null : hijo
 })
 
 const childLabel = computed(() => {
@@ -27,7 +32,6 @@ const childLabel = computed(() => {
     programa: 'Proyecto',
     proyecto: 'Actividad',
     actividad: 'Indicador',
-    indicador: 'Meta',
   }
   return map[props.tipo] ?? 'Hijo'
 })
@@ -83,6 +87,8 @@ const estadoConfig = computed(() => {
   return map[props.node.estado] ?? { bg: 'bg-slate-100', text: 'text-slate-600', label: 'Borrador' }
 })
 
+const editable = computed(() => !props.soloLectura && !(props.bloqueado && ['actividad', 'indicador'].includes(props.tipo)))
+
 const hasChildren = computed(() => props.node.children?.length > 0)
 const canExpand = computed(() => hasChildren.value || childTipo.value)
 
@@ -100,9 +106,9 @@ function viewDetail() {
 </script>
 
 <template>
-  <div class="group">
+  <div>
     <div
-      class="flex items-center gap-3 px-4 py-3 transition-all hover:bg-slate-50"
+      class="group/fila flex items-center gap-3 px-4 py-3 transition-all hover:bg-slate-50"
       :style="{ paddingLeft: `${(level * 24) + 16}px` }"
     >
       <!-- Expand/Collapse -->
@@ -137,17 +143,16 @@ function viewDetail() {
         </div>
         <div class="mt-0.5 flex items-center gap-3 text-xs text-slate-400">
           <template v-if="tipo === 'actividad'">
-            <span v-if="node.descripcion" class="truncate max-w-[300px]">{{ node.descripcion }}</span>
-            <span v-if="node.techo_presupuestario" class="text-emerald-600 font-semibold">
-              Bs. {{ node.techo_presupuestario.toLocaleString('es-BO') }}
-            </span>
+            <span v-if="node.producto_esperado" class="truncate max-w-[300px]">{{ node.producto_esperado }}</span>
+            <span>{{ node.children?.length ?? 0 }} indicadores</span>
           </template>
           <template v-else-if="tipo === 'indicador'">
             <span v-if="node.unidad_medida" class="text-slate-500">{{ node.unidad_medida }}</span>
             <span v-if="node.tipo" class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold">{{ node.tipo }}</span>
             <span v-if="node.meta_vigente" class="text-emerald-600">
-              Meta: {{ node.meta_vigente.meta_anual }}
+              Meta v{{ node.meta_vigente.version }}: {{ Number(node.meta_vigente.meta_anual) }}
             </span>
+            <span v-else class="text-amber-600">Sin meta</span>
           </template>
           <template v-else-if="tipo === 'meta'">
             <span class="text-slate-500">v{{ node.version }}</span>
@@ -173,7 +178,7 @@ function viewDetail() {
       </span>
 
       <!-- Actions -->
-      <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div class="flex shrink-0 items-center gap-1 transition-opacity focus-within:opacity-100 sm:opacity-0 sm:group-hover/fila:opacity-100">
         <button
           v-if="tipo === 'actividad'"
           class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
@@ -182,6 +187,7 @@ function viewDetail() {
           Ver
         </button>
         <button
+          v-if="editable"
           class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-ink"
           @click.stop="emit('edit', node)"
         >
@@ -195,7 +201,7 @@ function viewDetail() {
           + {{ childLabel }}
         </button>
         <button
-          v-if="tipo !== 'programa'"
+          v-if="editable"
           class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
           @click.stop="emit('delete', node)"
         >
@@ -216,8 +222,10 @@ function viewDetail() {
           v-for="child in node.children"
           :key="child.id"
           :node="child"
-          :tipo="childTipo"
+          :tipo="child.type ?? childTipo"
           :level="level + 1"
+          :bloqueado="bloqueado"
+          :solo-lectura="soloLectura"
           @edit="(n) => emit('edit', n)"
           @add-child="(payload) => emit('add-child', payload)"
           @delete="(n) => emit('delete', n)"
@@ -231,7 +239,7 @@ function viewDetail() {
       class="py-4 text-center text-xs text-slate-400"
       :style="{ marginLeft: `${(level * 24) + 44}px` }"
     >
-      Sin {{ childLabel.toLowerCase() }}s registrados
+      Sin elementos registrados
     </div>
   </div>
 </template>

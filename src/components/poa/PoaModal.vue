@@ -8,6 +8,10 @@ const props = defineProps({
   saving: { type: Boolean, default: false },
   childInfo: { type: Object, default: null },
   error: { type: String, default: '' },
+  // Gestión (año) del plan activo: se asigna a los programas nuevos.
+  gestionId: { type: Number, default: null },
+  // Catálogo de unidades organizacionales [{ id, nombre }].
+  unidades: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['close', 'submit'])
@@ -18,40 +22,23 @@ const form = reactive({
   objetivo_ptdi: '',
   producto_esperado: '',
   unidad_medida: '',
-  tipo: 'quantitativo',
+  tipo: 'producto',
   formula: '',
-  linea_base: '',
-  meta_anual: '',
-  motivo: '',
-  estado: 'borrador',
+  unidad_organizacional_id: '',
 })
 
 watch(
-  () => props.editing,
-  (val) => {
-    if (val) {
-      form.codigo = val.codigo ?? ''
-      form.denominacion = val.denominacion ?? ''
-      form.objetivo_ptdi = val.descripcion ?? ''
-      form.producto_esperado = val.descripcion ?? ''
-      form.unidad_medida = val.unidad_medida ?? ''
-      form.tipo = val.tipo ?? 'quantitativo'
-      form.formula = val.formula ?? ''
-      form.estado = val.estado ?? 'borrador'
-      if (val.meta_vigente) {
-        form.linea_base = val.meta_vigente.linea_base ?? ''
-        form.meta_anual = val.meta_vigente.meta_anual ?? ''
-        form.motivo = val.meta_vigente.motivo ?? ''
-      } else {
-        form.linea_base = val.linea_base ?? ''
-        form.meta_anual = val.meta_anual ?? ''
-        form.motivo = val.motivo ?? ''
-      }
-    } else {
-      Object.keys(form).forEach(k => form[k] = '')
-      form.tipo = 'quantitativo'
-      form.estado = 'borrador'
-    }
+  () => [props.show, props.editing],
+  () => {
+    const val = props.editing ?? {}
+    form.codigo = val.codigo ?? ''
+    form.denominacion = val.denominacion ?? ''
+    form.objetivo_ptdi = val.objetivo_ptdi ?? ''
+    form.producto_esperado = val.producto_esperado ?? ''
+    form.unidad_medida = val.unidad_medida ?? ''
+    form.tipo = val.tipo ?? 'producto'
+    form.formula = val.formula ?? ''
+    form.unidad_organizacional_id = val.unidad_organizacional_id ?? ''
   },
   { immediate: true }
 )
@@ -99,48 +86,30 @@ function close() {
 }
 
 function submit() {
-  const data = { gestion_id: 2026 }
+  const data = {
+    codigo: form.codigo.trim(),
+    denominacion: form.denominacion.trim(),
+  }
 
   if (props.tipo === 'programa') {
-    data.codigo = form.codigo
-    data.denominacion = form.denominacion
-    data.objetivo_ptdi = form.objetivo_ptdi || undefined
-  } else if (props.tipo === 'proyecto') {
-    data.codigo = form.codigo
-    data.denominacion = form.denominacion
+    if (!props.editing) data.gestion_id = props.gestionId
+    data.objetivo_ptdi = form.objetivo_ptdi || null
   } else if (props.tipo === 'actividad') {
-    data.codigo = form.codigo
-    data.denominacion = form.denominacion
-    data.producto_esperado = form.producto_esperado || undefined
-    data.estado = form.estado || 'borrador'
-    if (props.childInfo?.parent?.id) {
-      data.proyecto_id = props.childInfo.parent.id
-    }
+    data.producto_esperado = form.producto_esperado || null
+    // Sin unidad elegida, el backend asigna la unidad ejecutora del plan.
+    if (form.unidad_organizacional_id) data.unidad_organizacional_id = form.unidad_organizacional_id
   } else if (props.tipo === 'indicador') {
-    data.codigo = form.codigo
-    data.denominacion = form.denominacion
-    data.unidad_medida = form.unidad_medida
+    data.unidad_medida = form.unidad_medida.trim()
     data.tipo = form.tipo
-    data.formula = form.formula || undefined
-    if (props.childInfo?.parent?.id) {
-      data.actividad_id = props.childInfo.parent.id
-    }
-  } else if (props.tipo === 'meta') {
-    data.linea_base = form.linea_base ? parseFloat(form.linea_base) : undefined
-    data.meta_anual = parseFloat(form.meta_anual) || 0
-    data.motivo = form.motivo || undefined
-    if (props.childInfo?.parent?.id) {
-      data.indicador_id = props.childInfo.parent.id
-    }
+    data.formula = form.formula || null
   }
 
   emit('submit', data)
 }
 
 const canSubmit = computed(() => {
-  if (!form.codigo || !form.denominacion) return false
-  if (props.tipo === 'indicador' && !form.unidad_medida) return false
-  if (props.tipo === 'meta' && !form.meta_anual) return false
+  if (!form.codigo.trim() || !form.denominacion.trim()) return false
+  if (props.tipo === 'indicador' && !form.unidad_medida.trim()) return false
   return true
 })
 </script>
@@ -189,7 +158,7 @@ const canSubmit = computed(() => {
           <form novalidate class="max-h-[60vh] overflow-y-auto p-6" @submit.prevent="submit">
             <div class="space-y-5">
               <!-- Codigo -->
-              <div v-if="tipo !== 'meta'">
+              <div>
                 <label class="mb-2 block text-sm font-semibold text-slate-700">
                   Codigo <span class="text-red-500">*</span>
                 </label>
@@ -198,6 +167,7 @@ const canSubmit = computed(() => {
                   type="text" 
                   class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                   placeholder="Ej: 10, 10.01, 10.01.01"
+                  :maxlength="tipo === 'programa' || tipo === 'proyecto' ? 10 : 20"
                   required 
                   :disabled="saving"
                 />
@@ -213,6 +183,7 @@ const canSubmit = computed(() => {
                   type="text" 
                   class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
                   placeholder="Nombre descriptivo"
+                  maxlength="240"
                   required 
                   :disabled="saving"
                 />
@@ -232,6 +203,17 @@ const canSubmit = computed(() => {
 
               <!-- Actividad -->
               <template v-if="tipo === 'actividad'">
+                <div v-if="unidades.length">
+                  <label class="mb-2 block text-sm font-semibold text-slate-700">Unidad responsable</label>
+                  <select
+                    v-model.number="form.unidad_organizacional_id"
+                    class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                    :disabled="saving"
+                  >
+                    <option value="">La unidad ejecutora del plan</option>
+                    <option v-for="u in unidades" :key="u.id" :value="u.id">{{ u.nombre }}</option>
+                  </select>
+                </div>
                 <div>
                   <label class="mb-2 block text-sm font-semibold text-slate-700">Producto Esperado</label>
                   <textarea 
@@ -241,18 +223,6 @@ const canSubmit = computed(() => {
                     rows="3"
                     :disabled="saving"
                   ></textarea>
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-semibold text-slate-700">Estado</label>
-                  <select 
-                    v-model="form.estado" 
-                    class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                    :disabled="saving"
-                  >
-                    <option value="borrador">Borrador</option>
-                    <option value="vigente">Vigente</option>
-                    <option value="anulada">Anulada</option>
-                  </select>
                 </div>
               </template>
 
@@ -266,7 +236,8 @@ const canSubmit = computed(() => {
                     v-model="form.unidad_medida" 
                     type="text" 
                     class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
-                    placeholder="Ej: Porcentaje, Unidades, Horas"
+                    placeholder="Ej: eventos, deportistas, porcentaje"
+                    maxlength="40"
                     required 
                     :disabled="saving"
                   />
@@ -278,8 +249,9 @@ const canSubmit = computed(() => {
                     class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                     :disabled="saving"
                   >
-                    <option value="quantitativo">Cuantitativo</option>
-                    <option value="cualitativo">Cualitativo</option>
+                    <option value="proceso">Proceso</option>
+                    <option value="producto">Producto</option>
+                    <option value="resultado">Resultado</option>
                   </select>
                 </div>
                 <div>
@@ -294,46 +266,6 @@ const canSubmit = computed(() => {
                 </div>
               </template>
 
-              <!-- Meta -->
-              <template v-if="tipo === 'meta'">
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700">Linea Base</label>
-                    <input 
-                      v-model="form.linea_base" 
-                      type="number" 
-                      step="0.0001"
-                      class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
-                      placeholder="0"
-                      :disabled="saving"
-                    />
-                  </div>
-                  <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700">
-                      Meta Anual <span class="text-red-500">*</span>
-                    </label>
-                    <input 
-                      v-model="form.meta_anual" 
-                      type="number" 
-                      step="0.0001"
-                      class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
-                      placeholder="0"
-                      required 
-                      :disabled="saving"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-semibold text-slate-700">Motivo</label>
-                  <input 
-                    v-model="form.motivo" 
-                    type="text" 
-                    class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" 
-                    placeholder="Motivo de la meta"
-                    :disabled="saving"
-                  />
-                </div>
-              </template>
             </div>
 
             <!-- Error -->

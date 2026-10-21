@@ -3,6 +3,8 @@ import PoaNode from './PoaNode.vue'
 
 defineProps({
   programas: { type: Array, required: true },
+  bloqueado: { type: Boolean, default: false },
+  soloLectura: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['edit', 'add-child', 'delete'])
@@ -25,6 +27,8 @@ const emit = defineEmits(['edit', 'add-child', 'delete'])
         :node="prog"
         tipo="programa"
         :level="0"
+        :bloqueado="bloqueado"
+        :solo-lectura="soloLectura"
         @edit="(n) => emit('edit', n)"
         @add-child="(payload) => emit('add-child', payload)"
         @delete="(n) => emit('delete', n)"
