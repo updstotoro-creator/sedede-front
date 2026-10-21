@@ -46,4 +46,44 @@ export default {
     const { data } = await api.post(`/asociaciones/${asociacionId}/clubes/${clubId}/reactivar`);
     return data.data;
   },
+
+  // Portal específico de Club: Mi Club
+  async getMiClub(params = {}) {
+    const { data } = await api.get('/clubes/mi-club', { params });
+    return data;
+  },
+
+  async getClubPortal(clubId) {
+    const { data } = await api.get(`/clubes/${clubId}/portal`);
+    return data;
+  },
+
+  // Carga y actualización de documentación y personería jurídica del club
+  async actualizarDocumentacion(clubId, payload) {
+    const url = clubId ? `/clubes/${clubId}/documentacion` : '/clubes/mi-club/documentacion';
+    const { data } = await api.put(url, payload);
+    return data;
+  },
+
+  // Gestión y aprobación de deportistas por parte del club
+  async getDeportistasClub(clubId, params = {}) {
+    const url = clubId ? `/clubes/${clubId}/deportistas` : '/clubes/mi-club/deportistas';
+    const { data } = await api.get(url, { params });
+    return data;
+  },
+
+  async aceptarDeportista(clubId, deportistaId, payload = {}) {
+    const { data } = await api.post(`/clubes/${clubId}/deportistas/${deportistaId}/aceptar`, payload);
+    return data;
+  },
+
+  async rechazarDeportista(clubId, deportistaId, payload = {}) {
+    const { data } = await api.post(`/clubes/${clubId}/deportistas/${deportistaId}/rechazar`, payload);
+    return data;
+  },
+
+  async afiliarDeportista(clubId, payload) {
+    const { data } = await api.post(`/clubes/${clubId}/deportistas`, payload);
+    return data;
+  },
 };

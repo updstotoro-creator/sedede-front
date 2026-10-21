@@ -141,21 +141,21 @@ const groups = computed(() => {
     ]
   }
 
-  // 7. Rol Club Deportivo: Club, Atletas, Trámites
+  // 7. Rol Club Deportivo: Mi Club, Aceptación de Deportistas, Documentación Legal, Trámites
   if (role === 'club') {
     return [
       {
         id: 'resumen',
         standalone: true,
         links: [
-          { to: '/dashboard', label: 'Panel Club', exact: true },
+          { to: '/dashboard/mi-club', label: 'Mi Club & Afiliaciones', exact: true },
         ]
       },
       {
         id: 'club-gestion',
         links: [
-          { to: '/dashboard/clubes', label: 'Ficha de Club' },
-          { to: '/dashboard/deportistas', label: 'Atletas Registrados' },
+          { to: '/dashboard/mi-club', label: 'Personería & Documentos' },
+          { to: '/dashboard/deportistas', label: 'Padrón General Atletas' },
           { to: '/dashboard/tramites', label: 'Trámites' },
         ]
       },

@@ -50,9 +50,15 @@ const routes = [
         meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion', 'club'] },
       },
       {
+        path: 'mi-club',
+        name: 'dashboard-mi-club',
+        component: () => import('../views/MiClubView.vue'),
+        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion', 'club'] },
+      },
+      {
         path: 'asociaciones/:asociacionId/clubes/:clubId',
         name: 'dashboard-club-detalle',
-        component: () => import('../views/ClubDetailView.vue'),
+        component: () => import('../views/MiClubView.vue'),
         meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion', 'club'] },
       },
       {
@@ -197,7 +203,7 @@ function getHomeRouteForRole(role) {
     case 'coordinador_asociacion':
       return 'dashboard-asociaciones'
     case 'club':
-      return 'dashboard-clubes'
+      return 'dashboard-mi-club'
     case 'entrenador':
       return 'dashboard-formacion-inscripciones'
     default:

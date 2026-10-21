@@ -12,6 +12,7 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const isDeportista = computed(() => auth.user?.role?.nombre === 'deportista')
+const isClub = computed(() => auth.user?.role?.nombre === 'club')
 
 const titles = {
   dashboard: 'Resumen',
@@ -19,8 +20,9 @@ const titles = {
   'dashboard-roles': 'Roles',
   'dashboard-asociaciones': 'Asociaciones',
   'dashboard-clubes': 'Clubes',
+  'dashboard-mi-club': 'Gestión de Mi Club y Personería Jurídica',
   'dashboard-asociacion-detalle': 'Clubes',
-  'dashboard-club-detalle': 'Deportistas del Club',
+  'dashboard-club-detalle': 'Gestión del Club Deportivo',
   'dashboard-deportistas': 'Deportistas',
   'dashboard-tramites': 'Trámites',
   'dashboard-escenarios': 'Escenarios',
@@ -702,8 +704,38 @@ onMounted(() => {
           <!-- 2. VISTA EJECUTIVA GENERAL (PARA DIRECTORES / REVISORES) -->
           <!-- ======================================================== -->
           <div v-else class="space-y-6">
+            <!-- Banner Especial para Directiva de Club Deportivo -->
+            <div
+              v-if="isClub"
+              class="rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-red-950/20"
+              style="background: linear-gradient(135deg, #5A0B17 0%, #7A0F1F 45%, #9F1327 100%);"
+            >
+              <div>
+                <span class="px-2.5 py-0.5 rounded-full bg-white/20 text-[11px] font-bold tracking-wide uppercase backdrop-blur-sm border border-white/25">
+                  Directiva Oficial de Club Deportivo
+                </span>
+                <h1 class="text-2xl font-display font-bold tracking-tight mt-2 text-white">
+                  Portal de Gestión Institucional del Club
+                </h1>
+                <p class="text-red-100 text-xs mt-1 max-w-2xl leading-relaxed">
+                  Administre la personería jurídica, documentación legal vigente y revise las solicitudes de atletas que desean afiliarse a su club.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap gap-2.5 shrink-0">
+                <button
+                  @click="navTo('/dashboard/mi-club')"
+                  class="px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-red-50 transition-all flex items-center gap-1.5"
+                  style="background-color: #ffffff; color: #7A0F1F;"
+                >
+                  <span>🏛️ Acceder a Mi Club & Personería</span>
+                </button>
+              </div>
+            </div>
+
             <!-- Banner Superior Limpio y Directo -->
             <div
+              v-else
               class="rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
               style="background: linear-gradient(135deg, #5A0B17 0%, #7A0F1F 45%, #9F1327 100%);"
             >
