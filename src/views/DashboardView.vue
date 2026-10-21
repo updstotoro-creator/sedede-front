@@ -29,6 +29,13 @@ const titles = {
   'dashboard-tarifario': 'Tarifario',
   'dashboard-calendario-anual': 'Calendario Anual',
   'dashboard-comunidades': 'Mancomunidades y Comunidades',
+  'dashboard-poa': 'Estructura POA',
+  'dashboard-poa-dashboard': 'Dashboard de Ejecución POA',
+  'dashboard-poa-planes': 'Planes Operativos Anuales (POA)',
+  'dashboard-poa-actividad': 'Detalle de Actividad POA',
+  'dashboard-poa-seguimiento': 'Seguimiento y Avance Físico POA',
+  'dashboard-poa-techos': 'Techos Presupuestarios POA',
+  'dashboard-poa-bitacora': 'Bitácora de Metas POA',
 }
 
 const isLoading = ref(true)
