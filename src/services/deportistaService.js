@@ -46,4 +46,37 @@ export const deportistaService = {
     const { data } = await api.put('/deportistas/me/perfil', payload)
     return data
   },
+
+  async getMisLogros() {
+    const { data } = await api.get('/deportistas/me/logros')
+    return data
+  },
+
+  async cargarMiLogro(payload) {
+    const { data } = await api.post('/deportistas/me/logros', payload)
+    return data
+  },
+
+  async validarLogro(logroId, payload) {
+    const { data } = await api.patch(`/deportistas/logros/${logroId}/validar`, payload)
+    return data
+  },
+
+  // Estadísticas públicas de deportes con más medallistas (Punto 3)
+  async getEstadisticasMedallas() {
+    const { data } = await api.get('/deportistas/publico/estadisticas-medallas')
+    return data.data
+  },
+
+  // Buscador público ciudadano de deportistas (Punto 4)
+  async buscarPublico(params = {}) {
+    const { data } = await api.get('/deportistas/publico/buscar', { params })
+    return data
+  },
+
+  // Perfil público resumido con CV, logros y apoyos SEDEDE (Punto 4)
+  async getPerfilPublico(id) {
+    const { data } = await api.get(`/deportistas/publico/perfil/${id}`)
+    return data.data
+  },
 }

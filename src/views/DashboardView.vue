@@ -48,6 +48,46 @@ const perfilSaving = ref(false)
 const perfilSuccessMsg = ref('')
 const perfilErrorMsg = ref('')
 
+// Carga de nuevos logros deportivos por el atleta
+const showModalNuevoLogro = ref(false)
+const guardandoLogro = ref(false)
+const nuevoLogroError = ref('')
+const nuevoLogroForm = reactive({
+  titulo: '',
+  torneo: '',
+  tipo_galardon: 'oro',
+  gestion: new Date().getFullYear().toString(),
+  documento_respaldo: '',
+})
+
+function abrirModalNuevoLogro() {
+  nuevoLogroForm.titulo = ''
+  nuevoLogroForm.torneo = ''
+  nuevoLogroForm.tipo_galardon = 'oro'
+  nuevoLogroForm.gestion = new Date().getFullYear().toString()
+  nuevoLogroForm.documento_respaldo = ''
+  nuevoLogroError.value = ''
+  showModalNuevoLogro.value = true
+}
+
+async function guardarNuevoLogro() {
+  if (!nuevoLogroForm.titulo) {
+    nuevoLogroError.value = 'El título del logro es obligatorio.'
+    return
+  }
+  guardandoLogro.value = true
+  nuevoLogroError.value = ''
+  try {
+    await deportistaService.cargarMiLogro(nuevoLogroForm)
+    showModalNuevoLogro.value = false
+    await fetchDeportistaData()
+  } catch (err) {
+    nuevoLogroError.value = err.response?.data?.message || err.response?.data?.error || 'Error al registrar el logro'
+  } finally {
+    guardandoLogro.value = false
+  }
+}
+
 const perfilForm = reactive({
   nombres: '',
   apellidos: '',
@@ -541,13 +581,22 @@ onMounted(() => {
                   <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                     <div>
                       <h3 class="font-display text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                        <span>🏆 Logros Fechados</span>
+                        <span>🏆 Logros y Galardones</span>
                       </h3>
                       <p class="text-[11px] text-slate-400">Historial acreditado y méritos deportivos</p>
                     </div>
-                    <span class="rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5">
-                      {{ deportistaLogros.length }} Registrados
-                    </span>
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        @click="abrirModalNuevoLogro"
+                        class="btn-primary text-[10px] font-bold py-1 px-2.5 bg-brand-700 hover:bg-brand-800 shadow-xs flex items-center gap-1"
+                      >
+                        <span>+ Cargar Logro</span>
+                      </button>
+                      <span class="rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5">
+                        {{ deportistaLogros.length }} Registrados
+                      </span>
+                    </div>
                   </div>
 
                   <div v-if="deportistaLogros.length === 0" class="text-center py-6 text-slate-400 text-xs italic">
@@ -566,6 +615,28 @@ onMounted(() => {
                         <span class="font-mono text-[10px] text-slate-500">{{ logro.fecha }}</span>
                       </div>
                       <p class="mt-1 text-xs font-bold text-slate-800">{{ logro.titulo }}</p>
+
+                      <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                        <span
+                          v-if="logro.estado_validacion === 'validado' || logro.origen?.includes('Validado') || logro.origen?.includes('Acreditado')"
+                          class="inline-flex items-center gap-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5"
+                        >
+                          ✓ Validado Asociación
+                        </span>
+                        <span
+                          v-else-if="logro.estado_validacion === 'observado'"
+                          class="inline-flex items-center gap-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5"
+                        >
+                          ⚠️ Observado Asociación
+                        </span>
+                        <span
+                          v-else
+                          class="inline-flex items-center gap-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5"
+                        >
+                          ⏳ Pendiente Validación Asociación
+                        </span>
+                      </div>
+
                       <div v-if="logro.monto_aprobado" class="mt-1 text-[11px] font-bold text-emerald-700">
                         Incentivo SEDEDE: Bs {{ Number(logro.monto_aprobado).toLocaleString('es-BO', {minimumFractionDigits: 2}) }}
                       </div>
@@ -574,7 +645,7 @@ onMounted(() => {
 
                   <div class="mt-4 pt-3 border-t border-slate-100">
                     <p class="text-[10px] text-slate-400 leading-tight">
-                      * Este historial se nutre automáticamente a partir de las solicitudes aprobadas y resoluciones de apoyo emitidas por el SEDEDE.
+                      * Puedes registrar tus medallas y títulos deportivos para que sean validados formalmente por tu Asociación Departamental y reflejados en el ranking oficial del SEDEDE.
                     </p>
                   </div>
                 </div>
@@ -779,6 +850,119 @@ onMounted(() => {
         <!-- VISTA HIJA DE RUTAS DEL DASHBOARD -->
         <router-view v-else />
       </main>
+    </div>
+
+    <!-- MODAL PARA CARGAR NUEVO LOGRO DEPORTIVO -->
+    <div
+      v-if="showModalNuevoLogro"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+    >
+      <div class="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
+              <span>🏆 Cargar Nuevo Logro Deportivo</span>
+            </h3>
+            <p class="text-xs text-slate-500">
+              Registra tu medalla o distinción para validación oficial por tu Asociación Departamental.
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="showModalNuevoLogro = false"
+            class="text-slate-400 hover:text-slate-600 text-lg p-1"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form @submit.prevent="guardarNuevoLogro" class="mt-4 space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">
+              Título o Descripción del Logro *
+            </label>
+            <input
+              v-model="nuevoLogroForm.titulo"
+              type="text"
+              required
+              placeholder="ej. Medalla de Oro en 100m Planos o Campeón Nacional Absoluto"
+              class="input-field text-sm w-full"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                Tipo de Galardón / Medalla *
+              </label>
+              <select v-model="nuevoLogroForm.tipo_galardon" class="input-field text-sm w-full" required>
+                <option value="oro">🥇 Medalla de Oro</option>
+                <option value="plata">🥈 Medalla de Plata</option>
+                <option value="bronce">🥉 Medalla de Bronce</option>
+                <option value="trofeo">🏆 Trofeo / Copa / Gran Premio</option>
+                <option value="merito">🎖️ Título / Récord / Mérito Deportivo</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                Año o Gestión *
+              </label>
+              <input
+                v-model="nuevoLogroForm.gestion"
+                type="text"
+                placeholder="ej. 2025"
+                class="input-field text-sm w-full"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">
+              Torneo, Campeonato o Evento
+            </label>
+            <input
+              v-model="nuevoLogroForm.torneo"
+              type="text"
+              placeholder="ej. Campeonato Nacional Sucre 2025 o Juegos Bolivarianos"
+              class="input-field text-sm w-full"
+            />
+          </div>
+
+          <div class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
+            <p class="font-bold flex items-center gap-1">
+              <span>ℹ️ Protocolo de Validación Institucional</span>
+            </p>
+            <p class="text-[11px] leading-relaxed">
+              El logro cargado pasará a estado <strong>"Pendiente de Validación"</strong> por la directiva técnica de tu Asociación Departamental. Una vez corroborada el acta oficial de competencia, sumará a tu medallero y al ranking público del SEDEDE.
+            </p>
+          </div>
+
+          <div v-if="nuevoLogroError" class="rounded-lg bg-red-50 p-2.5 text-xs text-red-700 border border-red-200">
+            {{ nuevoLogroError }}
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              @click="showModalNuevoLogro = false"
+              class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800"
+              :disabled="guardandoLogro"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="btn-primary text-xs font-bold py-2 px-5 bg-brand-700 hover:bg-brand-800 shadow-sm"
+              :disabled="guardandoLogro"
+            >
+              <span v-if="guardandoLogro">Enviando a Validación…</span>
+              <span v-else>Cargar Logro para Validación</span>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </template>

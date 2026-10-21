@@ -5,9 +5,10 @@ import logo from '../../assets/images/logo-sedede.png'
 const open = ref(false)
 const links = [
   { label: 'Inicio', href: '#inicio' },
-  { label: 'Calendario Deportivo', href: '#calendario' },
-  { label: 'Ranking', href: '#ranking' },
-  { label: 'Novedades', href: '#noticias' },
+  { label: 'Calendario', href: '#calendario' },
+  { label: 'Ranking Galardones', href: '#ranking' },
+  { label: 'Estadísticas', href: '#estadisticas' },
+  { label: 'Buscador Atletas', href: '#buscador' },
   { label: 'Instalaciones', href: '#areas' },
   { label: 'Contacto', href: '#contacto' },
 ]

@@ -5,6 +5,8 @@ import AboutSection from '../components/landing/AboutSection.vue'
 import FocusAreasSection from '../components/landing/FocusAreasSection.vue'
 import EventsSection from '../components/landing/EventsSection.vue'
 import RankingSection from '../components/landing/RankingSection.vue'
+import EstadisticasMedallistasSection from '../components/landing/EstadisticasMedallistasSection.vue'
+import BuscadorDeportistasSection from '../components/landing/BuscadorDeportistasSection.vue'
 import NewsSection from '../components/landing/NewsSection.vue'
 import ContactSection from '../components/landing/ContactSection.vue'
 import SiteFooter from '../components/landing/SiteFooter.vue'
@@ -16,6 +18,8 @@ import SiteFooter from '../components/landing/SiteFooter.vue'
     <HeroSection />
     <EventsSection />
     <RankingSection />
+    <EstadisticasMedallistasSection />
+    <BuscadorDeportistasSection />
     <AboutSection />
     <FocusAreasSection />
     <NewsSection />
