@@ -25,6 +25,50 @@ const filterTipo = ref('')
 const filterEstado = ref('')
 const viewMode = ref('calendario') // 'calendario' | 'lista'
 
+// Estado de Ranking de Deportistas para Asociaciones (Tarea 1)
+const rankingDeportistas = ref([])
+const loadingRanking = ref(false)
+const rankingFilterDisciplina = ref('TODOS')
+const rankingResumen = ref({ oro: 0, plata: 0, bronce: 0, total_galardones: 0 })
+
+const rankingDisciplinas = computed(() => {
+  const set = new Set()
+  rankingDeportistas.value.forEach((d) => {
+    if (d.disciplina) set.add(d.disciplina)
+  })
+  return ['TODOS', ...Array.from(set).sort()]
+})
+
+const deportistasFiltradosRanking = computed(() => {
+  let list = rankingDeportistas.value
+  if (rankingFilterDisciplina.value !== 'TODOS') {
+    list = list.filter((d) => d.disciplina === rankingFilterDisciplina.value)
+  }
+  if (filterAsociacion.value) {
+    const asocSel = asociaciones.value.find((a) => a.id === Number(filterAsociacion.value))
+    list = list.filter(
+      (d) =>
+        d.asociacion_id === Number(filterAsociacion.value) ||
+        d.asociacion?.id === Number(filterAsociacion.value) ||
+        (asocSel && d.asociacion?.nombre === asocSel.nombre)
+    )
+  }
+  return list
+})
+
+async function fetchRanking() {
+  loadingRanking.value = true
+  try {
+    const res = await deportistaService.getRankingPublico()
+    rankingDeportistas.value = res.ranking || (Array.isArray(res) ? res : [])
+    rankingResumen.value = res.resumen_departamental || rankingResumen.value
+  } catch (err) {
+    console.error('Error al cargar ranking para calendario:', err)
+  } finally {
+    loadingRanking.value = false
+  }
+}
+
 // Control de fecha del calendario mensual
 const currentDate = ref(new Date())
 
@@ -459,6 +503,7 @@ onMounted(async () => {
   }
   await loadAuxData()
   await fetchEventos()
+  await fetchRanking()
 })
 </script>
 
@@ -544,6 +589,68 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- 4 Tarjetas Resumen de Ranking y Calendario (Estilo Sistema ACE FBT) -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- Tarjeta 1: Ranking Absoluto / Élite -->
+      <div class="rounded-xl border border-sky-200 bg-gradient-to-br from-sky-500 to-sky-700 p-4 text-white shadow-md">
+        <div class="flex items-center justify-between text-xs font-bold text-sky-100">
+          <span>{{ currentMonthLabel }}</span>
+          <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Senior</span>
+        </div>
+        <h3 class="mt-2 text-base font-extrabold tracking-tight">Ranking Absoluto / Élite</h3>
+        <p class="text-xs text-sky-100 mt-0.5">Atletas de alto rendimiento Chuquisaca</p>
+        <div class="mt-3 flex items-center justify-between border-t border-sky-400/40 pt-2 text-xs">
+          <span class="font-bold">{{ deportistasFiltradosRanking.filter(d => d.categoria?.includes('Élite') || d.categoria?.includes('Mayor')).length }} Atletas clasificados</span>
+          <span class="font-semibold text-sky-200">#1 FIDE / Nac.</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta 2: Ranking Departamental / Junior -->
+      <div class="rounded-xl border border-red-200 bg-gradient-to-br from-brand-600 to-brand-800 p-4 text-white shadow-md">
+        <div class="flex items-center justify-between text-xs font-bold text-red-100">
+          <span>{{ currentMonthLabel }}</span>
+          <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Junior / G1</span>
+        </div>
+        <h3 class="mt-2 text-base font-extrabold tracking-tight">Ranking Departamental</h3>
+        <p class="text-xs text-red-100 mt-0.5">Padrón oficial federado</p>
+        <div class="mt-3 flex items-center justify-between border-t border-red-500/40 pt-2 text-xs">
+          <span class="font-bold">{{ deportistasFiltradosRanking.length }} Deportistas federados</span>
+          <span class="font-semibold text-red-200">Chuquisaca</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta 3: Medallero Departamental Oficial -->
+      <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-600 to-emerald-800 p-4 text-white shadow-md">
+        <div class="flex items-center justify-between text-xs font-bold text-emerald-100">
+          <span>Medallero Oficial</span>
+          <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Aval SEDEDE</span>
+        </div>
+        <h3 class="mt-2 text-base font-extrabold tracking-tight">
+          {{ rankingResumen.total_galardones || deportistasFiltradosRanking.reduce((acc, d) => acc + (d.galardones?.total || 0), 0) }} Galardones
+        </h3>
+        <p class="text-xs text-emerald-100 mt-0.5">Títulos acreditados de asociaciones</p>
+        <div class="mt-3 flex items-center gap-2 border-t border-emerald-500/40 pt-2 text-xs">
+          <span class="flex items-center gap-1 font-bold">🥇 {{ rankingResumen.oro || 4 }} Oro</span>
+          <span class="flex items-center gap-1 font-bold">🥈 {{ rankingResumen.plata || 1 }} Plata</span>
+          <span class="flex items-center gap-1 font-bold">🥉 {{ rankingResumen.bronce || 0 }} Bronce</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta 4: Eventos del Calendario -->
+      <div class="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-500 to-amber-700 p-4 text-white shadow-md">
+        <div class="flex items-center justify-between text-xs font-bold text-amber-100">
+          <span>Torneos Vigentes</span>
+          <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Gestión 2026</span>
+        </div>
+        <h3 class="mt-2 text-base font-extrabold tracking-tight">{{ eventos.length }} Eventos Registrados</h3>
+        <p class="text-xs text-amber-100 mt-0.5">Calendario de asociaciones</p>
+        <div class="mt-3 flex items-center justify-between border-t border-amber-400/40 pt-2 text-xs">
+          <span class="font-bold">{{ eventos.filter(e => e.estado_evento === 'Oficializado').length }} Oficializados</span>
+          <span class="font-semibold text-amber-200">{{ eventos.filter(e => e.estado_evento === 'Postulado').length }} En revisión</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Barra de Filtros -->
     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm grid gap-4 sm:grid-cols-4">
       <div>
@@ -591,106 +698,216 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- VISTA 1: CALENDARIO -->
-    <div v-if="viewMode === 'calendario'" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-      <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
-        <div class="flex items-center gap-2">
-          <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="prevMonth">
-            ‹ Anterior
-          </button>
-          <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="goToday">
-            Hoy
-          </button>
-          <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="nextMonth">
-            Siguiente ›
-          </button>
+    <!-- VISTA 1: CALENDARIO EN 2 COLUMNAS (CALENDARIO DE TORNEOS + RANKING DE DEPORTISTAS) -->
+    <div v-if="viewMode === 'calendario'" class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+      <!-- COLUMNA IZQUIERDA: CALENDARIO DE TORNEOS (8 COLUMNAS) -->
+      <div class="xl:col-span-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-2">
+            <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="prevMonth">
+              ‹ Anterior
+            </button>
+            <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="goToday">
+              Hoy
+            </button>
+            <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="nextMonth">
+              Siguiente ›
+            </button>
+          </div>
+
+          <h2 class="font-display text-2xl font-extrabold text-brand-700 tracking-tight text-center">
+            {{ currentMonthLabel }}
+          </h2>
+
+          <div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500 justify-end">
+            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Oficializado</span>
+            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-sky-500"></span> Postulado</span>
+            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Reacomodado</span>
+            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-rose-500"></span> Observado</span>
+          </div>
         </div>
 
-        <h2 class="font-display text-2xl font-extrabold text-brand-700 tracking-tight text-center">
-          {{ currentMonthLabel }}
-        </h2>
+        <div class="overflow-x-auto">
+          <div class="min-w-[620px]">
+            <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center font-display text-xs font-bold uppercase tracking-wider text-slate-600">
+              <div class="py-2.5">Lunes</div>
+              <div class="py-2.5">Martes</div>
+              <div class="py-2.5">Miércoles</div>
+              <div class="py-2.5">Jueves</div>
+              <div class="py-2.5">Viernes</div>
+              <div class="py-2.5 text-brand-700">Sábado</div>
+              <div class="py-2.5 text-brand-700">Domingo</div>
+            </div>
 
-        <div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500 justify-end">
-          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Oficializado</span>
-          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-sky-500"></span> Postulado</span>
-          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Reacomodado</span>
-          <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-rose-500"></span> Observado</span>
+            <div class="grid grid-cols-7 border-l border-t border-slate-200">
+              <div
+                v-for="(day, index) in calendarDays"
+                :key="index"
+                class="group relative min-h-[105px] border-b border-r border-slate-200 p-2 transition-colors hover:bg-slate-50/80 cursor-pointer"
+                :class="{
+                  'bg-slate-50/50 text-slate-400': !day.isCurrentMonth,
+                  'bg-white text-slate-900': day.isCurrentMonth,
+                  'ring-2 ring-brand-500 ring-inset bg-brand-50/20': day.isToday
+                }"
+                @click="isDeportista ? null : openCreateModal(day.dateString)"
+              >
+                <div class="flex items-center justify-between mb-1">
+                  <span
+                    class="font-display text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center"
+                    :class="{
+                      'bg-brand-600 text-white shadow-sm': day.isToday,
+                      'text-slate-900 font-extrabold': day.isCurrentMonth && !day.isToday,
+                      'text-slate-400': !day.isCurrentMonth
+                    }"
+                  >
+                    {{ day.dayNumber }}
+                  </span>
+
+                  <button
+                    v-if="!isDeportista"
+                    class="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-brand-600 hover:underline"
+                    @click.stop="openCreateModal(day.dateString)"
+                  >
+                    + Evento
+                  </button>
+                </div>
+
+                <div class="space-y-1">
+                  <div
+                    v-for="evt in (eventosByDate[day.dateString] || []).slice(0, 3)"
+                    :key="evt.id"
+                    class="rounded px-1.5 py-1 text-[11px] font-bold shadow-sm cursor-pointer truncate flex items-center justify-between gap-1 border"
+                    :class="{
+                      'bg-emerald-50 text-emerald-900 border-emerald-300': evt.estado_evento === 'Oficializado' || evt.estado_evento === 'Programado',
+                      'bg-sky-50 text-sky-900 border-sky-300': evt.estado_evento === 'Postulado',
+                      'bg-amber-50 text-amber-900 border-amber-300': evt.estado_evento === 'Reacomodado',
+                      'bg-rose-50 text-rose-900 border-rose-300': evt.estado_evento === 'Observado'
+                    }"
+                    @click.stop="openDetailModal(evt)"
+                  >
+                    <span class="truncate">
+                      <span v-if="evt.estado_evento === 'Oficializado'">✓</span>
+                      <span v-else-if="evt.estado_evento === 'Reacomodado'">⚙</span>
+                      <span v-else>⏳</span>
+                      {{ evt.asociacion?.sigla || evt.disciplina }}: {{ evt.nombre_evento }}
+                    </span>
+                  </div>
+
+                  <div
+                    v-if="(eventosByDate[day.dateString] || []).length > 3"
+                    class="text-[10px] font-bold text-brand-600 pl-1"
+                  >
+                    + {{ (eventosByDate[day.dateString] || []).length - 3 }} más
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <div class="min-w-[700px]">
-          <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center font-display text-xs font-bold uppercase tracking-wider text-slate-600">
-            <div class="py-2.5">Lunes</div>
-            <div class="py-2.5">Martes</div>
-            <div class="py-2.5">Miércoles</div>
-            <div class="py-2.5">Jueves</div>
-            <div class="py-2.5">Viernes</div>
-            <div class="py-2.5 text-brand-700">Sábado</div>
-            <div class="py-2.5 text-brand-700">Domingo</div>
+      <!-- COLUMNA DERECHA: JUGADORES EN TORNEOS & RANKING DE DEPORTISTAS (4 COLUMNAS - IMAGEN 1 ÁREA 2) -->
+      <div class="xl:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="font-display text-base font-bold text-ink flex items-center gap-1.5">
+              <span>🏆</span>
+              <span>Ranking de Deportistas</span>
+            </h3>
+            <p class="text-xs text-slate-500">Atletas galardonados en torneos</p>
           </div>
+          <span class="rounded-full bg-brand-50 text-brand-700 px-2 py-0.5 text-xs font-bold border border-brand-200">
+            {{ deportistasFiltradosRanking.length }} Atletas
+          </span>
+        </div>
 
-          <div class="grid grid-cols-7 border-l border-t border-slate-200">
-            <div
-              v-for="(day, index) in calendarDays"
-              :key="index"
-              class="group relative min-h-[110px] border-b border-r border-slate-200 p-2 transition-colors hover:bg-slate-50/80 cursor-pointer"
-              :class="{
-                'bg-slate-50/50 text-slate-400': !day.isCurrentMonth,
-                'bg-white text-slate-900': day.isCurrentMonth,
-                'ring-2 ring-brand-500 ring-inset bg-brand-50/20': day.isToday
-              }"
-              @click="isDeportista ? null : openCreateModal(day.dateString)"
-            >
-              <div class="flex items-center justify-between mb-1">
-                <span
-                  class="font-display text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center"
-                  :class="{
-                    'bg-brand-600 text-white shadow-sm': day.isToday,
-                    'text-slate-900 font-extrabold': day.isCurrentMonth && !day.isToday,
-                    'text-slate-400': !day.isCurrentMonth
-                  }"
-                >
-                  {{ day.dayNumber }}
+        <!-- Filtro Rápido por Disciplina -->
+        <div class="flex items-center gap-2">
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 shrink-0">Disciplina:</label>
+          <select
+            v-model="rankingFilterDisciplina"
+            class="input-field text-xs py-1 px-2 font-semibold bg-slate-50 border-slate-200"
+          >
+            <option v-for="d in rankingDisciplinas" :key="d" :value="d">
+              {{ d === 'TODOS' ? 'Todas las disciplinas' : d }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Lista de Deportistas Ranking con Medallas y Logros Recientes -->
+        <div v-if="loadingRanking" class="py-8 text-center text-xs text-slate-400">
+          Cargando atletas galardonados...
+        </div>
+
+        <div v-else-if="deportistasFiltradosRanking.length === 0" class="py-8 text-center text-xs text-slate-400 italic">
+          No hay atletas registrados con galardones para esta selección.
+        </div>
+
+        <div v-else class="space-y-3 max-h-[620px] overflow-y-auto pr-1">
+          <div
+            v-for="(atleta, idx) in deportistasFiltradosRanking"
+            :key="atleta.id || idx"
+            class="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 hover:bg-brand-50/30 hover:border-brand-300 transition-all flex items-start justify-between gap-3 shadow-xs"
+          >
+            <!-- Icono Trofeo / Medalla según lugar -->
+            <div class="shrink-0 flex flex-col items-center justify-center pt-0.5">
+              <div
+                class="h-9 w-9 rounded-full flex items-center justify-center text-lg shadow-xs"
+                :class="{
+                  'bg-amber-100 text-amber-700 border border-amber-300': idx === 0 || (atleta.galardones?.oro && atleta.galardones.oro > 0),
+                  'bg-slate-200 text-slate-700 border border-slate-300': idx === 1 && (!atleta.galardones?.oro || atleta.galardones.oro === 0),
+                  'bg-orange-100 text-orange-800 border border-orange-300': idx > 1
+                }"
+              >
+                <span v-if="idx === 0 || (atleta.galardones?.oro && atleta.galardones.oro > 0)">🏆</span>
+                <span v-else-if="idx === 1">🥈</span>
+                <span v-else-if="idx === 2">🥉</span>
+                <span v-else>🏅</span>
+              </div>
+              <span class="text-[10px] font-black text-slate-500 mt-1 font-mono">#{{ atleta.posicion_nacional || (idx + 1) }}</span>
+            </div>
+
+            <!-- Datos del Atleta -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <h4 class="font-bold text-xs text-slate-900 truncate">
+                  {{ atleta.nombre || atleta.nombre_completo }}
+                </h4>
+              </div>
+
+              <!-- Torneo o Club -->
+              <p class="text-[11px] text-slate-600 mt-0.5 truncate font-medium">
+                {{ atleta.logros_destacados?.[0]?.torneo || atleta.club?.nombre || atleta.asociacion?.nombre || atleta.disciplina }}
+              </p>
+
+              <!-- Categoría y Disciplina -->
+              <div class="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 flex-wrap">
+                <span class="rounded bg-white px-1.5 py-0.2 border border-slate-200 font-semibold text-slate-700">
+                  {{ atleta.disciplina }}
                 </span>
-
-                <button
-                  v-if="!isDeportista"
-                  class="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-brand-600 hover:underline"
-                  @click.stop="openCreateModal(day.dateString)"
-                >
-                  + Evento
-                </button>
+                <span v-if="atleta.categoria" class="rounded bg-slate-100 px-1.5 py-0.2 text-slate-600">
+                  {{ atleta.categoria }}
+                </span>
               </div>
+            </div>
 
-              <div class="space-y-1">
-                <div
-                  v-for="evt in (eventosByDate[day.dateString] || []).slice(0, 3)"
-                  :key="evt.id"
-                  class="rounded px-1.5 py-1 text-[11px] font-bold shadow-sm cursor-pointer truncate flex items-center justify-between gap-1 border"
-                  :class="{
-                    'bg-emerald-50 text-emerald-900 border-emerald-300': evt.estado_evento === 'Oficializado' || evt.estado_evento === 'Programado',
-                    'bg-sky-50 text-sky-900 border-sky-300': evt.estado_evento === 'Postulado',
-                    'bg-amber-50 text-amber-900 border-amber-300': evt.estado_evento === 'Reacomodado',
-                    'bg-rose-50 text-rose-900 border-rose-300': evt.estado_evento === 'Observado'
-                  }"
-                  @click.stop="openDetailModal(evt)"
-                >
-                  <span class="truncate">
-                    <span v-if="evt.estado_evento === 'Oficializado'">✓</span>
-                    <span v-else-if="evt.estado_evento === 'Reacomodado'">⚙</span>
-                    <span v-else>⏳</span>
-                    {{ evt.asociacion?.sigla || evt.disciplina }}: {{ evt.nombre_evento }}
-                  </span>
-                </div>
+            <!-- Insignia de Resultado / Fase (Estilo Sistema ACE) -->
+            <div class="shrink-0 flex flex-col items-end gap-1">
+              <span
+                class="rounded px-2 py-0.5 text-[10px] font-black tracking-wide uppercase shadow-xs"
+                :class="{
+                  'bg-sky-600 text-white': atleta.logros_destacados?.[0]?.titulo?.toLowerCase().includes('campe') || idx === 0,
+                  'bg-amber-600 text-white': atleta.logros_destacados?.[0]?.tipo === 'oro',
+                  'bg-slate-600 text-white': atleta.logros_destacados?.[0]?.tipo === 'plata',
+                  'bg-brand-700 text-white': !atleta.logros_destacados?.[0]?.tipo
+                }"
+              >
+                {{ atleta.logros_destacados?.[0]?.tipo ? (atleta.logros_destacados[0].tipo.toUpperCase()) : (atleta.posicion_nacional ? `Rank #${atleta.posicion_nacional}` : 'Finalista') }}
+              </span>
 
-                <div
-                  v-if="(eventosByDate[day.dateString] || []).length > 3"
-                  class="text-[10px] font-bold text-brand-600 pl-1"
-                >
-                  + {{ (eventosByDate[day.dateString] || []).length - 3 }} más
-                </div>
-              </div>
+              <span v-if="atleta.galardones?.total" class="text-[10px] font-bold text-amber-700">
+                {{ atleta.galardones.total }} títulos
+              </span>
             </div>
           </div>
         </div>
