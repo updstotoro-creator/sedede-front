@@ -23,6 +23,8 @@ const form = reactive({
   telefono: '',
   correo: '',
   direccion: '',
+  usuario_nombre: '',
+  usuario_password: '',
 })
 
 function resetForm() {
@@ -35,6 +37,8 @@ function resetForm() {
   form.telefono = ''
   form.correo = ''
   form.direccion = ''
+  form.usuario_nombre = ''
+  form.usuario_password = ''
   formError.value = ''
 }
 
@@ -70,8 +74,10 @@ function openEditModal(asociacion) {
   form.nivel = asociacion.nivel || 'Departamental'
   form.tipo_disciplina = asociacion.tipo_disciplina || 'conjunto'
   form.telefono = asociacion.telefono || ''
-  form.correo = asociacion.correo || ''
+  form.correo = asociacion.correo || asociacion.users?.[0]?.email || ''
   form.direccion = asociacion.direccion || ''
+  form.usuario_nombre = asociacion.users?.[0]?.name || ''
+  form.usuario_password = ''
   formError.value = ''
   showModal.value = true
 }
@@ -101,6 +107,17 @@ async function submitForm() {
     }
   } finally {
     saving.value = false
+  }
+}
+
+async function aprobarAsociacion(asociacion) {
+  if (!confirm(`¿Desea aprobar formalmente la Personería y declarar VIGENTE a la "${asociacion.nombre}"?`)) return
+  try {
+    await asociacionService.update(asociacion.id, { estado_legal: 'Vigente' })
+    await loadAsociaciones()
+    alert('Asociación declarada VIGENTE exitosamente.')
+  } catch (error) {
+    alert(error.response?.data?.errors?.estado_legal || error.response?.data?.error || 'Error al aprobar personería.')
   }
 }
 
@@ -145,6 +162,7 @@ onMounted(() => {
         <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
             <th class="px-4 py-3">Asociación</th>
+            <th class="px-4 py-3">Acceso / Correo Oficial</th>
             <th class="px-4 py-3">NIT / Sigla</th>
             <th class="px-4 py-3">Nivel / Tipo</th>
             <th class="px-4 py-3">Estado Legal</th>
@@ -156,7 +174,15 @@ onMounted(() => {
           <tr v-for="asociacion in asociaciones" :key="asociacion.id" class="hover:bg-slate-50">
             <td class="px-4 py-3">
               <div class="font-semibold text-ink">{{ asociacion.nombre }}</div>
-              <div class="text-xs text-slate-500">{{ asociacion.correo || asociacion.telefono || 'Sin datos de contacto' }}</div>
+              <div class="text-xs text-slate-500">{{ asociacion.telefono || 'Sin teléfono' }}</div>
+            </td>
+            <td class="px-4 py-3 text-slate-700">
+              <div class="font-mono text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded inline-block">
+                {{ asociacion.users?.[0]?.email || asociacion.correo || 'Sin correo oficial' }}
+              </div>
+              <div v-if="asociacion.users?.[0]?.name" class="text-[11px] text-slate-500 mt-0.5">
+                👤 {{ asociacion.users[0].name }}
+              </div>
             </td>
             <td class="px-4 py-3 text-slate-600">
               <div>NIT: {{ asociacion.nit }}</div>
@@ -188,6 +214,13 @@ onMounted(() => {
               </span>
             </td>
             <td class="px-4 py-3 text-right space-x-2">
+              <button
+                v-if="asociacion.estado_legal === 'Pendiente'"
+                class="rounded bg-emerald-50 border border-emerald-300 px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                @click="aprobarAsociacion(asociacion)"
+              >
+                ✓ Aprobar Legal
+              </button>
               <button class="text-xs font-semibold text-brand-600 hover:underline" @click="verClubes(asociacion)">
                 Clubes →
               </button>
@@ -204,7 +237,7 @@ onMounted(() => {
             </td>
           </tr>
           <tr v-if="!asociaciones.length">
-            <td colspan="6" class="px-4 py-8 text-center text-slate-400">No hay asociaciones registradas.</td>
+            <td colspan="7" class="px-4 py-8 text-center text-slate-400">No hay asociaciones registradas.</td>
           </tr>
         </tbody>
       </table>
@@ -212,21 +245,24 @@ onMounted(() => {
 
     <!-- Modal Crear / Editar Asociación -->
     <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-        <h3 class="mb-4 font-display text-lg font-bold text-ink">
+      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <h3 class="mb-1 font-display text-lg font-bold text-ink">
           {{ editingAsociacion ? 'Editar Asociación' : 'Nueva Asociación' }}
         </h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Datos institucionales de la Asociación Departamental y credenciales de acceso unificadas.
+        </p>
 
-        <form class="space-y-4" @submit.prevent="submitForm">
+        <form class="space-y-4 text-xs" @submit.prevent="submitForm">
           <div>
             <label class="mb-1 block text-xs font-semibold text-slate-600">Nombre de la Asociación *</label>
-            <input v-model="form.nombre" type="text" class="input-field" placeholder="ej. Asociación Departamental de Fútbol" required :disabled="saving" />
+            <input v-model="form.nombre" type="text" class="input-field text-sm" placeholder="ej. Asociación Departamental de Fútbol" required :disabled="saving" />
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="mb-1 block text-xs font-semibold text-slate-600">NIT *</label>
-              <input v-model="form.nit" type="text" class="input-field" placeholder="ej. 1028374901" required :disabled="saving" />
+              <input v-model="form.nit" type="text" class="input-field font-mono" placeholder="ej. 1028374901" required :disabled="saving" />
             </div>
             <div>
               <label class="mb-1 block text-xs font-semibold text-slate-600">Sigla</label>
@@ -262,8 +298,34 @@ onMounted(() => {
               <input v-model="form.telefono" type="text" class="input-field" placeholder="ej. 64-12345" :disabled="saving" />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">Correo Electrónico</label>
-              <input v-model="form.correo" type="email" class="input-field" placeholder="ej. contacto@futbol.bo" :disabled="saving" />
+              <label class="mb-1 block text-xs font-semibold text-slate-600">Correo Oficial (Usuario de Acceso) *</label>
+              <input v-model="form.correo" type="email" class="input-field font-semibold text-ink" placeholder="ej. asociacion@sedede.gob.bo" required :disabled="saving" />
+              <p class="text-[10px] text-slate-400 mt-0.5">Correo único de contacto oficial y acceso institucional.</p>
+            </div>
+          </div>
+
+          <!-- SECCIÓN DE DIRECTIVA Y ROTACIÓN DE CREDENCIALES -->
+          <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                👤 Directiva / Presidente & Acceso
+              </span>
+              <span class="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                Rotación de Mando
+              </span>
+            </div>
+            <p class="text-[11px] text-amber-800 leading-relaxed">
+              En caso de renovación o rotación de directiva, actualice el nombre del presidente/representante y asigne una nueva contraseña si se requiere entregar el acceso. Al guardar, el correo oficial y las credenciales se sincronizan en el acto.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Nombre de la Autoridad / Presidente</label>
+                <input v-model="form.usuario_nombre" type="text" placeholder="Ej: Dr. Roberto Gómez" class="input-field bg-white text-xs" :disabled="saving" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1 text-[11px]">{{ editingAsociacion ? 'Nueva Contraseña (Opcional)' : 'Contraseña Inicial (Opcional)' }}</label>
+                <input v-model="form.usuario_password" type="text" placeholder="Dejar en blanco para mantener actual" class="input-field bg-white text-xs font-mono" :disabled="saving" />
+              </div>
             </div>
           </div>
 
@@ -276,12 +338,12 @@ onMounted(() => {
             {{ formError }}
           </div>
 
-          <div class="flex justify-end gap-3 pt-2">
-            <button type="button" class="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700" :disabled="saving" @click="closeModal">
+          <div class="flex justify-end gap-3 pt-3 border-t">
+            <button type="button" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800" :disabled="saving" @click="closeModal">
               Cancelar
             </button>
             <button type="submit" class="btn-primary" :disabled="saving">
-              {{ saving ? 'Guardando…' : 'Guardar' }}
+              {{ saving ? 'Guardando…' : 'Guardar Cambios' }}
             </button>
           </div>
         </form>

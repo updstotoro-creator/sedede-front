@@ -24,6 +24,11 @@ const form = reactive({
   sigla: '',
   personeria_juridica: '',
   fecha_eleccion_directiva: '',
+  telefono: '',
+  email: '',
+  direccion: '',
+  usuario_nombre: '',
+  usuario_password: '',
 })
 
 const clubesFiltrados = computed(() => {
@@ -31,7 +36,7 @@ const clubesFiltrados = computed(() => {
   return clubes.value.filter((club) => {
     if (filterAsociacion.value && String(club.asociacion_id) !== String(filterAsociacion.value)) return false
     if (!term) return true
-    return [club.nombre, club.sigla, club.asociacion?.nombre]
+    return [club.nombre, club.sigla, club.asociacion?.nombre, club.email, club.user?.email]
       .filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(term))
   })
@@ -50,6 +55,11 @@ function resetForm() {
   form.sigla = ''
   form.personeria_juridica = ''
   form.fecha_eleccion_directiva = ''
+  form.telefono = ''
+  form.email = ''
+  form.direccion = ''
+  form.usuario_nombre = ''
+  form.usuario_password = ''
   formError.value = ''
 }
 
@@ -84,6 +94,11 @@ function openEditModal(club) {
   form.sigla = club.sigla || ''
   form.personeria_juridica = club.personeria_juridica || ''
   form.fecha_eleccion_directiva = (club.fecha_eleccion_directiva || '').slice(0, 10)
+  form.telefono = club.telefono || ''
+  form.email = club.email || club.user?.email || ''
+  form.direccion = club.direccion || ''
+  form.usuario_nombre = club.user?.name || ''
+  form.usuario_password = ''
   formError.value = ''
   showModal.value = true
 }
@@ -103,6 +118,11 @@ async function submitForm() {
       sigla: form.sigla.trim() || null,
       personeria_juridica: form.personeria_juridica.trim() || null,
       fecha_eleccion_directiva: form.fecha_eleccion_directiva || null,
+      telefono: form.telefono.trim() || null,
+      email: form.email.trim() || null,
+      direccion: form.direccion.trim() || null,
+      usuario_nombre: form.usuario_nombre.trim() || null,
+      usuario_password: form.usuario_password.trim() || null,
     }
     if (editingClub.value) {
       await clubesService.actualizar(editingClub.value.asociacion_id, editingClub.value.id, payload)
@@ -120,6 +140,17 @@ async function submitForm() {
     }
   } finally {
     saving.value = false
+  }
+}
+
+async function aprobarDocumentacionClub(club) {
+  if (!confirm(`¿Desea validar y aprobar formalmente la personería y documentación del "${club.nombre}"?`)) return
+  try {
+    await clubesService.actualizarDocumentacion(club.id, { estado_documentacion: 'vigente' })
+    await loadData()
+    alert('Documentación y Personería del club aprobadas exitosamente.')
+  } catch (error) {
+    alert(error.response?.data?.error || 'Error al aprobar documentación del club.')
   }
 }
 
@@ -181,6 +212,7 @@ onMounted(loadData)
         <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
             <th class="px-4 py-3">Club</th>
+            <th class="px-4 py-3">Acceso / Correo Oficial</th>
             <th class="px-4 py-3">Asociación</th>
             <th class="px-4 py-3">Disciplina</th>
             <th class="px-4 py-3">Personería Jurídica</th>
@@ -195,6 +227,14 @@ onMounted(loadData)
               <div class="font-semibold text-ink">{{ club.nombre }}</div>
               <div class="text-xs text-slate-500">Sigla: {{ club.sigla || '—' }}</div>
             </td>
+            <td class="px-4 py-3 text-slate-700">
+              <div class="font-mono text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded inline-block">
+                {{ club.user?.email || club.email || 'Sin correo oficial' }}
+              </div>
+              <div v-if="club.user?.name" class="text-[11px] text-slate-500 mt-0.5">
+                👤 {{ club.user.name }}
+              </div>
+            </td>
             <td class="px-4 py-3">
               <div class="text-slate-700">{{ club.asociacion?.nombre || '—' }}</div>
               <div class="text-xs text-slate-400">{{ club.asociacion?.sigla || '' }}</div>
@@ -204,7 +244,19 @@ onMounted(loadData)
                 {{ disciplinasDe(club) }}
               </span>
             </td>
-            <td class="px-4 py-3 text-slate-600">{{ club.personeria_juridica || '—' }}</td>
+            <td class="px-4 py-3 text-slate-600">
+              <div class="font-medium text-ink">{{ club.personeria_juridica || 'En trámite' }}</div>
+              <span
+                class="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase mt-0.5"
+                :class="{
+                  'bg-emerald-100 text-emerald-800': club.estado_documentacion === 'vigente',
+                  'bg-amber-100 text-amber-800': club.estado_documentacion === 'en_tramite' || !club.estado_documentacion,
+                  'bg-red-100 text-red-800': club.estado_documentacion === 'observada'
+                }"
+              >
+                {{ club.estado_documentacion === 'vigente' ? '✓ Doc. Aprobada' : (club.estado_documentacion === 'observada' ? '⚠️ Observada' : '⏳ En Trámite') }}
+              </span>
+            </td>
             <td class="px-4 py-3 text-slate-600">
               {{ club.fecha_eleccion_directiva ? new Date(club.fecha_eleccion_directiva).toLocaleDateString('es-BO') : '—' }}
             </td>
@@ -217,6 +269,13 @@ onMounted(loadData)
               </span>
             </td>
             <td class="px-4 py-3 text-right space-x-2">
+              <button
+                v-if="club.estado_documentacion !== 'vigente'"
+                class="rounded bg-emerald-50 border border-emerald-300 px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                @click="aprobarDocumentacionClub(club)"
+              >
+                ✓ Validar Personería
+              </button>
               <button class="text-xs font-semibold text-brand-600 hover:underline" @click="verDetalle(club)">
                 Detalle →
               </button>
@@ -233,7 +292,7 @@ onMounted(loadData)
             </td>
           </tr>
           <tr v-if="!clubesFiltrados.length">
-            <td colspan="7" class="px-4 py-8 text-center text-slate-400">No hay clubes registrados.</td>
+            <td colspan="8" class="px-4 py-8 text-center text-slate-400">No hay clubes registrados.</td>
           </tr>
         </tbody>
       </table>
@@ -241,12 +300,15 @@ onMounted(loadData)
 
     <!-- Modal Crear / Editar Club -->
     <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-        <h3 class="mb-4 font-display text-lg font-bold text-ink">
+      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <h3 class="mb-1 font-display text-lg font-bold text-ink">
           {{ editingClub ? 'Editar Club' : 'Nuevo Club' }}
         </h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Datos institucionales del Club Deportivo y credenciales de acceso unificadas.
+        </p>
 
-        <form class="space-y-4" @submit.prevent="submitForm">
+        <form class="space-y-4 text-xs" @submit.prevent="submitForm">
           <div>
             <label class="mb-1 block text-xs font-semibold text-slate-600">Asociación *</label>
             <select v-model="form.asociacion_id" class="input-field" required :disabled="saving || !!editingClub">
@@ -257,7 +319,7 @@ onMounted(loadData)
 
           <div>
             <label class="mb-1 block text-xs font-semibold text-slate-600">Nombre del Club *</label>
-            <input v-model="form.nombre" type="text" class="input-field" placeholder="ej. Club Deportivo Municipal" required :disabled="saving" />
+            <input v-model="form.nombre" type="text" class="input-field text-sm" placeholder="ej. Club Deportivo Municipal" required :disabled="saving" />
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -271,21 +333,63 @@ onMounted(loadData)
             </div>
           </div>
 
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-slate-600">Teléfono de Contacto</label>
+              <input v-model="form.telefono" type="text" class="input-field" placeholder="ej. 71234567" :disabled="saving" />
+            </div>
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-slate-600">Correo Oficial (Usuario de Acceso) *</label>
+              <input v-model="form.email" type="email" class="input-field font-semibold text-ink" placeholder="ej. club@sedede.gob.bo" required :disabled="saving" />
+              <p class="text-[10px] text-slate-400 mt-0.5">Correo único oficial para ingreso al portal del Club.</p>
+            </div>
+          </div>
+
+          <!-- SECCIÓN DE DIRECTIVA Y ROTACIÓN DE CREDENCIALES DEL CLUB -->
+          <div class="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                👤 Delegado / Directiva del Club & Acceso
+              </span>
+              <span class="rounded bg-indigo-100 border border-indigo-300 px-2 py-0.5 text-[10px] font-bold text-indigo-800">
+                Rotación de Mando
+              </span>
+            </div>
+            <p class="text-[11px] text-indigo-900 leading-relaxed">
+              En caso de rotación de directiva del club, actualice el nombre del presidente/delegado y fije una nueva contraseña para que la nueva directiva gestione sus deportistas. Al guardar, el acceso se actualiza en el acto.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Nombre del Delegado / Presidente</label>
+                <input v-model="form.usuario_nombre" type="text" placeholder="Ej: Lic. Marcelo Vaca" class="input-field bg-white text-xs" :disabled="saving" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1 text-[11px]">{{ editingClub ? 'Nueva Contraseña (Opcional)' : 'Contraseña Inicial (Opcional)' }}</label>
+                <input v-model="form.usuario_password" type="text" placeholder="Dejar en blanco para mantener actual" class="input-field bg-white text-xs font-mono" :disabled="saving" />
+              </div>
+            </div>
+          </div>
+
           <div>
             <label class="mb-1 block text-xs font-semibold text-slate-600">Fecha de Elección de Directiva</label>
             <input v-model="form.fecha_eleccion_directiva" type="date" class="input-field" :disabled="saving" />
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-600">Dirección / Sede del Club</label>
+            <input v-model="form.direccion" type="text" class="input-field" placeholder="ej. Calle Sucre #123" :disabled="saving" />
           </div>
 
           <div v-if="formError" role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             {{ formError }}
           </div>
 
-          <div class="flex justify-end gap-3 pt-2">
-            <button type="button" class="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700" :disabled="saving" @click="closeModal">
+          <div class="flex justify-end gap-3 pt-3 border-t">
+            <button type="button" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800" :disabled="saving" @click="closeModal">
               Cancelar
             </button>
             <button type="submit" class="btn-primary" :disabled="saving">
-              {{ saving ? 'Guardando…' : 'Guardar' }}
+              {{ saving ? 'Guardando…' : 'Guardar Cambios' }}
             </button>
           </div>
         </form>
