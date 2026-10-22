@@ -331,9 +331,9 @@ function initials(name) {
 </script>
 
 <template>
-  <aside class="flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm">
+  <aside class="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm z-30">
     <!-- Header del Sidebar con Logo SEDEDE -->
-    <div class="flex items-center gap-3 border-b border-slate-100 px-5 py-5">
+    <div class="shrink-0 flex items-center gap-3 border-b border-slate-100 px-5 py-5">
       <img :src="logo" alt="Logo SEDEDE" class="h-10 w-10 object-contain" />
       <div class="leading-tight">
         <p class="font-display text-sm font-extrabold text-brand-700">SEDEDE</p>
@@ -342,7 +342,7 @@ function initials(name) {
     </div>
 
     <!-- Navegación Agrupada con Recuadros de Borde Rojo y Bordes Redondeados (Sin Relleno) -->
-    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-3">
+    <nav class="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-3">
       <div v-for="group in groups" :key="group.id">
         <!-- Item Standalone (Resumen) -->
         <div v-if="group.standalone" class="rounded-xl border border-brand-500 p-1.5 bg-white">
@@ -388,8 +388,8 @@ function initials(name) {
       </div>
     </nav>
 
-    <!-- Usuario Autenticado & Cierre de Sesión -->
-    <div class="border-t border-slate-100 px-4 py-4">
+    <!-- Usuario Autenticado & Cierre de Sesión (Fijo en la base de la barra lateral, debajo del nav) -->
+    <div class="shrink-0 border-t border-slate-100 px-4 py-4 bg-white">
       <div class="mb-3 flex items-center gap-3">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white shadow-sm">
           {{ initials(auth.user?.name) }}
