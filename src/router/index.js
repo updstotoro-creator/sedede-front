@@ -47,19 +47,19 @@ const routes = [
         path: 'asociaciones',
         name: 'dashboard-asociaciones',
         component: () => import('../views/AsociacionesView.vue'),
-        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion', 'club'] },
+        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion'] },
       },
       {
         path: 'asociaciones/:asociacionId',
         name: 'dashboard-asociacion-detalle',
         component: () => import('../views/AsociacionDetailView.vue'),
-        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion', 'club'] },
+        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion'] },
       },
       {
         path: 'clubes',
         name: 'dashboard-clubes',
         component: () => import('../views/ClubesView.vue'),
-        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion', 'club'] },
+        meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion'] },
       },
       {
         path: 'mi-club',
