@@ -96,4 +96,9 @@ export const escenarioService = {
     const response = await api.post('/escenarios/publico/reservas', payload)
     return response.data
   },
+
+  async consultarEstadoPublico(codigo) {
+    const response = await api.get(`/escenarios/publico/reservas/${encodeURIComponent(codigo)}`)
+    return response.data
+  },
 }

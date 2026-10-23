@@ -26,6 +26,9 @@
           <a href="#eventos" class="btn-primary bg-white text-brand-700 hover:bg-brand-50">
             Explora Eventos y Programas
           </a>
+          <router-link to="/reservar" class="rounded-lg border-2 border-white/80 bg-white/10 backdrop-blur-sm px-5 py-2.5 text-sm font-bold text-white hover:bg-white hover:text-brand-700 transition-all flex items-center gap-2 shadow-sm">
+            <span>📅</span> Reservar Ambiente
+          </router-link>
         </div>
       </div>
     </div>

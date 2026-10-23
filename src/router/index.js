@@ -26,6 +26,23 @@ const routes = [
     meta: { guestOnly: true },
   },
   {
+    path: '/reservar',
+    name: 'reservar-ambiente',
+    component: () => import('../views/ReservaAmbienteView.vue'),
+  },
+  {
+    path: '/reservar-ambiente',
+    redirect: '/reservar',
+  },
+  {
+    path: '/reserva-ambiente',
+    redirect: '/reservar',
+  },
+  {
+    path: '/reservas',
+    redirect: '/reservar',
+  },
+  {
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('../views/DashboardView.vue'),
