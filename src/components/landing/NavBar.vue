@@ -5,6 +5,7 @@ import logo from '../../assets/images/logo-sedede.png'
 const open = ref(false)
 const links = [
   { label: 'Inicio', href: '#inicio' },
+  { label: 'Reservar Escenario', href: '#reservas-publicas' },
   { label: 'Calendario', href: '#calendario' },
   { label: 'Ranking Galardones', href: '#ranking' },
   { label: 'Estadísticas', href: '#estadisticas' },
@@ -37,6 +38,9 @@ const links = [
       </nav>
 
       <div class="hidden md:flex items-center gap-3">
+        <a href="#reservas-publicas" class="rounded-lg border border-emerald-600 bg-emerald-50/80 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center gap-1.5 shadow-sm">
+          <span>📅</span> Reservar Ambiente
+        </a>
         <router-link to="/registro" class="rounded-lg border border-brand-600 px-3.5 py-1.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 transition-colors">
           Registrarse
         </router-link>
@@ -55,6 +59,9 @@ const links = [
     <div v-if="open" class="border-t border-slate-100 px-6 pb-4 md:hidden">
       <a v-for="link in links" :key="link.href" :href="link.href" class="block py-2 text-sm text-slate-600">
         {{ link.label }}
+      </a>
+      <a href="#reservas-publicas" class="mt-2 block rounded-md bg-emerald-600 px-4 py-2 text-center text-sm font-bold text-white shadow-sm" @click="open = false">
+        📅 Reservar Escenario Deportivo
       </a>
       <router-link to="/registro" class="mt-2 block rounded-md border border-brand-600 px-4 py-2 text-center text-sm font-semibold text-brand-700">
         Registrarse (Atletas, Clubes, Comunidades)

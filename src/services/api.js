@@ -25,8 +25,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isLoginRequest = error.config?.url?.includes('/login')
-    if (error.response?.status === 401 && !isLoginRequest) {
+    const isPublicRequest = error.config?.url?.includes('/login') ||
+                            error.config?.url?.includes('/publico') ||
+                            error.config?.url?.includes('/public') ||
+                            error.config?.url?.includes('/registro')
+    if (error.response?.status === 401 && !isPublicRequest) {
       localStorage.removeItem('sedede_token')
       const base = import.meta.env.BASE_URL || '/sedede/'
       const loginUrl = `${base}login`.replace(/\/+/g, '/')

@@ -75,4 +75,25 @@ export const escenarioService = {
     const response = await api.get('/escenarios/reservas/cotizar', { params })
     return response.data
   },
+
+  // Flujo Público para Particulares (Landing Page sin sesión)
+  async getEscenariosPublicos() {
+    const response = await api.get('/escenarios/publico/escenarios')
+    return response.data?.data || []
+  },
+
+  async getDisponibilidadPublica(params = {}) {
+    const response = await api.get('/escenarios/publico/disponibilidad', { params })
+    return response.data
+  },
+
+  async cotizarPublico(params = {}) {
+    const response = await api.get('/escenarios/publico/cotizar', { params })
+    return response.data
+  },
+
+  async solicitarReservaPublica(payload) {
+    const response = await api.post('/escenarios/publico/reservas', payload)
+    return response.data
+  },
 }

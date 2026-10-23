@@ -470,9 +470,31 @@
                     >
                       + Reservar
                     </button>
-                    <span v-else class="text-[10px] font-mono text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded">
-                      {{ franja.reserva?.codigo_reserva }}
-                    </span>
+                    <div v-else class="flex items-center justify-end gap-1.5">
+                      <span class="text-[10px] font-mono text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded">
+                        {{ franja.reserva?.codigo_reserva }}
+                      </span>
+                      <button
+                        v-if="franja.reserva?.estado === 'PENDIENTE'"
+                        type="button"
+                        class="px-2 py-1 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-xs transition-colors"
+                        title="Confirmar Reserva"
+                        :disabled="updatingReservaId === franja.reserva?.id"
+                        @click="cambiarEstadoReserva(franja.reserva, 'CONFIRMADA')"
+                      >
+                        ✓ Aprobar
+                      </button>
+                      <button
+                        v-if="franja.reserva"
+                        type="button"
+                        class="px-2 py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded transition-colors"
+                        title="Rechazar y Liberar Horario"
+                        :disabled="updatingReservaId === franja.reserva?.id"
+                        @click="solicitarRechazoReserva(franja.reserva)"
+                      >
+                        ✕ Liberar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -530,6 +552,47 @@
             </div>
 
             <p class="text-gray-600 italic text-[11px] border-t pt-1 mt-1">"{{ res.concepto }}"</p>
+
+            <!-- ACCIONES DE GESTIÓN INSTITUCIONAL SEDEDE -->
+            <div class="flex items-center gap-2 pt-2 border-t border-slate-100 mt-2">
+              <template v-if="res.estado === 'PENDIENTE'">
+                <button
+                  type="button"
+                  class="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors shadow-xs disabled:opacity-50"
+                  :disabled="updatingReservaId === res.id"
+                  @click="cambiarEstadoReserva(res, 'CONFIRMADA')"
+                >
+                  <span v-if="updatingReservaId === res.id" class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>✓ Confirmar</span>
+                </button>
+                <button
+                  type="button"
+                  class="flex-1 py-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold rounded-lg text-[11px] flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                  :disabled="updatingReservaId === res.id"
+                  @click="solicitarRechazoReserva(res)"
+                >
+                  <span>✕ Rechazar & Liberar</span>
+                </button>
+              </template>
+              <template v-else-if="res.estado === 'CONFIRMADA'">
+                <span class="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
+                  <span>✓</span> Aprobada
+                </span>
+                <button
+                  type="button"
+                  class="ml-auto text-rose-600 hover:text-rose-800 font-medium text-[10px] hover:underline"
+                  :disabled="updatingReservaId === res.id"
+                  @click="solicitarRechazoReserva(res)"
+                >
+                  Cancelar & Liberar
+                </button>
+              </template>
+              <template v-else-if="res.estado === 'RECHAZADA'">
+                <span class="text-rose-600 font-semibold text-[10px] flex items-center gap-1">
+                  <span>✕</span> Rechazada (Horario Liberado)
+                </span>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -2437,6 +2500,52 @@ async function confirmarNuevaReserva() {
     fetchResumen()
   } catch (err) {
     alert(err.response?.data?.message || 'Error al registrar la reserva')
+  }
+}
+
+const updatingReservaId = ref(null)
+
+async function cambiarEstadoReserva(res, nuevoEstado, motivo = null) {
+  if (nuevoEstado === 'CONFIRMADA') {
+    if (!confirm(`¿Desea CONFIRMAR la reserva ${res.codigo_reserva} para "${res.solicitante_nombre}"?`)) {
+      return
+    }
+  }
+
+  updatingReservaId.value = res.id
+  try {
+    const payload = {
+      estado: nuevoEstado,
+      observaciones: motivo || res.observaciones,
+    }
+    const resp = await escenarioService.actualizarEstadoReserva(res.id, payload)
+
+    // Actualizar estado local
+    res.estado = nuevoEstado
+    if (motivo) res.observaciones = motivo
+
+    // Recargar ocupación y disponibilidad para reflejar liberación o confirmación en tiempo real
+    await fetchOcupacion()
+    if (diaSeleccionado.value) {
+      await cargarFranjasDiaSeleccionado()
+    }
+
+    alert(resp.message || `Reserva ${nuevoEstado === 'CONFIRMADA' ? 'confirmada' : 'rechazada y horario liberado'}.`)
+  } catch (err) {
+    console.error('Error al actualizar estado de reserva:', err)
+    alert(err.response?.data?.message || 'Error al actualizar el estado de la reserva.')
+  } finally {
+    updatingReservaId.value = null
+  }
+}
+
+function solicitarRechazoReserva(res) {
+  const motivo = prompt(
+    `Ingrese el motivo del rechazo para la reserva ${res.codigo_reserva} (el horario se liberará inmediatamente):`,
+    'Horario no disponible / Mantenimiento programado'
+  )
+  if (motivo !== null) {
+    cambiarEstadoReserva(res, 'RECHAZADA', motivo.trim())
   }
 }
 
