@@ -63,6 +63,20 @@ export const tramiteService = {
     return data
   },
 
+  async descargarPdfCierre(id) {
+    const { data } = await api.get(`/tramites/${id}/pdf/cierre`, {
+      responseType: 'blob',
+    })
+    return data
+  },
+
+  async descargarPdfEtapa(id, etapa) {
+    const { data } = await api.get(`/tramites/${id}/pdf/etapa/${etapa}`, {
+      responseType: 'blob',
+    })
+    return data
+  },
+
   async delete(id) {
     const { data } = await api.delete(`/tramites/${id}`)
     return data.data

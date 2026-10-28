@@ -33,6 +33,9 @@ const form = reactive({
   categoria: 'Élite',
   sigep_cuenta: '',
   ranking_nacional: '',
+  tipo_seleccionado: 'ninguno',
+  es_seleccionado_departamental: false,
+  es_seleccionado_nacional: false,
   tutor_nombre: '',
   tutor_ci: '',
   tutor_telefono: '',
@@ -79,6 +82,9 @@ function resetForm() {
   form.categoria = 'Élite'
   form.sigep_cuenta = ''
   form.ranking_nacional = ''
+  form.tipo_seleccionado = 'ninguno'
+  form.es_seleccionado_departamental = false
+  form.es_seleccionado_nacional = false
   form.tutor_nombre = ''
   form.tutor_ci = ''
   form.tutor_telefono = ''
@@ -131,6 +137,18 @@ async function openEditModal(dep) {
   form.categoria = dep.categoria || 'Élite'
   form.sigep_cuenta = dep.sigep_cuenta || ''
   form.ranking_nacional = dep.ranking_nacional || ''
+  form.tipo_seleccionado = dep.tipo_seleccionado || 'ninguno'
+  form.es_seleccionado_departamental = !!dep.es_seleccionado_departamental
+  form.es_seleccionado_nacional = !!dep.es_seleccionado_nacional
+  if (!dep.tipo_seleccionado || dep.tipo_seleccionado === 'ninguno') {
+    if (dep.es_seleccionado_departamental && dep.es_seleccionado_nacional) {
+      form.tipo_seleccionado = 'ambos'
+    } else if (dep.es_seleccionado_departamental) {
+      form.tipo_seleccionado = 'departamental'
+    } else if (dep.es_seleccionado_nacional) {
+      form.tipo_seleccionado = 'nacional'
+    }
+  }
   form.tutor_nombre = dep.tutor_nombre || ''
   form.tutor_ci = dep.tutor_ci || ''
   form.tutor_telefono = dep.tutor_telefono || ''
@@ -157,6 +175,13 @@ async function submitForm() {
   formError.value = ''
   try {
     const payload = { ...form }
+    const isMinor = Boolean(esMenorDeEdad.value)
+    payload.es_menor_de_edad = isMinor
+    if (!isMinor) {
+      payload.tutor_nombre = null
+      payload.tutor_ci = null
+      payload.tutor_telefono = null
+    }
     if (editingDeportista.value) {
       await deportistaService.update(editingDeportista.value.id, payload)
     } else {

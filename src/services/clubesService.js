@@ -9,7 +9,21 @@ export default {
 
   // El backend sólo expone clubes anidados bajo una asociación, así que se
   // consolidan en paralelo todas las asociaciones para tener el listado global.
-  async listarTodas() {
+  async listarTodas(filtroAsociacionId = null) {
+    if (filtroAsociacionId) {
+      try {
+        const asoc = await asociacionService.get(filtroAsociacionId);
+        const lista = await this.listar(filtroAsociacionId);
+        return lista.map((club) => ({
+          ...club,
+          asociacion: asoc,
+          asociacion_id: Number(filtroAsociacionId),
+        }));
+      } catch {
+        return [];
+      }
+    }
+
     const asociaciones = await asociacionService.list();
     const clubes = await Promise.all(
       asociaciones.map(async (asociacion) => {
@@ -18,6 +32,7 @@ export default {
           return lista.map((club) => ({
             ...club,
             asociacion,
+            asociacion_id: Number(club.asociacion_id || asociacion.id),
           }));
         } catch {
           return [];

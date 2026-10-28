@@ -163,17 +163,23 @@ const esMenorCalculado = computed(() => {
   return edad !== null && edad < 18
 })
 
-// Observador para desplegar el apartado de tutor automáticamente cuando sea menor de edad
+// Observador para actualizar estado de menor de edad y limpiar tutor si es mayor de edad
 watch(
   () => formDeportista.fecha_nacimiento,
   (nuevaFecha) => {
     const edad = calcularEdad(nuevaFecha)
     if (edad !== null) {
-      if (edad < 18) {
-        formDeportista.es_menor_de_edad = true
-      } else {
-        formDeportista.es_menor_de_edad = false
+      formDeportista.es_menor_de_edad = edad < 18
+      if (edad >= 18) {
+        formDeportista.tutor_nombre = ''
+        formDeportista.tutor_ci = ''
+        formDeportista.tutor_telefono = ''
       }
+    } else {
+      formDeportista.es_menor_de_edad = false
+      formDeportista.tutor_nombre = ''
+      formDeportista.tutor_ci = ''
+      formDeportista.tutor_telefono = ''
     }
   }
 )
@@ -271,7 +277,7 @@ async function submitDeportista() {
   isSubmitting.value = true
   submitError.value = null
   try {
-    const isMinor = Boolean(formDeportista.es_menor_de_edad || esMenorCalculado.value)
+    const isMinor = Boolean(esMenorCalculado.value)
     const payload = {
       nombres: formDeportista.nombres,
       apellidos: formDeportista.apellidos,
@@ -813,9 +819,9 @@ async function submitClub() {
               </div>
             </div>
 
-            <!-- Apartado de Tutor Legal (Desplegado automáticamente al detectar menor de edad) -->
+            <!-- Apartado de Tutor Legal (Desplegado ÚNICAMENTE si la fecha de nacimiento ingresada indica que es menor de edad) -->
             <div
-              v-if="formDeportista.es_menor_de_edad || esMenorCalculado"
+              v-if="esMenorCalculado"
               class="rounded-2xl border border-amber-500/50 bg-gradient-to-br from-amber-950/40 via-slate-900/90 to-slate-900/95 p-5 space-y-4 shadow-xl ring-1 ring-amber-500/20 transition-all duration-300"
             >
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/25 pb-3">
@@ -829,7 +835,7 @@ async function submitClub() {
                       </span>
                     </h4>
                     <p class="text-[11px] text-amber-200/80 mt-0.5">
-                      Desplegado automáticamente según la fecha de nacimiento. Todo deportista menor de 18 años requiere datos y autorización de su tutor legal acreditado.
+                      Desplegado automáticamente según la fecha de nacimiento ingresada. Todo deportista menor de 18 años requiere datos y autorización de su tutor legal acreditado.
                     </p>
                   </div>
                 </div>
@@ -846,7 +852,7 @@ async function submitClub() {
                   <label class="block font-semibold text-slate-300 mb-1">Nombre Completo del Tutor *</label>
                   <input
                     v-model="formDeportista.tutor_nombre"
-                    :required="formDeportista.es_menor_de_edad || esMenorCalculado"
+                    :required="esMenorCalculado"
                     type="text"
                     placeholder="Ej: Marcelo Martins Padre"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
@@ -856,7 +862,7 @@ async function submitClub() {
                   <label class="block font-semibold text-slate-300 mb-1">Cédula de Identidad (CI) Tutor *</label>
                   <input
                     v-model="formDeportista.tutor_ci"
-                    :required="formDeportista.es_menor_de_edad || esMenorCalculado"
+                    :required="esMenorCalculado"
                     type="text"
                     placeholder="Ej: 3456789 CH"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
@@ -866,28 +872,13 @@ async function submitClub() {
                   <label class="block font-semibold text-slate-300 mb-1">Teléfono / WhatsApp Tutor *</label>
                   <input
                     v-model="formDeportista.tutor_telefono"
-                    :required="formDeportista.es_menor_de_edad || esMenorCalculado"
+                    :required="esMenorCalculado"
                     type="text"
                     placeholder="Ej: +591 76543210"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
-            </div>
-
-            <!-- Opción si es mayor de 18 años pero requiere tutor voluntario -->
-            <div v-else class="rounded-xl border border-slate-700/80 bg-slate-800/40 p-3 flex items-center justify-between">
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  v-model="formDeportista.es_menor_de_edad"
-                  class="rounded text-cyan-500 focus:ring-0 h-4 w-4 bg-slate-900 border-slate-700"
-                />
-                <span class="font-semibold text-slate-300 text-xs">Acreditar tutor o representante legal adicional</span>
-              </label>
-              <span class="text-[11px] text-slate-500 hidden sm:inline">
-                (El formulario de tutor se desplegará de forma automática si la fecha indica menor de 18 años)
-              </span>
             </div>
 
             <!-- Contacto y Credenciales -->

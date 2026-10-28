@@ -51,4 +51,26 @@ export const asociacionService = {
     const { data } = await api.delete(`/asociaciones/${asociacionId}/clubes/${clubId}`)
     return data.data
   },
+
+  // Deportistas de la Asociación (Validación en 2 fases y seleccionado)
+  async getDeportistas(asociacionId, params = {}) {
+    const { data } = await api.get(`/asociaciones/${asociacionId}/deportistas`, { params })
+    return data
+  },
+
+  async aceptarDeportista(asociacionId, deportistaId, payload = {}) {
+    const { data } = await api.post(`/asociaciones/${asociacionId}/deportistas/${deportistaId}/aceptar`, payload)
+    return data
+  },
+
+  async rechazarDeportista(asociacionId, deportistaId, payload) {
+    const { data } = await api.post(`/asociaciones/${asociacionId}/deportistas/${deportistaId}/rechazar`, payload)
+    return data
+  },
+
+  // Trámites de deportistas de la asociación
+  async getTramites(asociacionId, params = {}) {
+    const { data } = await api.get(`/asociaciones/${asociacionId}/tramites`, { params })
+    return data
+  },
 }

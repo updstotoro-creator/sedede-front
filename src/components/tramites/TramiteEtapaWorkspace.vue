@@ -1,6 +1,7 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import { tramiteService } from '../../services/tramiteService'
+import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
   tramite: {
@@ -14,6 +15,62 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['updated', 'close', 'back'])
+const auth = useAuthStore()
+
+const userRole = computed(() => {
+  if (auth.user?.role?.nombre) return auth.user.role.nombre
+  try {
+    const raw = localStorage.getItem('user')
+    return raw ? JSON.parse(raw)?.role?.nombre : ''
+  } catch {
+    return ''
+  }
+})
+
+// Solo personal oficial del SEDEDE y administradores tienen facultad de avanzar o dictaminar
+const esPersonalSedede = computed(() => {
+  return ['admin', 'sedede', 'personal_sedede', 'director', 'tecnico_sedede', 'encargado_contable'].includes(userRole.value)
+})
+
+const showGuiaProceso = ref(false)
+
+const FASES_PROCESO = [
+  {
+    fase: 'Fase I',
+    nombre: 'Solicitud, Recepción y Derivación Inicial',
+    pasos: 'Pasos 1 al 3',
+    descripcion: 'El deportista o tutor registra la solicitud digital con al menos 15 días de anticipación. Ventanilla Única verifica requisitos y Dirección General instruye la derivación técnica.',
+    icon: '📝',
+  },
+  {
+    fase: 'Fase II',
+    nombre: 'Evaluación Técnica Deportiva y Dictamen Legal',
+    pasos: 'Pasos 4 al 9',
+    descripcion: 'Deporte Competitivo evalúa méritos (si hay observaciones pasa a Subsanación en Paso 5). Emite Informe Técnico con montos recomendados, Dirección da Vo.Bo. y Asesoría Jurídica emite Dictamen Legal.',
+    icon: '⚖️',
+  },
+  {
+    fase: 'Fase III',
+    nombre: 'Resolución Departamental de Apoyo',
+    pasos: 'Paso 10',
+    descripcion: 'La Dirección Departamental del SEDEDE promulga la Resolución Administrativa Departamental oficial autorizando el apoyo y la asignación presupuestaria.',
+    icon: '📜',
+  },
+  {
+    fase: 'Fase IV',
+    nombre: 'Ejecución Presupuestaria, Devengado y Desembolso',
+    pasos: 'Pasos 11 al 16',
+    descripcion: 'Presupuestos emite Certificación Preventiva, Administración emite Orden de Servicio, Contabilidad elabora C-31 y Tesorería ejecuta el pago efectivo por transferencia SIGEP.',
+    icon: '💵',
+  },
+  {
+    fase: 'Fase V',
+    nombre: 'Cierre, Custodia y Archivo con Checklist Oficial',
+    pasos: 'Paso 17',
+    descripcion: 'Archivo Central compila las fojas acumuladas, genera la Checklist Oficial de Verificación de los 17 pasos y custodia el expediente blindado para auditoría.',
+    icon: '🗄️',
+  },
+]
 
 // Etapas oficiales del procedimiento
 const ETAPAS_PROCEDIMIENTO = [
@@ -476,27 +533,157 @@ async function subirArchivoSubsanacion(event, reqId) {
 }
 
 const puedeEditarEtapa = computed(() => {
-  if (props.isDeportista) {
+  if (props.isDeportista || userRole.value === 'deportista') {
     return viewingEtapa.value === 5 && props.tramite.etapa_actual === 5
   }
+  if (!esPersonalSedede.value) return false
   return viewingEtapa.value === props.tramite.etapa_actual && viewingEtapa.value !== 1 && viewingEtapa.value !== 5
 })
 
 const puedeDevolverEtapa = computed(() => {
-  if (props.isDeportista) return false
+  if (!esPersonalSedede.value) return false
   return props.tramite.etapa_actual > 1 && viewingEtapa.value === props.tramite.etapa_actual && viewingEtapa.value !== 5
 })
 
 const puedeAvanzarEtapa = computed(() => {
-  if (props.isDeportista) {
+  if (props.isDeportista || userRole.value === 'deportista') {
     return viewingEtapa.value === 5 && props.tramite.etapa_actual === 5
   }
+  if (!esPersonalSedede.value) return false
   return viewingEtapa.value === props.tramite.etapa_actual && viewingEtapa.value !== 5
 })
+
+const generandoPdf = ref(false)
+
+async function imprimirFormularioEtapa(numEtapa) {
+  if (generandoPdf.value) return
+  try {
+    generandoPdf.value = true
+    const blob = await tramiteService.descargarPdfEtapa(props.tramite.id, numEtapa)
+    const blobUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+    const win = window.open(blobUrl, '_blank')
+    if (!win) {
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `Formulario_Paso_${numEtapa}_${props.tramite.codigo_tramite}.pdf`
+      a.click()
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 120000)
+  } catch (error) {
+    console.error('Error al generar PDF oficial del paso:', error)
+    alert('No se pudo generar el formulario oficial en PDF. Por favor verifique su conexión o intente nuevamente.')
+  } finally {
+    generandoPdf.value = false
+  }
+}
+
+async function imprimirChecklistCierre() {
+  if (generandoPdf.value) return
+  try {
+    generandoPdf.value = true
+    const blob = await tramiteService.descargarPdfCierre(props.tramite.id)
+    const blobUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+    const win = window.open(blobUrl, '_blank')
+    if (!win) {
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `Formulario_Cierre_Checklist_${props.tramite.codigo_tramite}.pdf`
+      a.click()
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 120000)
+  } catch (error) {
+    console.error('Error al generar PDF oficial de cierre:', error)
+    alert('No se pudo generar el formulario oficial de cierre en PDF. Por favor verifique su conexión o intente nuevamente.')
+  } finally {
+    generandoPdf.value = false
+  }
+}
+
+function getResumenEtapa(num) {
+  const d = datosEtapas.value
+  switch (num) {
+    case 1:
+      return `Solicitud Bs ${Number(props.tramite.monto_solicitado).toLocaleString('es-BO')}`
+    case 2:
+      return forms.etapa2.hoja_ruta || d.etapa_2?.hoja_ruta || 'HR Ventanilla'
+    case 3:
+      return forms.etapa3.cite_proveido || d.etapa_3?.cite_proveido || 'Proveído Dirección'
+    case 4:
+      return forms.etapa4.decision_tecnica ? `Revisión: ${forms.etapa4.decision_tecnica}` : 'Revisión Técnica'
+    case 5:
+      return 'Subsanación Requisitos'
+    case 6:
+      return forms.etapa6.cite_informe || d.etapa_6?.cite_informe || `Recomendado Bs ${forms.etapa6.monto_total_recomendado}`
+    case 7:
+      return forms.etapa7.cite_vobo || d.etapa_7?.cite_vobo || 'Vo.Bo. Otorgado'
+    case 8:
+      return forms.etapa8.cite_legal || d.etapa_8?.cite_legal || forms.etapa8.conclusion_juridica || 'Dictamen Jurídico'
+    case 9:
+      return forms.etapa9.acta_numero || d.etapa_9?.acta_numero || 'Acta Comisión'
+    case 10:
+      return forms.etapa10.resolucion_numero || d.etapa_10?.resolucion_numero || `Resolución Deptal. Bs ${forms.etapa10.monto_autorizado}`
+    case 11:
+      return forms.etapa11.preventivo_sigep || d.etapa_11?.preventivo_sigep || 'Certif. Presupuestaria'
+    case 12:
+      return forms.etapa12.numero_orden || d.etapa_12?.numero_orden || 'Orden Servicio'
+    case 13:
+      return forms.etapa13.comprobante_devengado || d.etapa_13?.comprobante_devengado || 'Devengado'
+    case 14:
+      return forms.etapa14.comprobante_c31 || d.etapa_14?.comprobante_c31 || 'Firma C-31'
+    case 15:
+      return forms.etapa15.lote_tesoreria || d.etapa_15?.lote_tesoreria || 'Priorización Tesorería'
+    case 16:
+      return forms.etapa16.numero_transferencia || d.etapa_16?.numero_transferencia || 'Abono SIGEP'
+    case 17:
+      return forms.etapa17.codigo_archivo || d.etapa_17?.codigo_archivo || 'Archivo Permanente'
+    default:
+      return ''
+  }
+}
 </script>
 
 <template>
   <div class="space-y-5">
+    <!-- BANNER INFORMATIVO: GUÍA INSTITUCIONAL DEL PROCESO (5 FASES / 17 ETAPAS) -->
+    <div class="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/90 via-sky-50/70 to-white p-4 shadow-sm text-xs">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">🏛️</span>
+          <div>
+            <span class="font-bold text-indigo-950 text-sm">Procedimiento Oficial de Trámites SEDEDE (5 Fases / 17 Pasos)</span>
+            <p class="text-slate-600 mt-0.5">
+              <span class="font-semibold text-brand-700">Facultad Reglamentaria:</span> El avance, dictamen y resolución de cada etapa corresponde <strong>exclusivamente al personal del SEDEDE</strong>. Las asociaciones, clubes y deportistas tienen facultad de seguimiento en tiempo real y descarga de formularios oficiales.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-3 py-1.5 transition text-xs flex items-center gap-1"
+          @click="showGuiaProceso = !showGuiaProceso"
+        >
+          <span>{{ showGuiaProceso ? 'Ocultar Guía' : 'Ver Guía de las 5 Fases' }}</span>
+          <span>{{ showGuiaProceso ? '▲' : '▼' }}</span>
+        </button>
+      </div>
+
+      <!-- Desglose de las 5 fases oficiales -->
+      <div v-if="showGuiaProceso" class="mt-4 grid grid-cols-1 md:grid-cols-5 gap-2.5 pt-3 border-t border-indigo-100">
+        <div v-for="f in FASES_PROCESO" :key="f.fase" class="rounded-xl bg-white p-3 border border-indigo-100 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-indigo-900 font-mono text-[11px]">{{ f.fase }}</span>
+              <span class="text-base">{{ f.icon }}</span>
+            </div>
+            <div class="font-bold text-slate-900 text-xs mt-1">{{ f.nombre }}</div>
+            <span class="inline-block rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold px-1.5 py-0.2 mt-1">
+              {{ f.pasos }}
+            </span>
+            <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">{{ f.descripcion }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- BARRA SELECTORA DE ETAPAS (1 - 17) -->
     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
@@ -513,6 +700,15 @@ const puedeAvanzarEtapa = computed(() => {
         </div>
 
         <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 text-xs font-bold transition flex items-center gap-1 border border-slate-200 disabled:opacity-50"
+            :disabled="generandoPdf"
+            @click="imprimirFormularioEtapa(viewingEtapa)"
+            title="Generar e imprimir formulario oficial en PDF de este paso"
+          >
+            <span>{{ generandoPdf ? '⏳ Generando PDF…' : `📄 Imprimir Paso ${viewingEtapa} (PDF)` }}</span>
+          </button>
           <span class="text-xs font-semibold text-slate-500">Viendo vista del:</span>
           <select v-model.number="viewingEtapa" class="input-field text-xs font-bold py-1 w-64">
             <option v-for="e in ETAPAS_PROCEDIMIENTO" :key="e.numero" :value="e.numero">
@@ -1564,11 +1760,79 @@ const puedeAvanzarEtapa = computed(() => {
         </p>
       </div>
 
+      <!-- CHECKLIST OFICIAL DE CUMPLIMIENTO DE LAS 17 ETAPAS INSTITUCIONALES -->
+      <div class="rounded-2xl border border-slate-300 bg-white p-6 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200 gap-2">
+          <div>
+            <span class="rounded bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">
+              Checklist Institucional Oficial
+            </span>
+            <h4 class="font-display text-base font-black text-slate-900 mt-1">
+              Verificación de Cumplimiento de las 17 Etapas del Expediente
+            </h4>
+            <p class="text-xs text-slate-500">
+              Control de calidad y trazabilidad institucional del SEDEDE según normativa departamental.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2 transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            :disabled="generandoPdf"
+            @click="imprimirChecklistCierre"
+          >
+            <span>{{ generandoPdf ? '⏳ Generando PDF Oficial…' : '📄 Imprimir Formulario y Checklist de Cierre (PDF)' }}</span>
+          </button>
+        </div>
+
+        <div class="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-slate-50/40 text-xs">
+          <div
+            v-for="et in 17"
+            :key="et"
+            class="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-white transition"
+            :class="et <= tramite.etapa_actual ? 'bg-white' : 'opacity-60'"
+          >
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">
+                {{ et < tramite.etapa_actual || (et === 17 && tramite.etapa_actual >= 17) ? '✅' : (et === tramite.etapa_actual ? '⏳' : '⚪') }}
+              </span>
+              <div>
+                <span class="font-bold text-slate-800">
+                  Paso {{ et }}: {{ ETAPAS_PROCEDIMIENTO.find(e => e.numero === et)?.nombre }}
+                </span>
+                <span class="text-slate-400 block text-[11px]">
+                  Unidad: {{ ETAPAS_PROCEDIMIENTO.find(e => e.numero === et)?.unidad }}
+                </span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 text-right">
+              <div v-if="getResumenEtapa(et)" class="text-[11px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                {{ getResumenEtapa(et) }}
+              </div>
+              <span
+                class="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                :class="et < tramite.etapa_actual || (et === 17 && tramite.etapa_actual >= 17) ? 'bg-emerald-100 text-emerald-800' : (et === tramite.etapa_actual ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-400')"
+              >
+                {{ et < tramite.etapa_actual || (et === 17 && tramite.etapa_actual >= 17) ? '✓ Concluido' : (et === tramite.etapa_actual ? 'En Proceso' : 'Pendiente') }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-        <button type="button" class="btn-secondary text-xs" :disabled="isSaving" @click="guardarBorradorEtapa(17)">
+        <button
+          type="button"
+          class="rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 text-xs font-bold transition flex items-center gap-1 border border-slate-300 disabled:opacity-50"
+          :disabled="generandoPdf"
+          @click="imprimirFormularioEtapa(17)"
+        >
+          <span>{{ generandoPdf ? '⏳ Generando…' : '📄 Imprimir Formulario Paso 17 (PDF)' }}</span>
+        </button>
+        <button v-if="puedeEditarEtapa" type="button" class="btn-secondary text-xs" :disabled="isSaving" @click="guardarBorradorEtapa(17)">
           Guardar Borrador
         </button>
-        <button type="button" class="btn-primary text-xs font-bold bg-slate-900 hover:bg-black text-white" :disabled="isSaving" @click="completarEtapa(17, { etapaDestino: 17, unidadDestino: 'Archivo Central', accion: `Cierre y Archivo Definitivo del Expediente (${forms.etapa17.codigo_archivo})` })">
+        <button v-if="puedeAvanzarEtapa" type="button" class="btn-primary text-xs font-bold bg-slate-900 hover:bg-black text-white" :disabled="isSaving" @click="completarEtapa(17, { etapaDestino: 17, unidadDestino: 'Archivo Central', accion: `Cierre y Archivo Definitivo del Expediente (${forms.etapa17.codigo_archivo})` })">
           🗄️ Concluir Trámite y Sellar Archivo Permanente
         </button>
       </div>
@@ -1625,6 +1889,32 @@ const puedeAvanzarEtapa = computed(() => {
         >
           <span>⚠️</span>
           <span>Devolver a Etapa Previa (con Observación)</span>
+        </button>
+
+        <!-- Aviso para Asociaciones, Clubes y Deportistas (Modo Consulta y Seguimiento) -->
+        <div v-if="!puedeAvanzarEtapa" class="flex flex-wrap items-center gap-2">
+          <span class="rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-800">
+            👁️ Modo Seguimiento: El avance y dictamen de etapas es facultad exclusiva del SEDEDE
+          </span>
+          <button
+            type="button"
+            class="rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1 border border-slate-300 disabled:opacity-50"
+            :disabled="generandoPdf"
+            @click="imprimirFormularioEtapa(viewingEtapa)"
+          >
+            <span>{{ generandoPdf ? '⏳ Generando…' : `📄 Imprimir Formulario Paso ${viewingEtapa} (PDF)` }}</span>
+          </button>
+        </div>
+
+        <!-- Botón de Impresión para SEDEDE -->
+        <button
+          v-if="puedeAvanzarEtapa"
+          type="button"
+          class="rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1 border border-slate-300 disabled:opacity-50"
+          :disabled="generandoPdf"
+          @click="imprimirFormularioEtapa(viewingEtapa)"
+        >
+          <span>{{ generandoPdf ? '⏳ Generando…' : `📄 Imprimir Formulario Paso ${viewingEtapa} (PDF)` }}</span>
         </button>
 
         <!-- Botón 3: Siguiente etapa o fin del proceso -->

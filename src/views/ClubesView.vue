@@ -34,7 +34,7 @@ const form = reactive({
 const clubesFiltrados = computed(() => {
   const term = search.value.trim().toLowerCase()
   return clubes.value.filter((club) => {
-    if (filterAsociacion.value && String(club.asociacion_id) !== String(filterAsociacion.value)) return false
+    if (filterAsociacion.value && Number(club.asociacion_id) !== Number(filterAsociacion.value)) return false
     if (!term) return true
     return [club.nombre, club.sigla, club.asociacion?.nombre, club.email, club.user?.email]
       .filter(Boolean)
@@ -67,9 +67,15 @@ async function loadData() {
   status.value = 'loading'
   errorMessage.value = ''
   try {
+    const rawUser = localStorage.getItem('user')
+    const user = rawUser ? JSON.parse(rawUser) : null
+    if (user?.role?.nombre === 'asociacion' && user?.asociacion_id && !filterAsociacion.value) {
+      filterAsociacion.value = String(user.asociacion_id)
+    }
+
     const [asoc, clbs] = await Promise.all([
       asociacionService.list(),
-      clubesService.listarTodas(),
+      clubesService.listarTodas(filterAsociacion.value || null),
     ])
     asociaciones.value = asoc
     clubes.value = clbs

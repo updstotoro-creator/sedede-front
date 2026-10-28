@@ -230,12 +230,16 @@ const comprobandoConflictos = ref(false)
 const form = reactive({
   asociacion_id: '',
   escenario_id: '',
+  espacio: '',
   nombre_evento: '',
   tipo_evento: 'Departamental',
   disciplina: 'Atletismo',
   categoria: 'Mayores',
   fecha_inicio: '',
   fecha_fin: '',
+  hora_inicio: '08:00',
+  hora_fin: '22:00',
+  bloquea_escenario_completo: true,
   nivel_prioridad: 'Alta (Reserva Garantizada)',
   presupuesto_estimado: 0,
   observaciones: '',
@@ -263,12 +267,16 @@ function resetForm(initialDateStr = null) {
 
   form.asociacion_id = asociaciones.value[0]?.id || ''
   form.escenario_id = escenarios.value[0]?.id || ''
+  form.espacio = ''
   form.nombre_evento = ''
   form.tipo_evento = 'Departamental'
   form.disciplina = 'Atletismo'
   form.categoria = 'Mayores'
   form.fecha_inicio = formatDateISO(defaultInicio)
   form.fecha_fin = formatDateISO(defaultFin)
+  form.hora_inicio = '08:00'
+  form.hora_fin = '22:00'
+  form.bloquea_escenario_completo = true
   form.nivel_prioridad = 'Alta (Reserva Garantizada)'
   form.presupuesto_estimado = 5000
   form.observaciones = ''
@@ -324,12 +332,16 @@ function openEditModal(evt) {
   editingEvento.value = evt
   form.asociacion_id = evt.asociacion_id
   form.escenario_id = evt.escenario_id || ''
+  form.espacio = evt.espacio || ''
   form.nombre_evento = evt.nombre_evento
   form.tipo_evento = evt.tipo_evento
   form.disciplina = evt.disciplina
   form.categoria = evt.categoria || 'Mayores'
   form.fecha_inicio = evt.fecha_inicio ? evt.fecha_inicio.split('T')[0] : ''
   form.fecha_fin = evt.fecha_fin ? evt.fecha_fin.split('T')[0] : ''
+  form.hora_inicio = evt.hora_inicio ? evt.hora_inicio.slice(0, 5) : '08:00'
+  form.hora_fin = evt.hora_fin ? evt.hora_fin.slice(0, 5) : '22:00'
+  form.bloquea_escenario_completo = evt.bloquea_escenario_completo !== undefined ? !!evt.bloquea_escenario_completo : true
   form.nivel_prioridad = evt.nivel_prioridad
   form.presupuesto_estimado = evt.presupuesto_estimado || 0
   form.observaciones = evt.observaciones || ''
@@ -1058,16 +1070,30 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="rounded-lg bg-slate-50 p-3">
-            <span class="block text-slate-500 font-semibold">Fechas Programadas</span>
-            <strong class="text-slate-800 text-sm">
-              {{ formatDisplayRange(selectedEventoDetail?.fecha_inicio, selectedEventoDetail?.fecha_fin) }}
-            </strong>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="rounded-lg bg-slate-50 p-3">
+              <span class="block text-slate-500 font-semibold">Fechas Programadas</span>
+              <strong class="text-slate-800 text-sm">
+                {{ formatDisplayRange(selectedEventoDetail?.fecha_inicio, selectedEventoDetail?.fecha_fin) }}
+              </strong>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3">
+              <span class="block text-slate-500 font-semibold">Horario Oficial de Ocupación</span>
+              <strong class="text-indigo-900 text-sm font-mono">
+                🕒 {{ selectedEventoDetail?.hora_inicio || '08:00' }} a {{ selectedEventoDetail?.hora_fin || '22:00' }}
+              </strong>
+            </div>
           </div>
 
-          <div class="rounded-lg bg-slate-50 p-3">
-            <span class="block text-slate-500 font-semibold">Escenario Deportivo Asignado</span>
-            <strong class="text-slate-800 text-sm">{{ selectedEventoDetail?.escenario?.nombre || 'A Confirmar' }}</strong>
+          <div class="rounded-lg bg-slate-50 p-3 flex items-center justify-between">
+            <div>
+              <span class="block text-slate-500 font-semibold">Escenario y Espacio Asignado</span>
+              <strong class="text-slate-800 text-sm">{{ selectedEventoDetail?.escenario?.nombre || 'A Confirmar' }}</strong>
+              <span v-if="selectedEventoDetail?.espacio" class="text-xs text-slate-500 block">Espacio: {{ selectedEventoDetail.espacio }}</span>
+            </div>
+            <span class="rounded bg-indigo-100 text-indigo-800 px-2 py-0.5 text-xs font-bold border border-indigo-200">
+              {{ selectedEventoDetail?.bloquea_escenario_completo ? '🔒 Bloqueo Total Escenario' : 'Espacio Específico' }}
+            </span>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
@@ -1294,6 +1320,30 @@ onMounted(async () => {
             <div>
               <label class="mb-1 block text-xs font-semibold text-slate-700">Fecha Fin *</label>
               <input v-model="form.fecha_fin" type="date" class="input-field text-sm" required :disabled="saving" />
+            </div>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2 bg-indigo-50/60 p-3 rounded-xl border border-indigo-200">
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-indigo-950">Hora Inicio (Bloqueo) *</label>
+              <input v-model="form.hora_inicio" type="time" class="input-field text-sm font-semibold" required :disabled="saving" />
+            </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-indigo-950">Hora Fin (Bloqueo) *</label>
+              <input v-model="form.hora_fin" type="time" class="input-field text-sm font-semibold" required :disabled="saving" />
+            </div>
+
+            <div class="col-span-2 pt-1">
+              <label class="mb-1 block text-xs font-semibold text-indigo-950">Espacio Programado</label>
+              <input v-model="form.espacio" type="text" placeholder="Ej. Cancha Principal / Pista (Vacío para todo el escenario)" class="input-field text-xs bg-white" :disabled="saving" />
+            </div>
+
+            <div class="col-span-2 flex items-center pt-1">
+              <label class="flex items-center gap-2 text-xs font-bold text-indigo-950 cursor-pointer">
+                <input type="checkbox" v-model="form.bloquea_escenario_completo" class="rounded text-brand-600" :disabled="saving" />
+                <span>Bloquear todo el escenario (Sin horarios disponibles en reservas de particulares/clubes)</span>
+              </label>
             </div>
           </div>
 
