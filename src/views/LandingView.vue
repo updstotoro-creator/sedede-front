@@ -11,6 +11,7 @@ import BuscadorDeportistasSection from '../components/landing/BuscadorDeportista
 import NewsSection from '../components/landing/NewsSection.vue'
 import ContactSection from '../components/landing/ContactSection.vue'
 import SiteFooter from '../components/landing/SiteFooter.vue'
+import EscenariosSection from '../components/landing/EscenariosSection.vue'
 </script>
 
 <template>
@@ -24,6 +25,7 @@ import SiteFooter from '../components/landing/SiteFooter.vue'
     <BuscadorDeportistasSection />
     <AboutSection />
     <FocusAreasSection />
+    <EscenariosSection />
     <NewsSection />
     <ContactSection />
     <SiteFooter />
