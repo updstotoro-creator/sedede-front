@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import logo from '../../assets/images/logo-sedede.png'
 import logoUpds from '../../assets/images/upds-logo.png'
-import logoProyecto from '../../assets/images/proyecto-upds-sucre.png'
 import { URL_UPDS_SUCRE } from '../../config/institucional'
 
 const open = ref(false)
@@ -30,12 +29,9 @@ const links = [
       </a>
 
       <!-- Logos UPDS: llevan a la página oficial de la UPDS Sucre -->
-      <div class="hidden xl:flex items-center gap-3 shrink-0 border-l border-slate-200 pl-4 ml-2">
+      <div class="hidden min-[1100px]:flex items-center shrink-0 border-l border-slate-200 pl-3 xl:pl-4 ml-1 xl:ml-2">
         <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
-          <img :src="logoUpds" alt="Universidad Privada Domingo Savio" class="h-9 w-auto" />
-        </a>
-        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Proyecto UPDS Sucre">
-          <img :src="logoProyecto" alt="Proyecto UPDS Sucre" class="h-8 w-auto" />
+          <img :src="logoUpds" alt="Universidad Privada Domingo Savio" class="h-10 w-auto" />
         </a>
       </div>
 
@@ -104,12 +100,9 @@ const links = [
         </a>
       </div>
 
-      <div class="flex items-center justify-center gap-4 pt-3 border-t border-slate-100 xl:hidden">
+      <div class="flex items-center justify-center gap-4 pt-3 border-t border-slate-100 min-[1100px]:hidden">
         <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer">
-          <img :src="logoUpds" alt="Universidad Privada Domingo Savio" class="h-9 w-auto" />
-        </a>
-        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer">
-          <img :src="logoProyecto" alt="Proyecto UPDS Sucre" class="h-8 w-auto" />
+          <img :src="logoUpds" alt="Universidad Privada Domingo Savio" class="h-10 w-auto" />
         </a>
       </div>
 
