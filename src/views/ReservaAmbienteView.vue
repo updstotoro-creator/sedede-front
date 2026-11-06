@@ -2,9 +2,20 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { escenarioService } from '../services/escenarioService'
+import { deportistaService } from '../services/deportistaService'
+import { useAuthStore } from '../stores/auth'
 import logo from '../assets/images/logo-sedede.png'
+import {
+  errorCI,
+  mensajeDeError,
+  formatoFecha,
+  hoyMasDiasISO,
+  normalizarTexto,
+  RESERVA_DIAS_MAX_ANTICIPACION,
+} from '../utils/validaciones'
 
 const router = useRouter()
+const auth = useAuthStore()
 
 // Pestaña principal: 'nueva' | 'consultar'
 const activeTab = ref('nueva')
@@ -51,6 +62,13 @@ const consultando = ref(false)
 const reservaEncontrada = ref(null)
 const errorConsulta = ref('')
 
+// Consulta sin código: por C.I. y celular
+const consultaCi = ref('')
+const consultaTelefono = ref('')
+const buscandoPorDatos = ref(false)
+const reservasPorDatos = ref(null)
+const errorPorDatos = ref('')
+
 // Catálogo de disciplinas populares
 const disciplinasList = [
   'Fútbol',
@@ -65,6 +83,22 @@ const disciplinasList = [
   'Gimnasia',
   'Deporte General',
 ]
+
+// Las disciplinas se limitan a las del escenario elegido: antes se podían
+// reservar los frontones para natación. Sin disciplinas declaradas, el listado general.
+const opcionesDisciplina = computed(() => {
+  const propias = espacioSeleccionadoObj.value?.disciplinas
+  return Array.isArray(propias) && propias.length > 0 ? propias : disciplinasList
+})
+
+watch(opcionesDisciplina, (opciones) => {
+  const vigente = opciones.some((d) => normalizarTexto(d) === normalizarTexto(form.value.disciplina))
+  if (!vigente && opciones.length > 0) form.value.disciplina = opciones[0]
+})
+
+// Ventana de reserva: desde hoy hasta N días (igual que el servidor).
+const fechaMinima = hoyMasDiasISO(0)
+const fechaMaxima = hoyMasDiasISO(RESERVA_DIAS_MAX_ANTICIPACION)
 
 // Lista de escenarios únicos
 const escenariosUnicos = computed(() => {
@@ -90,7 +124,24 @@ const espacioSeleccionadoObj = computed(() => {
 })
 
 // Cargar catálogo público al iniciar
+// Un deportista con sesión no vuelve a escribir sus datos (obs. 13).
+// Si falla (sin perfil, sin red) el formulario queda como siempre.
+async function precargarDatosDelDeportista() {
+  if (auth.user?.role?.nombre !== 'deportista') return
+  try {
+    const res = await deportistaService.getMiPerfil()
+    const dep = res.data || res.deportista
+    if (!dep) return
+    if (!form.value.solicitante_nombre) form.value.solicitante_nombre = `${dep.nombres || ''} ${dep.apellidos || ''}`.trim()
+    if (!form.value.solicitante_ci) form.value.solicitante_ci = [dep.ci, dep.expedido].filter(Boolean).join(' ')
+    if (!form.value.solicitante_telefono) form.value.solicitante_telefono = dep.telefono || ''
+  } catch {
+    // sin precarga
+  }
+}
+
 onMounted(async () => {
+  precargarDatosDelDeportista()
   try {
     loadingEscenarios.value = true
     const data = await escenarioService.getEscenariosPublicos()
@@ -219,8 +270,13 @@ const enviarReserva = async () => {
     errorMsg.value = 'Por favor ingrese su nombre completo o denominación de grupo.'
     return
   }
-  if (!form.value.solicitante_ci.trim()) {
-    errorMsg.value = 'Por favor ingrese su Cédula de Identidad (CI).'
+  const errCi = errorCI(form.value.solicitante_ci, 'C.I.')
+  if (errCi) {
+    errorMsg.value = errCi
+    return
+  }
+  if (fechaUso.value < fechaMinima || fechaUso.value > fechaMaxima) {
+    errorMsg.value = `La fecha de uso debe estar entre hoy y los próximos ${RESERVA_DIAS_MAX_ANTICIPACION} días.`
     return
   }
   if (!form.value.solicitante_telefono.trim()) {
@@ -256,8 +312,7 @@ const enviarReserva = async () => {
     successMsg.value = response.message || 'Solicitud de reserva ingresada exitosamente.'
   } catch (err) {
     console.error('Error al enviar reserva:', err)
-    const backendMsg = err.response?.data?.message || err.response?.data?.error
-    errorMsg.value = backendMsg || 'No se pudo procesar la reserva. Verifique que el horario no haya sido reservado por otra persona.'
+    errorMsg.value = mensajeDeError(err, 'No se pudo procesar la reserva. Verifique que el horario no haya sido reservado por otra persona.')
   } finally {
     sendingReserva.value = false
   }
@@ -278,6 +333,44 @@ const resetFormulario = () => {
   successMsg.value = ''
   errorMsg.value = ''
   consultarDisponibilidad()
+}
+
+// Consultar sin el código (obs. 15): con C.I. y celular
+const buscarPorDatos = async () => {
+  errorPorDatos.value = ''
+  reservasPorDatos.value = null
+
+  const errCi = errorCI(consultaCi.value, 'C.I.')
+  if (errCi) {
+    errorPorDatos.value = errCi
+    return
+  }
+  if (!consultaTelefono.value.trim()) {
+    errorPorDatos.value = 'Ingrese el celular con el que hizo la reserva.'
+    return
+  }
+
+  buscandoPorDatos.value = true
+  try {
+    const res = await escenarioService.consultarReservasPorSolicitante({
+      ci: consultaCi.value.trim(),
+      telefono: consultaTelefono.value.trim(),
+    })
+    reservasPorDatos.value = res.data || []
+    if (reservasPorDatos.value.length === 0) {
+      errorPorDatos.value = res.message || 'No se encontraron reservas con esos datos.'
+    }
+  } catch (err) {
+    errorPorDatos.value = mensajeDeError(err, 'No se pudo consultar. Intente nuevamente en unos minutos.')
+  } finally {
+    buscandoPorDatos.value = false
+  }
+}
+
+// Abrir una reserva de la lista como si se hubiera escrito su código
+const abrirReservaDeLista = (codigo) => {
+  codigoConsulta.value = codigo
+  buscarReservaExistente()
 }
 
 // Consultar reserva existente
@@ -445,7 +538,7 @@ const formatFecha = (d) => {
             <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
               <span class="text-slate-400 font-medium">Fecha y Horario:</span>
               <span class="font-bold text-emerald-300 text-right">
-                📅 {{ reservaCompletada.fecha_uso }} • {{ reservaCompletada.hora_inicio }} a {{ reservaCompletada.hora_fin }} ({{ reservaCompletada.duracion_horas }}h)
+                📅 {{ formatoFecha(reservaCompletada.fecha_uso) }} • {{ reservaCompletada.hora_inicio }} a {{ reservaCompletada.hora_fin }} ({{ reservaCompletada.duracion_horas }}h)
               </span>
             </div>
 
@@ -558,7 +651,8 @@ const formatFecha = (d) => {
                 <input
                   v-model="fechaUso"
                   type="date"
-                  :min="new Date().toISOString().split('T')[0]"
+                  :min="fechaMinima"
+                  :max="fechaMaxima"
                   class="w-full text-xs rounded-xl border-slate-700 bg-slate-900/90 p-3 font-medium text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                 />
               </div>
@@ -767,7 +861,7 @@ const formatFecha = (d) => {
                     v-model="form.disciplina"
                     class="w-full rounded-xl border-slate-700 bg-slate-900/90 p-3 font-medium text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                   >
-                    <option v-for="d in disciplinasList" :key="d" :value="d">{{ d }}</option>
+                    <option v-for="d in opcionesDisciplina" :key="d" :value="d">{{ d }}</option>
                   </select>
                 </div>
 
@@ -854,6 +948,58 @@ const formatFecha = (d) => {
           </div>
         </form>
 
+        <!-- ¿No recuerda el código? Búsqueda con C.I. y celular -->
+        <div class="mt-6 pt-5 border-t border-slate-800">
+          <p class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">¿No recuerda su código?</p>
+          <p class="text-[11px] text-slate-400 mb-3">
+            Búsquelo con su Cédula de Identidad y el celular que dejó al reservar. Se necesitan los dos datos.
+          </p>
+          <form @submit.prevent="buscarPorDatos" class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+            <input
+              v-model="consultaCi"
+              type="text"
+              placeholder="C.I. (ej. 4567891 CH)"
+              autocomplete="off"
+              class="rounded-xl border-slate-700 bg-slate-900/90 p-3 font-medium text-white text-sm focus:border-brand-500"
+              required
+            />
+            <input
+              v-model="consultaTelefono"
+              type="tel"
+              placeholder="Celular (ej. 71234567)"
+              autocomplete="off"
+              class="rounded-xl border-slate-700 bg-slate-900/90 p-3 font-medium text-white text-sm focus:border-brand-500"
+              required
+            />
+            <button
+              type="submit"
+              :disabled="buscandoPorDatos"
+              class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              <span v-if="buscandoPorDatos" class="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              <span>Buscar mis reservas</span>
+            </button>
+          </form>
+
+          <div v-if="errorPorDatos" class="mt-3 p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 text-xs">
+            {{ errorPorDatos }}
+          </div>
+
+          <ul v-if="reservasPorDatos && reservasPorDatos.length" class="mt-3 space-y-2">
+            <li v-for="r in reservasPorDatos" :key="r.codigo_reserva">
+              <button
+                type="button"
+                class="w-full text-left rounded-xl border border-slate-700 bg-slate-900/90 hover:border-emerald-500 p-3 text-xs transition-colors"
+                @click="abrirReservaDeLista(r.codigo_reserva)"
+              >
+                <span class="font-mono font-extrabold text-emerald-400">{{ r.codigo_reserva }}</span>
+                <span class="text-slate-300"> · {{ r.escenario_nombre }} ({{ r.espacio }}) · {{ formatoFecha(r.fecha_uso) }} · {{ r.hora_inicio }} a {{ r.hora_fin }}</span>
+                <span class="text-slate-400"> · {{ r.estado }}</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <div v-if="errorConsulta" class="mt-4 p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 text-xs">
           {{ errorConsulta }}
         </div>
@@ -888,7 +1034,7 @@ const formatFecha = (d) => {
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Fecha y Turno:</span>
-              <span>📅 {{ reservaEncontrada.fecha_uso }} • Turno {{ reservaEncontrada.turno }}</span>
+              <span>📅 {{ formatoFecha(reservaEncontrada.fecha_uso) }} • Turno {{ reservaEncontrada.turno }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Horario:</span>

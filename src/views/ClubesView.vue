@@ -3,6 +3,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { asociacionService } from '../services/asociacionService'
 import clubesService from '../services/clubesService'
+import PasswordRequisitos from '../components/common/PasswordRequisitos.vue'
+import { errorPassword } from '../utils/validaciones'
 
 const router = useRouter()
 const clubes = ref([])
@@ -192,8 +194,17 @@ function closeModal() {
 }
 
 async function submitForm() {
-  saving.value = true
   formError.value = ''
+
+  if (form.usuario_password.trim()) {
+    const errPassword = errorPassword(form.usuario_password.trim())
+    if (errPassword) {
+      formError.value = errPassword
+      return
+    }
+  }
+
+  saving.value = true
   try {
     // El backend toma la asociación de la ruta, sólo se envían los campos del club.
     const payload = {
@@ -508,6 +519,7 @@ onMounted(loadData)
               <div>
                 <label class="block font-semibold text-slate-700 mb-1 text-[11px]">{{ editingClub ? 'Nueva Contraseña (Opcional)' : 'Contraseña Inicial (Opcional)' }}</label>
                 <input v-model="form.usuario_password" type="text" placeholder="Dejar en blanco para mantener actual" class="input-field bg-white text-xs font-mono" :disabled="saving" />
+                <PasswordRequisitos v-if="form.usuario_password" :valor="form.usuario_password" />
               </div>
             </div>
           </div>

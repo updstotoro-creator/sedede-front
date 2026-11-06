@@ -2,6 +2,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { tramiteService } from '../../services/tramiteService'
 import { useAuthStore } from '../../stores/auth'
+import { siNo, formatoFecha, formatoFechaHora } from '../../utils/validaciones'
 
 const props = defineProps({
   tramite: {
@@ -98,6 +99,38 @@ const viewingEtapa = ref(props.tramite.etapa_actual || 2)
 
 // Datos persistidos en el trámite
 const datosEtapas = computed(() => props.tramite.datos_etapas || {})
+
+// El paso 17 es el último: al concluirlo el trámite no avanza de etapa, así
+// que "etapa actual" solo no distingue "en curso" de "cerrado". El estado sí.
+const tramiteConcluido = computed(() => /Concluido|Archivada/i.test(props.tramite.estado || ''))
+
+function estadoDeEtapa(numero) {
+  if (numero < props.tramite.etapa_actual) return '✓ Concluido'
+  if (numero === props.tramite.etapa_actual) {
+    if (!tramiteConcluido.value) return '⚡ En Proceso Actual'
+    return datosEtapas.value.etapa_17?.rendicion_pendiente ? '✓ Concluido · Rendición pendiente' : '✓ Concluido'
+  }
+  return 'Pendiente'
+}
+
+// Los datos de cada etapa se guardan crudos (true, fechas ISO): aquí se
+// muestran legibles para el deportista.
+function valorLegible(clave, valor) {
+  if (typeof valor === 'boolean' || valor === 'true' || valor === 'false') return siNo(valor)
+  if (typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(valor)) return formatoFechaHora(valor)
+  if (typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valor)) return formatoFecha(valor)
+  if (valor !== null && typeof valor === 'object') return JSON.stringify(valor)
+  return valor
+}
+
+const ETIQUETAS_CAMPO = {
+  completado_en: 'Completado el',
+  guardado_en: 'Guardado el',
+  rendicion_pendiente: 'Rendición de cuentas pendiente',
+}
+function etiquetaCampo(clave) {
+  return ETIQUETAS_CAMPO[clave] || String(clave).replace(/_/g, ' ')
+}
 
 // Formularios reactivos para cada etapa específica (Etapa 2 a 17)
 const forms = reactive({
@@ -786,12 +819,12 @@ function getResumenEtapa(num) {
         <span
           class="rounded-full px-3 py-1 text-xs font-bold"
           :class="{
-            'bg-emerald-100 text-emerald-800': viewingEtapa < tramite.etapa_actual,
-            'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold': viewingEtapa === tramite.etapa_actual,
+            'bg-emerald-100 text-emerald-800': viewingEtapa < tramite.etapa_actual || (viewingEtapa === tramite.etapa_actual && tramiteConcluido),
+            'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold': viewingEtapa === tramite.etapa_actual && !tramiteConcluido,
             'bg-slate-100 text-slate-500': viewingEtapa > tramite.etapa_actual
           }"
         >
-          {{ viewingEtapa < tramite.etapa_actual ? '✓ Concluido' : (viewingEtapa === tramite.etapa_actual ? '⚡ En Proceso Actual' : 'Pendiente') }}
+          {{ estadoDeEtapa(viewingEtapa) }}
         </span>
       </div>
 
@@ -799,7 +832,11 @@ function getResumenEtapa(num) {
         <div class="flex items-start gap-3">
           <span class="text-2xl">{{ ETAPAS_PROCEDIMIENTO.find(e => e.numero === viewingEtapa)?.icon }}</span>
           <div>
-            <p class="font-bold text-sm" v-if="viewingEtapa === tramite.etapa_actual">
+            <p class="font-bold text-sm" v-if="viewingEtapa === tramite.etapa_actual && tramiteConcluido">
+              Tu trámite concluyó y el expediente fue archivado.
+              <span v-if="datosEtapas.etapa_17?.rendicion_pendiente">Recuerda presentar el informe deportivo y la rendición de cuentas dentro de los 15 días posteriores al torneo.</span>
+            </p>
+            <p class="font-bold text-sm" v-else-if="viewingEtapa === tramite.etapa_actual">
               Tu solicitud está siendo procesada en esta etapa por el personal del SEDEDE.
             </p>
             <p class="font-bold text-sm" v-else-if="viewingEtapa < tramite.etapa_actual">
@@ -819,8 +856,8 @@ function getResumenEtapa(num) {
         <h5 class="text-xs font-bold uppercase tracking-wider text-slate-600">Registro Oficial Emitido:</h5>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
           <div v-for="(val, key) in datosEtapas['etapa_' + viewingEtapa]" :key="key" class="p-2 bg-white rounded border border-slate-200">
-            <span class="text-slate-400 block uppercase text-[10px] font-bold">{{ String(key).replace(/_/g, ' ') }}</span>
-            <span class="font-semibold text-slate-800">{{ typeof val === 'object' ? JSON.stringify(val) : val }}</span>
+            <span class="text-slate-400 block uppercase text-[10px] font-bold">{{ etiquetaCampo(key) }}</span>
+            <span class="font-semibold text-slate-800">{{ valorLegible(key, val) }}</span>
           </div>
         </div>
       </div>
@@ -846,7 +883,7 @@ function getResumenEtapa(num) {
         <div>
           <span class="text-slate-400 block font-medium">Evento Oficial Aprobado:</span>
           <strong class="text-slate-800 text-sm">{{ tramite.evento_nombre }}</strong>
-          <span class="block text-[11px] text-slate-500">Fecha: {{ tramite.fecha_evento }}</span>
+          <span class="block text-[11px] text-slate-500">Fecha: {{ formatoFecha(tramite.fecha_evento) }}</span>
         </div>
         <div>
           <span class="text-slate-400 block font-medium">Monto Solicitado:</span>

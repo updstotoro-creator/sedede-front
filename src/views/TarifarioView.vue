@@ -543,7 +543,7 @@
 
             <p class="text-emerald-700 font-medium text-[11px]">{{ res.escenario_nombre }} - {{ res.espacio }}</p>
             <p class="text-gray-500 text-[10px]">
-              📅 {{ res.fecha_uso }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • {{ res.disciplina }}
+              📅 {{ formatoFecha(res.fecha_uso) }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • {{ res.disciplina }}
             </p>
 
             <div v-if="res.liquidacion" class="flex justify-between items-center text-[10px] bg-slate-50 px-2 py-1 rounded border border-slate-100 font-mono">
@@ -866,7 +866,7 @@
                 <div class="text-[10px] text-emerald-700">{{ liq.espacio }}</div>
               </td>
               <td class="py-3 px-4">
-                <div>{{ liq.fecha_uso }}</div>
+                <div>{{ formatoFecha(liq.fecha_uso) }}</div>
                 <div class="text-[10px] text-gray-400">{{ liq.turno }} ({{ liq.duracion_horas }}h)</div>
               </td>
               <td class="py-3 px-4 text-right font-mono font-bold text-gray-900">
@@ -1568,7 +1568,7 @@
             </div>
             <div>
               <p class="text-gray-500">Fecha de Uso:</p>
-              <p class="font-bold text-gray-900">{{ selectedLiquidacion.fecha_uso }} ({{ selectedLiquidacion.turno }})</p>
+              <p class="font-bold text-gray-900">{{ formatoFecha(selectedLiquidacion.fecha_uso) }} ({{ selectedLiquidacion.turno }})</p>
             </div>
           </div>
 
@@ -1619,6 +1619,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { tarifarioService } from '../services/tarifarioService'
 import { escenarioService } from '../services/escenarioService'
+import { formatoFecha } from '../utils/validaciones'
 import { asociacionService } from '../services/asociacionService'
 
 const activeTab = ref('calendario')

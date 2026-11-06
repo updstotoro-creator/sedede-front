@@ -29,9 +29,18 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout() {
-      await authService.logout()
-      this.user = null
-      this.status = 'idle'
+      // La sesión local se limpia aunque el backend falle (token ya
+      // revocado, red caída): si no, el usuario quedaba a medias y hacía
+      // falta un segundo "Cerrar sesión".
+      try {
+        await authService.logout()
+      } catch {
+        // El token local ya se borró en authService; no hay nada más que hacer.
+      } finally {
+        this.user = null
+        this.status = 'idle'
+        this.errorMessage = ''
+      }
     },
 
     async actualizarAlertas(habilitadas) {

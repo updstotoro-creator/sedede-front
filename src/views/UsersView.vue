@@ -2,6 +2,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { userService } from '../services/userService'
 import { roleService } from '../services/roleService'
+import PasswordRequisitos from '../components/common/PasswordRequisitos.vue'
+import { errorPasswordConConfirmacion } from '../utils/validaciones'
 
 const users = ref([])
 const roles = ref([])
@@ -91,8 +93,18 @@ function closeModal() {
 }
 
 async function submitForm() {
-  saving.value = true
   formError.value = ''
+
+  // Al crear, la contraseña cumple la política antes de enviar (el servidor la vuelve a validar).
+  if (!editingUser.value) {
+    const errPassword = errorPasswordConConfirmacion(form.password, form.password_confirmation)
+    if (errPassword) {
+      formError.value = errPassword
+      return
+    }
+  }
+
+  saving.value = true
   try {
     if (editingUser.value) {
       const payload = {
@@ -266,7 +278,8 @@ onMounted(() => {
           <template v-if="!editingUser">
             <div>
               <label class="mb-1 block text-xs font-semibold text-slate-600">Contraseña</label>
-              <input v-model="form.password" type="password" class="input-field" required :disabled="saving" />
+              <input v-model="form.password" type="password" autocomplete="new-password" class="input-field" required :disabled="saving" />
+              <PasswordRequisitos :valor="form.password" />
             </div>
             <div>
               <label class="mb-1 block text-xs font-semibold text-slate-600">Confirmar contraseña</label>
