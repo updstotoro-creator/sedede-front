@@ -73,6 +73,15 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    /**
+     * ¿Tiene el usuario este permiso? Sólo sirve para no pedir en pantalla
+     * datos que el servidor va a negar con 403. El servidor sigue decidiendo.
+     */
+    can(permiso) {
+      const permisos = this.user?.role?.permisos
+      return Array.isArray(permisos) && permisos.includes(permiso)
+    },
+
     async actualizarAlertas(habilitadas) {
       const user = await authService.actualizarPreferenciaAlertas(habilitadas)
       this.user = { ...this.user, ...user }

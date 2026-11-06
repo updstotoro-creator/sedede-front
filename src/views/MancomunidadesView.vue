@@ -218,11 +218,12 @@ function showNotice(msg, type = 'success') {
 async function loadAll() {
   isLoading.value = true
   try {
+    // Cada catálogo se pide sólo si el rol puede verlo (si no, el servidor responde 403).
     const [mancomRes, solRes, recRes, munRes, escRes] = await Promise.allSettled([
       mancomunidadService.listMancomunidades(),
-      mancomunidadService.listSolicitudes(),
-      mancomunidadService.listRecursos(),
-      mancomunidadService.listMunicipios(),
+      auth.can('mancomunidades.solicitudes.ver') ? mancomunidadService.listSolicitudes() : Promise.resolve(null),
+      auth.can('mancomunidades.ver_recursos') ? mancomunidadService.listRecursos() : Promise.resolve(null),
+      auth.can('mancomunidades.ver_municipios') ? mancomunidadService.listMunicipios() : Promise.resolve(null),
       escenarioService.list ? escenarioService.list() : Promise.resolve([]),
     ])
 

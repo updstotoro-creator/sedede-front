@@ -1,7 +1,9 @@
 import api from './api'
+import { useAuthStore } from '../stores/auth'
 
 export const asociacionService = {
   async list(params = {}) {
+    if (!useAuthStore().can('asociaciones.ver')) return [];
     const { data } = await api.get('/asociaciones', { params: { per_page: 100, ...params } })
     return Array.isArray(data.data) ? data.data : (data.data?.data || [])
   },
@@ -33,6 +35,7 @@ export const asociacionService = {
 
   // Clubes
   async listClubes(asociacionId) {
+    if (!useAuthStore().can('asociaciones.ver_miembros')) return [];
     const { data } = await api.get(`/asociaciones/${asociacionId}/clubes`, { params: { per_page: 100 } })
     return Array.isArray(data.data) ? data.data : (data.data?.data || [])
   },
