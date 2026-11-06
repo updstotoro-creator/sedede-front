@@ -1,5 +1,8 @@
 <script setup>
 import logo from '../../assets/images/logo-sedede.png'
+import logoUpdsBlanco from '../../assets/images/upds-logo-blanco.png'
+import logoProyectoBlanco from '../../assets/images/proyecto-upds-sucre-blanco.png'
+import { URL_UPDS_SUCRE, AUTORES } from '../../config/institucional'
 </script>
 
 <template>
@@ -23,7 +26,23 @@ import logo from '../../assets/images/logo-sedede.png'
           <p><router-link to="/login" class="hover:text-white">Acceder al sistema</router-link></p>
         </div>
       </div>
-      <p class="mt-12 text-xs text-brand-200">
+
+      <!-- Logos UPDS: llevan a la página oficial de la UPDS Sucre -->
+      <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4 border-t border-white/15 pt-6">
+        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
+          <img :src="logoUpdsBlanco" alt="Universidad Privada Domingo Savio" class="h-12 w-auto" />
+        </a>
+        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Proyecto UPDS Sucre">
+          <img :src="logoProyectoBlanco" alt="Proyecto UPDS Sucre" class="h-10 w-auto" />
+        </a>
+        <p class="text-xs text-brand-100 sm:ml-auto sm:text-right">
+          Desarrollado por
+          <span v-if="AUTORES.length" class="font-semibold text-white">{{ AUTORES.join(' · ') }}</span>
+          <span v-else class="font-semibold text-white">el Proyecto UPDS Sucre</span>
+        </p>
+      </div>
+
+      <p class="mt-8 text-xs text-brand-200">
         © {{ new Date().getFullYear() }} SEDEDE Chuquisaca. Todos los derechos reservados.
       </p>
     </div>
