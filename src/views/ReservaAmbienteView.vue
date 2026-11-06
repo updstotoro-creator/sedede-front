@@ -84,18 +84,6 @@ const disciplinasList = [
   'Deporte General',
 ]
 
-// Las disciplinas se limitan a las del escenario elegido: antes se podían
-// reservar los frontones para natación. Sin disciplinas declaradas, el listado general.
-const opcionesDisciplina = computed(() => {
-  const propias = espacioSeleccionadoObj.value?.disciplinas
-  return Array.isArray(propias) && propias.length > 0 ? propias : disciplinasList
-})
-
-watch(opcionesDisciplina, (opciones) => {
-  const vigente = opciones.some((d) => normalizarTexto(d) === normalizarTexto(form.value.disciplina))
-  if (!vigente && opciones.length > 0) form.value.disciplina = opciones[0]
-})
-
 // Ventana de reserva: desde hoy hasta N días (igual que el servidor).
 const fechaMinima = hoyMasDiasISO(0)
 const fechaMaxima = hoyMasDiasISO(RESERVA_DIAS_MAX_ANTICIPACION)
@@ -121,6 +109,18 @@ const espacioSeleccionadoObj = computed(() => {
   return escenarios.value.find(
     (e) => e.nombre === selectedEscenarioNombre.value && e.espacio === selectedEspacio.value
   )
+})
+
+// Las disciplinas se limitan a las del escenario elegido: antes se podían
+// reservar los frontones para natación. Sin disciplinas declaradas, el listado general.
+const opcionesDisciplina = computed(() => {
+  const propias = espacioSeleccionadoObj.value?.disciplinas
+  return Array.isArray(propias) && propias.length > 0 ? propias : disciplinasList
+})
+
+watch(opcionesDisciplina, (opciones) => {
+  const vigente = opciones.some((d) => normalizarTexto(d) === normalizarTexto(form.value.disciplina))
+  if (!vigente && opciones.length > 0) form.value.disciplina = opciones[0]
 })
 
 // Cargar catálogo público al iniciar
