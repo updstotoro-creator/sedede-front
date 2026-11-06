@@ -6,6 +6,7 @@ import AppSidebar from '../components/dashboard/AppSidebar.vue'
 import { dashboardService } from '../services/dashboardService'
 import { deportistaService } from '../services/deportistaService'
 import { asociacionService } from '../services/asociacionService'
+import { mensajeDeError } from '../utils/validaciones'
 
 const route = useRoute()
 const router = useRouter()
@@ -104,7 +105,7 @@ async function guardarNuevoLogro() {
     showModalNuevoLogro.value = false
     await fetchDeportistaData()
   } catch (err) {
-    nuevoLogroError.value = err.response?.data?.message || err.response?.data?.error || 'Error al registrar el logro'
+    nuevoLogroError.value = mensajeDeError(err, 'Error al registrar el logro')
   } finally {
     guardandoLogro.value = false
   }
