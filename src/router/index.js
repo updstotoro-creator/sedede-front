@@ -64,6 +64,12 @@ const routes = [
         path: 'asociaciones',
         name: 'dashboard-asociaciones',
         component: () => import('../views/AsociacionesView.vue'),
+        meta: { roles: ['admin', 'sedede', 'personal_sedede'] },
+      },
+      {
+        path: 'aprobacion-deportistas',
+        name: 'dashboard-aprobacion-deportistas',
+        component: () => import('../views/AprobacionDeportistasView.vue'),
         meta: { roles: ['admin', 'sedede', 'personal_sedede', 'coordinador_asociacion', 'asociacion'] },
       },
       {
@@ -236,7 +242,7 @@ function getHomeRouteForRole(role) {
       return 'dashboard-escenarios'
     case 'asociacion':
     case 'coordinador_asociacion':
-      return 'dashboard-asociaciones'
+      return 'dashboard-aprobacion-deportistas'
     case 'club':
       return 'dashboard-mi-club'
     case 'entrenador':

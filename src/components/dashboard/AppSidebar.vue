@@ -141,7 +141,7 @@ const groups = computed(() => {
       {
         id: 'asociaciones-calendario',
         links: [
-          { to: '/dashboard/asociaciones', label: 'Padrón de Asociación' },
+          { to: '/dashboard/aprobacion-deportistas', label: 'Aprobación de Deportistas' },
           { to: '/dashboard/clubes', label: 'Clubes Afiliados' },
           { to: '/dashboard/calendario-anual', label: 'Calendario Anual' },
         ]
@@ -219,6 +219,7 @@ const groups = computed(() => {
         id: 'deportistas-tramites',
         links: [
           { to: '/dashboard/deportistas', label: 'Deportistas' },
+          { to: '/dashboard/aprobacion-deportistas', label: 'Aprobación de Atletas' },
           { to: '/dashboard/tramites', label: 'Trámites' },
         ]
       },
@@ -293,6 +294,7 @@ const groups = computed(() => {
       id: 'deportistas-tramites',
       links: [
         { to: '/dashboard/deportistas', label: 'Deportistas' },
+        { to: '/dashboard/aprobacion-deportistas', label: 'Aprobación de Atletas' },
         { to: '/dashboard/tramites', label: 'Trámites' },
       ]
     },

@@ -10,7 +10,13 @@ import { hoyISO, soloFecha } from '../utils/validaciones'
 const auth = useAuthStore()
 const isDeportista = computed(() => auth.user?.role?.nombre === 'deportista')
 const isSededeOrAdmin = computed(() => ['admin', 'sedede'].includes(auth.user?.role?.nombre))
-const isAsociacion = computed(() => auth.user?.role?.nombre === 'asociacion')
+const isAsociacion = computed(() => ['asociacion', 'coordinador_asociacion'].includes(auth.user?.role?.nombre))
+const miAsociacionId = computed(() => auth.user?.asociacion_id ? Number(auth.user.asociacion_id) : null)
+const miAsociacionNombre = computed(() => {
+  if (!miAsociacionId.value) return ''
+  const asoc = asociaciones.value.find((a) => a.id === miAsociacionId.value)
+  return asoc ? asoc.nombre : (auth.user?.name || '')
+})
 const deportistaPerfil = ref(null)
 
 const eventos = ref([])
@@ -274,12 +280,18 @@ function resetForm(initialDateStr = null) {
   const defaultFin = new Date(defaultInicio)
   defaultFin.setDate(defaultFin.getDate() + 2)
 
-  form.asociacion_id = asociaciones.value[0]?.id || ''
+  const asocObj = isAsociacion.value && miAsociacionId.value 
+    ? asociaciones.value.find(a => a.id === miAsociacionId.value) 
+    : asociaciones.value[0]
+
+  form.asociacion_id = asocObj?.id || asociaciones.value[0]?.id || ''
   form.escenario_id = escenarios.value[0]?.id || ''
   form.espacio = ''
   form.nombre_evento = ''
   form.tipo_evento = 'Departamental'
-  form.disciplina = 'Atletismo'
+  form.disciplina = Array.isArray(asocObj?.disciplinas) && asocObj.disciplinas.length > 0 
+    ? asocObj.disciplinas[0] 
+    : (asocObj?.nombre ? asocObj.nombre.replace(/^Asociación Departamental de\s+/i, '') : 'Atletismo')
   form.categoria = 'Mayores'
   form.fecha_inicio = formatDateISO(defaultInicio)
   form.fecha_fin = formatDateISO(defaultFin)
@@ -323,9 +335,26 @@ async function loadAuxData() {
     ])
     asociaciones.value = resAsoc.items || resAsoc
     escenarios.value = resEsc.items || resEsc
+
+    // Si es usuario de asociación, fijar y acotar inmediatamente el filtro a su institución
+    if (isAsociacion.value && miAsociacionId.value) {
+      filterAsociacion.value = String(miAsociacionId.value)
+    }
   } catch (e) {
     console.error('Error al cargar datos auxiliares:', e)
   }
+}
+
+function canEditEvento(evt) {
+  if (!evt) return false
+  if (isSededeOrAdmin.value) return true
+  if (isDeportista.value) return false
+  if (isAsociacion.value) {
+    const esMiAsoc = !miAsociacionId.value || Number(evt.asociacion_id) === miAsociacionId.value
+    const noOficial = evt.estado_evento !== 'Oficializado' && evt.estado_evento !== 'Programado'
+    return esMiAsoc && noOficial
+  }
+  return false
 }
 
 function openCreateModal(dateStr = null) {
@@ -336,7 +365,7 @@ function openCreateModal(dateStr = null) {
 }
 
 function openEditModal(evt) {
-  if (isDeportista.value) return
+  if (isDeportista.value || !canEditEvento(evt)) return
   showDetailModal.value = false
   editingEvento.value = evt
   form.asociacion_id = evt.asociacion_id
@@ -496,7 +525,7 @@ async function saveObservacion() {
 }
 
 async function deleteEvento(evt) {
-  if (isDeportista.value) return
+  if (isDeportista.value || !canEditEvento(evt)) return
   if (!confirm(`¿Está seguro de eliminar el evento "${evt.nombre_evento}"?`)) return
   try {
     await calendarioAnualService.delete(evt.id)
@@ -599,6 +628,25 @@ onMounted(async () => {
       </span>
     </div>
 
+    <!-- Banner Informativo para la Asociación -->
+    <div v-if="isAsociacion" class="rounded-xl border border-brand-200 bg-brand-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🏆</span>
+        <div>
+          <p class="font-bold text-brand-900 text-sm">
+            Gestión de Calendario — {{ miAsociacionNombre || 'Tu Asociación' }}
+          </p>
+          <p class="text-[11px] text-slate-600 mt-0.5">
+            Puedes postular y ajustar fechas para tus campeonatos anuales. 
+            <strong>Nota:</strong> Los eventos con estado <em>Oficializado</em> ya cuentan con reserva aprobada por el SEDEDE y no pueden modificarse directamente.
+          </p>
+        </div>
+      </div>
+      <span class="rounded-lg bg-white px-3 py-1.5 font-bold text-brand-800 text-xs border border-brand-200 shadow-sm self-start sm:self-auto shrink-0">
+        {{ miAsociacionNombre || 'Asociación' }}
+      </span>
+    </div>
+
     <!-- Banner de Guía para SEDEDE -->
     <div v-if="isSededeOrAdmin" class="rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs text-blue-900 flex items-center gap-3">
       <span class="text-2xl">🏛️</span>
@@ -679,10 +727,10 @@ onMounted(async () => {
         <select
           v-model="filterAsociacion"
           class="input-field text-xs font-semibold bg-white"
-          :disabled="isDeportista"
+          :disabled="isDeportista || isAsociacion"
           @change="fetchEventos"
         >
-          <option value="" v-if="!isDeportista">Todas las Asociaciones</option>
+          <option value="" v-if="!isDeportista && !isAsociacion">Todas las Asociaciones</option>
           <option v-for="a in asociaciones" :key="a.id" :value="a.id">
             {{ a.nombre }} ({{ a.sigla || 'ASOC' }})
           </option>
@@ -1001,8 +1049,11 @@ onMounted(async () => {
               <button class="text-xs font-semibold text-brand-600 hover:underline" @click="openDetailModal(evt)">Detalles</button>
               <button v-if="isSededeOrAdmin && evt.estado_evento !== 'Oficializado'" class="text-xs font-bold text-emerald-700 hover:underline" @click="handleOficializar(evt)">Oficializar</button>
               <button v-if="isSededeOrAdmin" class="text-xs font-bold text-amber-700 hover:underline" @click="openReacomodoModal(evt)">Reacomodar</button>
-              <button v-if="!isDeportista" class="text-xs font-semibold text-slate-600 hover:underline" @click="openEditModal(evt)">Editar</button>
-              <button v-if="!isDeportista" class="text-xs font-semibold text-red-600 hover:underline" @click="deleteEvento(evt)">Eliminar</button>
+              <button v-if="canEditEvento(evt)" class="text-xs font-semibold text-slate-600 hover:underline" @click="openEditModal(evt)">Editar</button>
+              <button v-if="canEditEvento(evt)" class="text-xs font-semibold text-red-600 hover:underline" @click="deleteEvento(evt)">Eliminar</button>
+              <span v-else-if="isAsociacion && !canEditEvento(evt)" class="text-[11px] font-semibold text-slate-400 flex items-center gap-1" title="Oficializado por SEDEDE. Edición bloqueada.">
+                🔒 Oficializado
+              </span>
             </div>
           </div>
         </div>
@@ -1160,9 +1211,12 @@ onMounted(async () => {
           </div>
 
           <div v-else-if="!isDeportista" class="flex items-center gap-2">
-            <button class="btn-primary text-xs bg-slate-800 hover:bg-slate-900" @click="openEditModal(selectedEventoDetail)">
+            <button v-if="canEditEvento(selectedEventoDetail)" class="btn-primary text-xs bg-slate-800 hover:bg-slate-900" @click="openEditModal(selectedEventoDetail)">
               Editar Solicitud
             </button>
+            <span v-else-if="isAsociacion" class="rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5">
+              <span>🔒</span> Oficializado por SEDEDE (Edición bloqueada)
+            </span>
           </div>
         </div>
       </div>
@@ -1279,7 +1333,7 @@ onMounted(async () => {
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <label class="mb-1 block text-xs font-semibold text-slate-700">Asociación *</label>
-              <select v-model="form.asociacion_id" class="input-field text-sm" required :disabled="saving">
+              <select v-model="form.asociacion_id" class="input-field text-sm" required :disabled="saving || isAsociacion">
                 <option value="" disabled>Seleccione Asociación...</option>
                 <option v-for="a in asociaciones" :key="a.id" :value="a.id">{{ a.nombre }}</option>
               </select>
