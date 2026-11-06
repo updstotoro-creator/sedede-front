@@ -1,11 +1,18 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { registroService } from '../services/registroService'
+import PasswordRequisitos from '../components/common/PasswordRequisitos.vue'
+import {
+  errorPasswordConConfirmacion,
+  asociacionAdmiteDisciplina,
+  errorCI,
+  errorNombrePersona,
+  mensajeDeError,
+} from '../utils/validaciones'
 import logo from '../assets/images/logo-sedede.png'
 
 const route = useRoute()
-const router = useRouter()
 
 // Pestaña activa: 'comunidad' | 'deportista' | 'asociacion' | 'club'
 const currentTab = ref('comunidad')
@@ -121,6 +128,24 @@ const disciplinasDisponibles = [
 // Expedidos CI
 const expedidosCI = ['CH', 'LP', 'CB', 'SC', 'OR', 'PT', 'TJ', 'BE', 'PD']
 
+// Sólo las asociaciones que atienden la disciplina elegida (obs. 1b: se podía
+// registrar Tenis dentro de la Asociación de Voleibol).
+const asociacionesDeLaDisciplina = computed(() =>
+  catalogos.asociaciones.filter((a) => asociacionAdmiteDisciplina(a, formDeportista.disciplina))
+)
+
+// Si cambia la disciplina y la asociación elegida ya no corresponde, se quita.
+watch(
+  () => formDeportista.disciplina,
+  () => {
+    const actual = catalogos.asociaciones.find((a) => String(a.id) === String(formDeportista.asociacion_id))
+    if (actual && !asociacionAdmiteDisciplina(actual, formDeportista.disciplina)) {
+      formDeportista.asociacion_id = ''
+      formDeportista.club_id = ''
+    }
+  }
+)
+
 // Filtrar clubes por la asociación seleccionada en el formulario de deportista
 const clubesFiltrados = computed(() => {
   if (!formDeportista.asociacion_id) return catalogos.clubes
@@ -235,8 +260,9 @@ function setTab(tab) {
 
 // Enviar Registro de Comunidad
 async function submitComunidad() {
-  if (formComunidad.password !== formComunidad.password_confirm) {
-    submitError.value = 'Las contraseñas ingresadas no coinciden.'
+  const errPassword = errorPasswordConConfirmacion(formComunidad.password, formComunidad.password_confirm)
+  if (errPassword) {
+    submitError.value = errPassword
     return
   }
   isSubmitting.value = true
@@ -262,7 +288,7 @@ async function submitComunidad() {
       email: formComunidad.correo,
     }
   } catch (err) {
-    submitError.value = err.response?.data?.message || err.response?.data?.error || 'Error al procesar el registro comunal.'
+    submitError.value = mensajeDeError(err, 'Error al procesar el registro comunal.')
   } finally {
     isSubmitting.value = false
   }
@@ -270,10 +296,26 @@ async function submitComunidad() {
 
 // Enviar Registro de Deportista
 async function submitDeportista() {
-  if (formDeportista.password !== formDeportista.password_confirm) {
-    submitError.value = 'Las contraseñas ingresadas no coinciden.'
+  const errPassword = errorPasswordConConfirmacion(formDeportista.password, formDeportista.password_confirm)
+  if (errPassword) {
+    submitError.value = errPassword
     return
   }
+
+  // C.I. del deportista y, si es menor, nombre y C.I. del tutor: no son texto libre.
+  const errCi = errorCI(formDeportista.ci)
+  if (errCi) {
+    submitError.value = errCi
+    return
+  }
+  if (esMenorCalculado.value) {
+    const errTutor = errorNombrePersona(formDeportista.tutor_nombre, 'nombre del tutor') || errorCI(formDeportista.tutor_ci, 'C.I. del tutor')
+    if (errTutor) {
+      submitError.value = errTutor
+      return
+    }
+  }
+
   isSubmitting.value = true
   submitError.value = null
   try {
@@ -306,7 +348,7 @@ async function submitDeportista() {
       email: formDeportista.email,
     }
   } catch (err) {
-    submitError.value = err.response?.data?.message || err.response?.data?.error || 'Error al procesar el registro de deportista.'
+    submitError.value = mensajeDeError(err, 'Error al procesar el registro de deportista.')
   } finally {
     isSubmitting.value = false
   }
@@ -314,8 +356,9 @@ async function submitDeportista() {
 
 // Enviar Registro de Asociación
 async function submitAsociacion() {
-  if (formAsociacion.password !== formAsociacion.password_confirm) {
-    submitError.value = 'Las contraseñas ingresadas no coinciden.'
+  const errPassword = errorPasswordConConfirmacion(formAsociacion.password, formAsociacion.password_confirm)
+  if (errPassword) {
+    submitError.value = errPassword
     return
   }
   isSubmitting.value = true
@@ -343,7 +386,7 @@ async function submitAsociacion() {
       email: formAsociacion.correo,
     }
   } catch (err) {
-    submitError.value = err.response?.data?.message || err.response?.data?.error || 'Error al registrar la asociación.'
+    submitError.value = mensajeDeError(err, 'Error al registrar la asociación.')
   } finally {
     isSubmitting.value = false
   }
@@ -351,8 +394,9 @@ async function submitAsociacion() {
 
 // Enviar Registro de Club
 async function submitClub() {
-  if (formClub.password !== formClub.password_confirm) {
-    submitError.value = 'Las contraseñas ingresadas no coinciden.'
+  const errPassword = errorPasswordConConfirmacion(formClub.password, formClub.password_confirm)
+  if (errPassword) {
+    submitError.value = errPassword
     return
   }
   isSubmitting.value = true
@@ -377,7 +421,7 @@ async function submitClub() {
       email: formClub.email,
     }
   } catch (err) {
-    submitError.value = err.response?.data?.message || err.response?.data?.error || 'Error al registrar el club deportivo.'
+    submitError.value = mensajeDeError(err, 'Error al registrar el club deportivo.')
   } finally {
     isSubmitting.value = false
   }
@@ -632,10 +676,11 @@ async function submitClub() {
                     v-model="formComunidad.password"
                     required
                     type="password"
-                    minlength="6"
-                    placeholder="Mínimo 6 caracteres"
+                    minlength="8"
+                    placeholder="Mín. 8: mayúscula, número y símbolo" autocomplete="new-password"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
                   />
+                  <PasswordRequisitos :valor="formComunidad.password" oscuro />
                 </div>
 
                 <div>
@@ -644,7 +689,7 @@ async function submitClub() {
                     v-model="formComunidad.password_confirm"
                     required
                     type="password"
-                    minlength="6"
+                    minlength="8"
                     placeholder="Repita la contraseña"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
                   />
@@ -799,7 +844,7 @@ async function submitClub() {
                   class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 focus:border-cyan-500 focus:outline-none"
                 >
                   <option value="">(Sin asociación directa)</option>
-                  <option v-for="a in catalogos.asociaciones" :key="a.id" :value="a.id">
+                  <option v-for="a in asociacionesDeLaDisciplina" :key="a.id" :value="a.id">
                     {{ a.nombre }} ({{ a.sigla }})
                   </option>
                 </select>
@@ -913,10 +958,11 @@ async function submitClub() {
                   v-model="formDeportista.password"
                   required
                   type="password"
-                  minlength="6"
-                  placeholder="Mínimo 6 caracteres"
+                  minlength="8"
+                  placeholder="Mín. 8: mayúscula, número y símbolo" autocomplete="new-password"
                   class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
                 />
+                <PasswordRequisitos :valor="formDeportista.password" oscuro />
               </div>
 
               <div>
@@ -925,7 +971,7 @@ async function submitClub() {
                   v-model="formDeportista.password_confirm"
                   required
                   type="password"
-                  minlength="6"
+                  minlength="8"
                   placeholder="Repita la contraseña"
                   class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
                 />
@@ -1080,10 +1126,11 @@ async function submitClub() {
                     v-model="formAsociacion.password"
                     required
                     type="password"
-                    minlength="6"
-                    placeholder="Mínimo 6 caracteres"
+                    minlength="8"
+                    placeholder="Mín. 8: mayúscula, número y símbolo" autocomplete="new-password"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100"
                   />
+                  <PasswordRequisitos :valor="formAsociacion.password" oscuro />
                 </div>
 
                 <div>
@@ -1092,7 +1139,7 @@ async function submitClub() {
                     v-model="formAsociacion.password_confirm"
                     required
                     type="password"
-                    minlength="6"
+                    minlength="8"
                     placeholder="Repita la contraseña"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100"
                   />
@@ -1237,10 +1284,11 @@ async function submitClub() {
                     v-model="formClub.password"
                     required
                     type="password"
-                    minlength="6"
-                    placeholder="Mínimo 6 caracteres"
+                    minlength="8"
+                    placeholder="Mín. 8: mayúscula, número y símbolo" autocomplete="new-password"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100"
                   />
+                  <PasswordRequisitos :valor="formClub.password" oscuro />
                 </div>
 
                 <div>
@@ -1249,7 +1297,7 @@ async function submitClub() {
                     v-model="formClub.password_confirm"
                     required
                     type="password"
-                    minlength="6"
+                    minlength="8"
                     placeholder="Repita la contraseña"
                     class="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100"
                   />

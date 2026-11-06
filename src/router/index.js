@@ -246,8 +246,11 @@ function getHomeRouteForRole(role) {
   }
 }
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  // Si hay token pero aún no hay usuario en memoria (recarga de la página), se restaura.
+  await auth.restaurarSesion()
+
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
   const guestOnly = to.matched.some((record) => record.meta.guestOnly)
 

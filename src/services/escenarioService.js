@@ -101,4 +101,10 @@ export const escenarioService = {
     const response = await api.get(`/escenarios/publico/reservas/${encodeURIComponent(codigo)}`)
     return response.data
   },
+
+  // Quien perdió el comprobante: se identifica con C.I. y celular (los dos).
+  async consultarReservasPorSolicitante({ ci, telefono }) {
+    const response = await api.get('/escenarios/publico/reservas', { params: { ci, telefono } })
+    return response.data
+  },
 }

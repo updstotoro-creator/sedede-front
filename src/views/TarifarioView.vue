@@ -543,7 +543,7 @@
 
             <p class="text-emerald-700 font-medium text-[11px]">{{ res.escenario_nombre }} - {{ res.espacio }}</p>
             <p class="text-gray-500 text-[10px]">
-              📅 {{ res.fecha_uso }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • {{ res.disciplina }}
+              📅 {{ formatoFecha(res.fecha_uso) }} ({{ res.hora_inicio }} - {{ res.hora_fin }}) • {{ res.disciplina }}
             </p>
 
             <div v-if="res.liquidacion" class="flex justify-between items-center text-[10px] bg-slate-50 px-2 py-1 rounded border border-slate-100 font-mono">
@@ -866,7 +866,7 @@
                 <div class="text-[10px] text-emerald-700">{{ liq.espacio }}</div>
               </td>
               <td class="py-3 px-4">
-                <div>{{ liq.fecha_uso }}</div>
+                <div>{{ formatoFecha(liq.fecha_uso) }}</div>
                 <div class="text-[10px] text-gray-400">{{ liq.turno }} ({{ liq.duracion_horas }}h)</div>
               </td>
               <td class="py-3 px-4 text-right font-mono font-bold text-gray-900">
@@ -1568,7 +1568,7 @@
             </div>
             <div>
               <p class="text-gray-500">Fecha de Uso:</p>
-              <p class="font-bold text-gray-900">{{ selectedLiquidacion.fecha_uso }} ({{ selectedLiquidacion.turno }})</p>
+              <p class="font-bold text-gray-900">{{ formatoFecha(selectedLiquidacion.fecha_uso) }} ({{ selectedLiquidacion.turno }})</p>
             </div>
           </div>
 
@@ -1619,6 +1619,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { tarifarioService } from '../services/tarifarioService'
 import { escenarioService } from '../services/escenarioService'
+import { formatoFecha } from '../utils/validaciones'
 import { asociacionService } from '../services/asociacionService'
 
 const activeTab = ref('calendario')
@@ -1769,7 +1770,6 @@ const franjasDiaSeleccionado = ref([])
 const loadingFranjasDia = ref(false)
 
 const asociacionesLista = ref([])
-const solicitanteTipoSeleccion = ref('ASOCIACION')
 const asociacionSeleccionadaModal = ref('')
 const franjasOcupacionModal = ref([])
 const loadingDisponibilidadModal = ref(false)
@@ -2069,9 +2069,6 @@ function reservarFranjaEspecifica(franja) {
   showModalNuevaReserva.value = true
 }
 
-function onDayClick(dayObj) {
-  seleccionarDiaCalendario(dayObj)
-}
 
 const cotizadorForm = ref({
   escenario_nombre: 'Estadio Patria',
@@ -2346,21 +2343,7 @@ const esModalidadPorcentaje = computed(() => {
   return cotizadorForm.value.concepto.includes('Taquilla') || cotizadorForm.value.concepto.includes('Entrada')
 })
 
-const escenariosFiltrados = computed(() => {
-  if (!filtroDisciplina.value) return escenarios.value
-  return escenarios.value.filter(e => {
-    let listDisc = e.disciplinas || []
-    if (typeof listDisc === 'string') {
-      try { listDisc = JSON.parse(listDisc) } catch { listDisc = [listDisc] }
-    }
-    if (listDisc.length === 0) return true
-    return listDisc.includes(filtroDisciplina.value)
-  })
-})
 
-function getReservasEscenario(nombreEscenario) {
-  return reservas.value.filter(r => r.escenario_nombre === nombreEscenario)
-}
 
 async function fetchOcupacion() {
   try {
@@ -2457,17 +2440,6 @@ async function calcular() {
   }
 }
 
-function abrirModalNuevaReserva(esc = null) {
-  if (esc) {
-    reservaForm.value.escenario_id = esc.id
-    reservaForm.value.escenario_nombre = esc.nombre
-    reservaForm.value.espacio = esc.espacio
-    if (esc.disciplinas && esc.disciplinas.length > 0) {
-      reservaForm.value.disciplina = esc.disciplinas[0]
-    }
-  }
-  showModalNuevaReserva.value = true
-}
 
 async function confirmarNuevaReserva() {
   if (reservaForm.value.tipo_solicitante === 'Particular') {

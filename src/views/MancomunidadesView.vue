@@ -3,8 +3,20 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { mancomunidadService } from '../services/mancomunidadService'
 import { escenarioService } from '../services/escenarioService'
+import { formatoFecha, errorPassword } from '../utils/validaciones'
+import PasswordRequisitos from '../components/common/PasswordRequisitos.vue'
 
 const auth = useAuthStore()
+
+// Contraseña inicial aleatoria para cada cuenta nueva. Antes era un literal
+// fijo en el código: cualquiera con acceso al repositorio conocía la clave
+// de todas las cuentas de comunidad que no la hubieran cambiado.
+function generarPasswordInicial(longitud = 16) {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*-_'
+  const aleatorios = new Uint32Array(longitud)
+  crypto.getRandomValues(aleatorios)
+  return Array.from(aleatorios, (n) => alfabeto[n % alfabeto.length]).join('')
+}
 
 // Detección de roles
 const isSedede = computed(() => ['admin', 'sedede'].includes(auth.user?.role?.nombre))
@@ -57,7 +69,7 @@ const usuarioForm = reactive({
   usuario_id_seleccionado: '',
   name: '',
   email: '',
-  password: 'Comunidad2026*',
+  password: generarPasswordInicial(),
 })
 
 const showExpedienteModal = ref(false)
@@ -183,7 +195,7 @@ const mancomunidadForm = reactive({
   usuario_id_seleccionado: '',
   usuario_nombre: '',
   usuario_email: '',
-  usuario_password: 'Comunidad2026*',
+  usuario_password: generarPasswordInicial(),
 })
 
 // Tipos fijos de documentos legales
@@ -206,11 +218,12 @@ function showNotice(msg, type = 'success') {
 async function loadAll() {
   isLoading.value = true
   try {
+    // Cada catálogo se pide sólo si el rol puede verlo (si no, el servidor responde 403).
     const [mancomRes, solRes, recRes, munRes, escRes] = await Promise.allSettled([
       mancomunidadService.listMancomunidades(),
-      mancomunidadService.listSolicitudes(),
-      mancomunidadService.listRecursos(),
-      mancomunidadService.listMunicipios(),
+      auth.can('mancomunidades.solicitudes.ver') ? mancomunidadService.listSolicitudes() : Promise.resolve(null),
+      auth.can('mancomunidades.ver_recursos') ? mancomunidadService.listRecursos() : Promise.resolve(null),
+      auth.can('mancomunidades.ver_municipios') ? mancomunidadService.listMunicipios() : Promise.resolve(null),
       escenarioService.list ? escenarioService.list() : Promise.resolve([]),
     ])
 
@@ -379,7 +392,7 @@ function openCreateMancomunidad() {
     usuario_id_seleccionado: '',
     usuario_nombre: '',
     usuario_email: '',
-    usuario_password: 'Comunidad2026*',
+    usuario_password: generarPasswordInicial(),
   })
 
   // Pre-vincular cuenta principal comunidades@sedede.gob.bo por defecto para agilizar
@@ -410,6 +423,14 @@ function openEditMancomunidad(m) {
 }
 
 async function saveMancomunidad() {
+  // Opcional al editar (vacía = se conserva), pero si se escribe debe cumplir la política.
+  if (mancomunidadForm.usuario_password) {
+    const errPassword = errorPassword(mancomunidadForm.usuario_password)
+    if (errPassword) {
+      showNotice(errPassword, 'error')
+      return
+    }
+  }
   try {
     if (isEditingMancomunidad.value) {
       const payload = {
@@ -471,19 +492,24 @@ function openGestionarUsuario(m) {
     usuarioForm.usuario_id_seleccionado = ''
     usuarioForm.name = existingUser.name
     usuarioForm.email = existingUser.email
-    usuarioForm.password = 'Comunidad2026*'
+    usuarioForm.password = generarPasswordInicial()
   } else {
     usuarioForm.tipo_usuario = 'existente'
     selectComunidadCuentaPrincipalEnModal()
-    usuarioForm.password = 'Comunidad2026*'
+    usuarioForm.password = generarPasswordInicial()
   }
   showUsuarioModal.value = true
 }
 
 async function saveUsuarioComunidad() {
   if (!selectedComunidadForUser.value) return
+  const errPassword = errorPassword(usuarioForm.password)
+  if (errPassword) {
+    showNotice(errPassword, 'error')
+    return
+  }
   try {
-    const res = await mancomunidadService.crearUsuarioMancomunidad(selectedComunidadForUser.value.id, {
+    await mancomunidadService.crearUsuarioMancomunidad(selectedComunidadForUser.value.id, {
       name: usuarioForm.name,
       email: usuarioForm.email,
       password: usuarioForm.password,
@@ -644,7 +670,7 @@ async function openMiembros(m) {
   try {
     miembrosList.value = await mancomunidadService.getMiembros(m.id)
     showMiembrosModal.value = true
-  } catch (err) {
+  } catch {
     showNotice('Error cargando miembros', 'error')
   }
 }
@@ -948,26 +974,7 @@ async function saveSolicitudEscenario() {
   }
 }
 
-// Transiciones de Solicitud
-async function enviarSol(sol) {
-  try {
-    await mancomunidadService.enviarSolicitud(sol.id)
-    showNotice('Solicitud enviada a revisión técnica del SEDEDE')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al enviar solicitud', 'error')
-  }
-}
 
-async function pasarRevisionSol(sol) {
-  try {
-    await mancomunidadService.revisarSolicitud(sol.id)
-    showNotice('Solicitud puesta En Revisión por la unidad técnica')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al poner en revisión', 'error')
-  }
-}
 
 function openAprobarModal(sol) {
   if (!confirm(`¿Confirma la aprobación de la solicitud ${sol.codigo}? La solicitud pasará a estado Aprobado y el inventario se mantendrá intacto hasta su entrega física.`)) return
@@ -1035,25 +1042,7 @@ async function executeTransicion() {
   }
 }
 
-async function asignarStockSol(sol) {
-  try {
-    await mancomunidadService.asignarSolicitud(sol.id)
-    showNotice('Recursos asignados y reservados en el almacén')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al asignar recursos', 'error')
-  }
-}
 
-async function completarSol(sol) {
-  try {
-    await mancomunidadService.completarSolicitud(sol.id)
-    showNotice('Solicitud completada exitosamente')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al completar', 'error')
-  }
-}
 
 // --- RECURSOS (SEDEDE) ---
 function openCreateRecurso() {
@@ -1766,7 +1755,7 @@ const getEstadoBadgeClass = (estado) => {
                 <!-- Si es escenario deportivo -->
                 <div v-else>
                   <div>🏟️ {{ sol.espacio?.nombre || 'Escenario Deportivo SEDEDE' }}</div>
-                  <div>📅 {{ sol.fecha_uso }} ({{ sol.hora_inicio }} - {{ sol.hora_fin }})</div>
+                  <div>📅 {{ formatoFecha(sol.fecha_uso) }} ({{ sol.hora_inicio }} - {{ sol.hora_fin }})</div>
                 </div>
 
                 <!-- Motivo de Rechazo con Justificación -->
@@ -2034,6 +2023,7 @@ const getEstadoBadgeClass = (estado) => {
               <div>
                 <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Nueva Contraseña (Opcional)</label>
                 <input v-model="mancomunidadForm.usuario_password" type="text" placeholder="Dejar en blanco para conservar actual" class="w-full rounded-lg border bg-white p-2 text-xs text-ink font-mono focus:border-brand-600 focus:outline-none" />
+                  <PasswordRequisitos v-if="mancomunidadForm.usuario_password" :valor="mancomunidadForm.usuario_password" />
               </div>
             </div>
           </div>
@@ -2109,6 +2099,7 @@ const getEstadoBadgeClass = (estado) => {
                 <div>
                   <label class="block font-semibold text-slate-700 mb-0.5 text-[11px]">Contraseña (opcional para cuenta existente)</label>
                   <input v-model="mancomunidadForm.usuario_password" type="text" placeholder="Dejar en blanco para mantener contraseña actual" class="w-full rounded-lg border p-2 text-xs bg-white text-ink font-mono" />
+                  <PasswordRequisitos v-if="mancomunidadForm.usuario_password" :valor="mancomunidadForm.usuario_password" />
                 </div>
               </div>
 
@@ -2127,6 +2118,7 @@ const getEstadoBadgeClass = (estado) => {
                   <div>
                     <label class="block font-semibold text-slate-700 mb-1">Contraseña Inicial *</label>
                     <input v-model="mancomunidadForm.usuario_password" required type="text" class="w-full rounded-lg border p-2 text-xs bg-white text-ink font-mono font-bold" />
+                  <PasswordRequisitos v-if="mancomunidadForm.usuario_password" :valor="mancomunidadForm.usuario_password" />
                   </div>
                 </div>
               </div>
@@ -2247,6 +2239,7 @@ const getEstadoBadgeClass = (estado) => {
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Contraseña (Nueva o Actual) *</label>
             <input v-model="usuarioForm.password" required type="text" class="w-full rounded-lg border p-2 bg-white text-ink font-mono font-bold" />
+                  <PasswordRequisitos v-if="usuarioForm.password" :valor="usuarioForm.password" />
           </div>
 
           <div class="flex justify-end gap-2 pt-3 border-t">

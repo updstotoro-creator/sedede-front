@@ -5,6 +5,7 @@ import { calendarioAnualService } from '../services/calendarioAnualService'
 import { asociacionService } from '../services/asociacionService'
 import { escenarioService } from '../services/escenarioService'
 import { deportistaService } from '../services/deportistaService'
+import { hoyISO, soloFecha } from '../utils/validaciones'
 
 const auth = useAuthStore()
 const isDeportista = computed(() => auth.user?.role?.nombre === 'deportista')
@@ -188,6 +189,14 @@ function formatDisplayRange(inicioStr, finStr) {
   const fFin = finStr ? formatDisplayDate(finStr) : fIni
   return fIni === fFin ? fIni : `${fIni} al ${fFin}`
 }
+// Lista de eventos: el deportista sólo ve los que no terminaron, porque es
+// la lista desde la que decide a qué postular. La gestión (SEDEDE,
+// asociaciones) sigue viendo todo el año.
+const eventosLista = computed(() => {
+  if (!isDeportista.value) return eventos.value
+  const hoy = hoyISO()
+  return eventos.value.filter((evt) => soloFecha(evt.fecha_fin || evt.fecha_inicio) >= hoy)
+})
 
 // Agrupación de eventos por fecha
 const eventosByDate = computed(() => {
@@ -934,7 +943,7 @@ onMounted(async () => {
       </div>
 
       <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div v-for="evt in eventos" :key="evt.id" class="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-brand-300 hover:shadow-md">
+        <div v-for="evt in eventosLista" :key="evt.id" class="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-brand-300 hover:shadow-md">
           <div>
             <div class="mb-2 flex flex-wrap items-center justify-between gap-1">
               <span class="rounded px-2 py-0.5 font-mono text-[11px] font-bold"

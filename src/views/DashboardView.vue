@@ -1,11 +1,12 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AppSidebar from '../components/dashboard/AppSidebar.vue'
 import { dashboardService } from '../services/dashboardService'
 import { deportistaService } from '../services/deportistaService'
 import { asociacionService } from '../services/asociacionService'
+import { mensajeDeError } from '../utils/validaciones'
 
 const route = useRoute()
 const router = useRouter()
@@ -104,7 +105,7 @@ async function guardarNuevoLogro() {
     showModalNuevoLogro.value = false
     await fetchDeportistaData()
   } catch (err) {
-    nuevoLogroError.value = err.response?.data?.message || err.response?.data?.error || 'Error al registrar el logro'
+    nuevoLogroError.value = mensajeDeError(err, 'Error al registrar el logro')
   } finally {
     guardandoLogro.value = false
   }
@@ -257,9 +258,17 @@ async function onAsociacionChange() {
 }
 
 async function guardarPerfilDeportista() {
-  perfilSaving.value = true
   perfilSuccessMsg.value = ''
   perfilErrorMsg.value = ''
+
+  // El campo se muestra como obligatorio ("Club Perteneciente *"): si la
+  // asociación tiene clubes, no se guarda sin elegir uno.
+  if (clubesList.value.length > 0 && !perfilForm.club_id) {
+    perfilErrorMsg.value = 'Seleccione el club al que pertenece.'
+    return
+  }
+
+  perfilSaving.value = true
   try {
     const res = await deportistaService.updateMiPerfil({ ...perfilForm })
     perfilSuccessMsg.value = '✓ Tu perfil y afiliación deportiva fueron actualizados con éxito.'
@@ -270,7 +279,10 @@ async function guardarPerfilDeportista() {
       perfilSuccessMsg.value = ''
     }, 4500)
   } catch (e) {
-    perfilErrorMsg.value = e.response?.data?.error || 'Error al actualizar el perfil. Verifique los campos obligatorios.'
+    // Un 422 de Laravel trae el detalle por campo en `errors`.
+    const errores = e.response?.data?.errors
+    const primero = errores ? Object.values(errores).flat()[0] : null
+    perfilErrorMsg.value = primero || e.response?.data?.error || 'Error al actualizar el perfil. Verifique los campos obligatorios.'
   } finally {
     perfilSaving.value = false
   }
@@ -360,6 +372,19 @@ onMounted(() => {
     fetchMetrics()
   }
 })
+
+// DashboardView es el layout de todas las rutas del panel: no se vuelve a
+// montar al ir a Trámites y regresar, así que el perfil mostraba datos de la
+// primera carga ("No tienes trámites" con solicitudes ya registradas). Se
+// recarga cada vez que se vuelve al resumen.
+watch(
+  () => route.name,
+  (nombre, anterior) => {
+    if (nombre === 'dashboard' && anterior && anterior !== 'dashboard' && isDeportista.value) {
+      fetchDeportistaData()
+    }
+  },
+)
 </script>
 
 <template>
@@ -835,7 +860,7 @@ onMounted(() => {
                             'bg-amber-100 text-amber-800': tr.estado.includes('Observada'),
                             'bg-blue-100 text-blue-800': tr.estado === 'Registrada',
                             'bg-purple-100 text-purple-800': tr.estado.includes('Técnica') || tr.estado.includes('Presupuestaria'),
-                            'bg-emerald-100 text-emerald-800': tr.estado.includes('Aprobada') || tr.estado.includes('Pagada')
+                            'bg-emerald-100 text-emerald-800': tr.estado.includes('Aprobada') || tr.estado.includes('Pagada') || tr.estado.includes('Concluido')
                           }"
                         >
                           Paso {{ tr.etapa_actual }}: {{ tr.estado }}

@@ -1,11 +1,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { asociacionService } from '../services/asociacionService'
 import { tramiteService } from '../services/tramiteService'
 
 const route = useRoute()
-const router = useRouter()
 
 const asociacionId = route.params.asociacionId
 const asociacion = ref(null)
@@ -260,7 +259,7 @@ async function verExpediente(tramite) {
   try {
     const res = await tramiteService.expediente(tramite.id)
     tramiteSeleccionado.value = res.data || res
-  } catch (e) {
+  } catch {
     alert('Error al cargar expediente digital.')
     showExpedienteModal.value = false
   } finally {

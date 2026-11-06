@@ -1,6 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 import logo from '../../assets/images/logo-sedede.png'
+import logoUpds from '../../assets/images/upds-logo.png'
+import { URL_UPDS_SUCRE } from '../../config/institucional'
 
 const open = ref(false)
 const links = [
@@ -25,6 +27,13 @@ const links = [
           <p class="text-[10px] font-semibold text-slate-500 tracking-wider">CHUQUISACA</p>
         </div>
       </a>
+
+      <!-- Logos UPDS: llevan a la página oficial de la UPDS Sucre -->
+      <div class="hidden min-[1100px]:flex items-center shrink-0 border-l border-slate-200 pl-3 xl:pl-4 ml-1 xl:ml-2">
+        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
+          <img :src="logoUpds" alt="Universidad Privada Domingo Savio" class="h-10 w-auto" />
+        </a>
+      </div>
 
       <!-- Navegación Central -->
       <nav class="hidden items-center gap-3 lg:gap-5 xl:gap-7 md:flex mx-3">
@@ -88,6 +97,12 @@ const links = [
           @click="open = false"
         >
           {{ link.label }}
+        </a>
+      </div>
+
+      <div class="flex items-center justify-center gap-4 pt-3 border-t border-slate-100 min-[1100px]:hidden">
+        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer">
+          <img :src="logoUpds" alt="Universidad Privada Domingo Savio" class="h-10 w-auto" />
         </a>
       </div>
 

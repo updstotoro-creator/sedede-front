@@ -1,14 +1,17 @@
 import api from './api';
 import { asociacionService } from './asociacionService';
+import { useAuthStore } from '../stores/auth';
 
 export default {
   async listar(asociacionId, filters = {}) {
+    if (!useAuthStore().can('asociaciones.ver_miembros')) return [];
     const { data } = await api.get(`/asociaciones/${asociacionId}/clubes`, { params: { per_page: 100, ...filters } });
     return Array.isArray(data.data) ? data.data : (data.data?.data || []);
   },
 
   // Listado global directo vía /clubes con fallback asociativo
   async listarTodas(filtroAsociacionId = null) {
+    if (!useAuthStore().can('asociaciones.ver_miembros')) return [];
     try {
       const params = {};
       if (filtroAsociacionId) {

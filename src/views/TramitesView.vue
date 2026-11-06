@@ -5,6 +5,17 @@ import { tramiteService } from '../services/tramiteService'
 import { deportistaService } from '../services/deportistaService'
 import { calendarioAnualService } from '../services/calendarioAnualService'
 import TramiteEtapaWorkspace from '../components/tramites/TramiteEtapaWorkspace.vue'
+import {
+  MONTO_MAXIMO_POR_TIPO,
+  errorMonto,
+  bloquearTeclasNoImporte,
+  errorCI,
+  errorNombrePersona,
+  edadA,
+  limiteEdadCategoria,
+  hoyISO,
+  soloFecha,
+} from '../utils/validaciones'
 
 const auth = useAuthStore()
 const isDeportista = computed(() => auth.user?.role?.nombre === 'deportista')
@@ -68,7 +79,6 @@ const showDerivarModal = ref(false)
 
 const selectedTramite = ref(null)
 const expedienteDetalle = ref(null)
-const activeTab = ref('etapa')
 
 const saving = ref(false)
 const formError = ref('')
@@ -122,15 +132,6 @@ const archivos = reactive({
   doc_resultados: null,
 })
 
-// Formulario de Derivación (para administrativos)
-const derivarForm = reactive({
-  etapa_destino: 4,
-  unidad_destino: 'Deporte Competitivo',
-  usuario_nombre: 'Revisor SEDEDE',
-  accion: 'Derivación de Expediente',
-  observaciones: '',
-  monto_aprobado: '',
-})
 
 // Cálculo en vivo de la regla de los 15 días
 const diasAnticipacion = computed(() => {
@@ -144,8 +145,33 @@ const diasAnticipacion = computed(() => {
 
 const esValido15Dias = computed(() => {
   if (diasAnticipacion.value === null) return true
+  // Un evento que ya ocurrió no admite exención: la exención es para
+  // eventos futuros a menos de 15 días, no para tramitar el pasado.
+  if (diasAnticipacion.value < 0) return false
   return diasAnticipacion.value >= 15 || form.exencion_administrador
 })
+
+// Errores por campo: se muestran junto al campo afectado en vez de un
+// "Error al registrar el trámite" genérico.
+const fieldErrors = reactive({})
+function limpiarErroresCampo() {
+  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
+}
+
+const montoMaximo = computed(() => MONTO_MAXIMO_POR_TIPO[form.tipo_solicitud] || null)
+
+// Fecha de nacimiento de quien solicita: el propio deportista o el elegido
+// por el funcionario.
+const fechaNacimientoSolicitante = computed(() => {
+  if (isDeportista.value) return miPerfilDeportista.value?.fecha_nacimiento || null
+  const dep = deportistas.value.find((d) => d.id === Number(form.deportista_id))
+  return dep?.fecha_nacimiento || null
+})
+
+// Si se conoce la fecha de nacimiento, "menor de edad" no es una casilla
+// que el usuario marque: se deduce, y un adulto no puede declararse menor.
+const edadSolicitante = computed(() => edadA(fechaNacimientoSolicitante.value))
+const menorDeducido = computed(() => edadSolicitante.value !== null)
 
 // Observación de requisito individual
 const requisitoObsForm = reactive({
@@ -182,7 +208,12 @@ const activeAsociacionNombre = computed(() => {
 const eventosFiltradosPorAsociacion = computed(() => {
   const asocId = activeAsociacionId.value
   if (!asocId) return []
-  return eventosCalendario.value.filter(e => Number(e.asociacion_id) === asocId)
+  // Los eventos ya realizados no se ofrecen: antes aparecían con
+  // "Faltan solo -202 días" y se podía tramitar apoyo para el pasado.
+  const hoy = hoyISO()
+  return eventosCalendario.value.filter(
+    e => Number(e.asociacion_id) === asocId && soloFecha(e.fecha_inicio) >= hoy,
+  )
 })
 
 const selectedEventoObj = computed(() => {
@@ -221,6 +252,10 @@ function resetForm() {
   form.observaciones = ''
   form.exencion_administrador = false
   formError.value = ''
+  limpiarErroresCampo()
+  if (edadSolicitante.value !== null) {
+    form.es_menor_edad = edadSolicitante.value < 18
+  }
 
   selectedEventoId.value = ''
 
@@ -275,7 +310,8 @@ function matchesFilter(tramite, filter) {
   if (!filter) return true
   if (filter === 'observadas') return tramite.estado.includes('Observada') || Number(tramite.etapa_actual) === 5
   if (filter === 'pagadas') return tramite.estado.includes('Pagada') || Number(tramite.etapa_actual) >= 16
-  if (filter === 'en_curso') return !tramite.estado.includes('Pagada') && !tramite.estado.includes('Observada')
+  // Un trámite cerrado en el paso 17 ya no está "en curso".
+  if (filter === 'en_curso') return !tramite.estado.includes('Pagada') && !tramite.estado.includes('Observada') && !/Concluido|Archivada/.test(tramite.estado)
   const etapaNum = Number(filter)
   if (!isNaN(etapaNum)) return Number(tramite.etapa_actual) === etapaNum
   return tramite.estado.toLowerCase().includes(String(filter).toLowerCase())
@@ -368,9 +404,6 @@ async function openSolicitud(t) {
   }
 }
 
-async function openExpediente(t, tab = 'etapa') {
-  await openSolicitud(t)
-}
 
 async function onTramiteUpdated() {
   if (selectedTramite.value?.id) {
@@ -386,22 +419,7 @@ async function onTramiteUpdated() {
   await fetchTramites()
 }
 
-function openDerivarModal(t) {
-  selectedTramite.value = t
-  const etapaSiguiente = Math.min((t.etapa_actual || 1) + 1, 17)
-  derivarForm.etapa_destino = etapaSiguiente
-  derivarForm.unidad_destino = getNombreUnidadPorEtapa(etapaSiguiente)
-  derivarForm.accion = 'Derivación de Expediente'
-  derivarForm.observaciones = ''
-  derivarForm.monto_aprobado = t.monto_aprobado || t.monto_solicitado
-  formError.value = ''
-  showDerivarModal.value = true
-}
 
-function getNombreUnidadPorEtapa(etapa) {
-  const item = ETAPAS_PROCEDIMIENTO.find(e => e.numero === etapa)
-  return item ? item.responsable : 'Unidad Institucional SEDEDE'
-}
 
 function closeModals() {
   showModal.value = false
@@ -421,8 +439,45 @@ async function crearTramite() {
     return
   }
 
+  if (diasAnticipacion.value !== null && diasAnticipacion.value < 0) {
+    formError.value = 'El evento seleccionado ya se realizó: no se puede solicitar apoyo para un evento vencido.'
+    saving.value = false
+    return
+  }
+
   if (!esValido15Dias.value) {
     formError.value = `La solicitud debe registrarse con al menos 15 días calendario de anticipación a la fecha del evento según normativa SEDEDE (días calculados: ${diasAnticipacion.value} días).`
+    saving.value = false
+    return
+  }
+
+  limpiarErroresCampo()
+
+  const errMonto = errorMonto(form.monto_solicitado, form.tipo_solicitud)
+  if (errMonto) fieldErrors.monto_solicitado = errMonto
+
+  // Un adulto no se declara menor, y la categoría del evento manda sobre la
+  // edad: un deportista de 36 años no entra a un "Sub-15".
+  if (edadSolicitante.value !== null) {
+    if (form.es_menor_edad && edadSolicitante.value >= 18) {
+      fieldErrors.es_menor_edad = `Según su fecha de nacimiento el deportista tiene ${edadSolicitante.value} años: no es menor de edad.`
+    }
+    const limite = limiteEdadCategoria(selectedEventoObj.value?.categoria || selectedEventoObj.value?.nombre_evento)
+    const edadAlEvento = edadA(fechaNacimientoSolicitante.value, form.fecha_evento || new Date())
+    if (limite !== null && edadAlEvento !== null && edadAlEvento > limite) {
+      fieldErrors.evento = `El evento es de categoría Sub-${limite} y el deportista tendrá ${edadAlEvento} años: no corresponde a su categoría.`
+    }
+  }
+
+  if (form.es_menor_edad) {
+    const errNombre = errorNombrePersona(form.tutor_nombre, 'nombre del tutor')
+    if (errNombre) fieldErrors.tutor_nombre = errNombre
+    const errTutorCi = errorCI(form.tutor_ci, 'C.I. del tutor')
+    if (errTutorCi) fieldErrors.tutor_ci = errTutorCi
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    formError.value = 'Revise los campos marcados.'
     saving.value = false
     return
   }
@@ -453,7 +508,14 @@ async function crearTramite() {
     await fetchTramites()
   } catch (e) {
     if (e.response?.status === 422) {
-      formError.value = e.response.data?.error || 'Verifique los datos del trámite y requisitos.'
+      // Laravel devuelve el detalle por campo en `errors`: se muestra junto
+      // a cada campo y el primero arriba, en vez de un mensaje genérico.
+      const errores = e.response.data?.errors || {}
+      for (const [campo, mensajes] of Object.entries(errores)) {
+        fieldErrors[campo] = Array.isArray(mensajes) ? mensajes[0] : String(mensajes)
+      }
+      const primero = Object.values(fieldErrors)[0]
+      formError.value = e.response.data?.error || primero || 'Verifique los datos del trámite y requisitos.'
     } else {
       formError.value = e.response?.data?.error || 'Error al registrar el trámite'
     }
@@ -462,26 +524,7 @@ async function crearTramite() {
   }
 }
 
-async function ejecutarDerivacion() {
-  saving.value = true
-  formError.value = ''
-  try {
-    await tramiteService.derivar(selectedTramite.value.id, { ...derivarForm })
-    closeModals()
-    await fetchTramites()
-  } catch (e) {
-    formError.value = e.response?.data?.error || 'Error al derivar expediente'
-  } finally {
-    saving.value = false
-  }
-}
 
-function openValidarRequisito(req) {
-  requisitoObsForm.requisito_id = req.id
-  requisitoObsForm.estado_validacion = req.estado_validacion || 'Valido'
-  requisitoObsForm.observacion = req.observacion || ''
-  showRequisitoObsModal.value = true
-}
 
 async function guardarValidacionRequisito() {
   saving.value = true
@@ -498,41 +541,8 @@ async function guardarValidacionRequisito() {
   }
 }
 
-const uploadingReqId = ref(null)
 
-async function subirDocumentoRequisito(req, event) {
-  const file = event.target.files[0]
-  if (!file) return
 
-  uploadingReqId.value = req.id
-  try {
-    await tramiteService.subirDocumento(selectedTramite.value.id, req.id, file)
-    const res = await tramiteService.expediente(selectedTramite.value.id)
-    expedienteDetalle.value = res
-    await fetchTramites()
-  } catch (e) {
-    alert(e.response?.data?.error || 'Error al subir el archivo.')
-  } finally {
-    uploadingReqId.value = null
-  }
-}
-
-async function ejecutarSubsanacion() {
-  saving.value = true
-  try {
-    await tramiteService.subsanar(selectedTramite.value.id, {
-      observaciones: 'Requisitos y documentación corregidos por el deportista para reingreso a Revisión Técnica.',
-    })
-    const res = await tramiteService.expediente(selectedTramite.value.id)
-    expedienteDetalle.value = res
-    await fetchTramites()
-    alert('✓ Expediente subsanado exitosamente. Ha sido derivado nuevamente a Revisión Técnica.')
-  } catch (e) {
-    alert(e.response?.data?.error || 'Error al subsanar observaciones.')
-  } finally {
-    saving.value = false
-  }
-}
 
 onMounted(async () => {
   await fetchMiPerfil()
@@ -1020,6 +1030,7 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
+            <p v-if="fieldErrors.evento || fieldErrors.fecha_evento" class="text-[11px] font-medium text-red-600">{{ fieldErrors.evento || fieldErrors.fecha_evento }}</p>
           </div>
 
           <!-- Fila 3: Fecha del Evento (Solo lectura, fijada por calendario) y Regla de 15 Días -->
@@ -1042,6 +1053,9 @@ onMounted(async () => {
                 <span v-if="diasAnticipacion >= 15" class="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
                   ✓ Cumple 15 días de anticipación ({{ diasAnticipacion }} días)
                 </span>
+                <span v-else-if="diasAnticipacion < 0" class="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">
+                  ⚠ Evento ya realizado (hace {{ -diasAnticipacion }} días): no admite solicitud
+                </span>
                 <span v-else class="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">
                   ⚠ Faltan solo {{ diasAnticipacion }} días (requiere mínimo 15 días)
                 </span>
@@ -1052,7 +1066,21 @@ onMounted(async () => {
               <label class="mb-1 block text-xs font-semibold text-slate-700">
                 {{ form.tipo_solicitud === 'Material Deportivo / Equipamiento' ? 'Presupuesto Estimado / Valor (Bs) *' : 'Monto Solicitado (Bs) *' }}
               </label>
-              <input v-model="form.monto_solicitado" type="number" step="0.5" placeholder="Ej. 4500.00" class="input-field text-xs" required :disabled="saving" />
+              <input
+                v-model="form.monto_solicitado"
+                type="number"
+                min="0.01"
+                step="0.01"
+                :max="montoMaximo || undefined"
+                inputmode="decimal"
+                placeholder="Ej. 4500.00"
+                class="input-field text-xs"
+                required
+                :disabled="saving"
+                :aria-invalid="!!fieldErrors.monto_solicitado"
+                @keydown="bloquearTeclasNoImporte"
+              />
+              <p v-if="fieldErrors.monto_solicitado" class="mt-1 text-[11px] font-medium text-red-600">{{ fieldErrors.monto_solicitado }}</p>
             </div>
           </div>
 
@@ -1072,18 +1100,22 @@ onMounted(async () => {
           <!-- Menor de edad checkbox y tutor -->
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
             <label class="flex items-center gap-2 text-xs font-bold text-slate-800">
-              <input v-model="form.es_menor_edad" type="checkbox" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+              <input v-model="form.es_menor_edad" type="checkbox" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" :disabled="menorDeducido" />
               <span>Es Menor de Edad (Requiere datos y C.I. del Tutor Legal)</span>
             </label>
+            <p v-if="menorDeducido" class="text-[10px] text-slate-500">Determinado por la fecha de nacimiento del deportista ({{ edadSolicitante }} años).</p>
+            <p v-if="fieldErrors.es_menor_edad" class="text-[11px] font-medium text-red-600">{{ fieldErrors.es_menor_edad }}</p>
 
             <div v-if="form.es_menor_edad" class="grid gap-3 sm:grid-cols-2">
               <div>
                 <label class="mb-1 block text-[11px] font-semibold text-slate-600">Nombre Completo del Tutor *</label>
-                <input v-model="form.tutor_nombre" type="text" placeholder="Nombre completo" class="input-field text-xs bg-white" :required="form.es_menor_edad" />
+                <input v-model="form.tutor_nombre" type="text" placeholder="Nombre completo" class="input-field text-xs bg-white" :required="form.es_menor_edad" :aria-invalid="!!fieldErrors.tutor_nombre" />
+                <p v-if="fieldErrors.tutor_nombre" class="mt-1 text-[11px] font-medium text-red-600">{{ fieldErrors.tutor_nombre }}</p>
               </div>
               <div>
                 <label class="mb-1 block text-[11px] font-semibold text-slate-600">C.I. del Tutor *</label>
-                <input v-model="form.tutor_ci" type="text" placeholder="Ej. 4512789 CH" class="input-field text-xs bg-white" :required="form.es_menor_edad" />
+                <input v-model="form.tutor_ci" type="text" placeholder="Ej. 4512789 CH" class="input-field text-xs bg-white" :required="form.es_menor_edad" :aria-invalid="!!fieldErrors.tutor_ci" />
+                <p v-if="fieldErrors.tutor_ci" class="mt-1 text-[11px] font-medium text-red-600">{{ fieldErrors.tutor_ci }}</p>
               </div>
             </div>
           </div>
@@ -1170,7 +1202,7 @@ onMounted(async () => {
           </div>
 
           <!-- Exención si incumple 15 días -->
-          <div v-if="diasAnticipacion !== null && diasAnticipacion < 15" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+          <div v-if="diasAnticipacion !== null && diasAnticipacion >= 0 && diasAnticipacion < 15" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
             <p class="font-bold">Advertencia de Plazo de Presentación</p>
             <p class="mt-1">El evento está programado a menos de 15 días calendario.</p>
             <label class="mt-2 flex items-center gap-2 font-bold text-amber-900 cursor-pointer">
