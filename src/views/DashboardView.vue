@@ -438,6 +438,67 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- TARJETA DE ESTADO DE AFILIACIÓN EN 2 FASES (CLUB → ASOCIACIÓN) -->
+            <div
+              v-if="deportistaPerfil"
+              class="rounded-xl border p-4 shadow-sm bg-white"
+              :class="{
+                'border-emerald-300 bg-emerald-50/50': deportistaPerfil.estado_afiliacion_asociacion === 'aceptado',
+                'border-amber-300 bg-amber-50/50': deportistaPerfil.estado_afiliacion_asociacion === 'pendiente',
+                'border-red-300 bg-red-50/50': deportistaPerfil.estado_afiliacion_asociacion === 'rechazado' || deportistaPerfil.estado_afiliacion_club === 'rechazado'
+              }"
+            >
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <span class="text-2xl">
+                    {{ deportistaPerfil.estado_afiliacion_asociacion === 'aceptado' ? '✅' : (deportistaPerfil.estado_afiliacion_club === 'aceptado' ? '⏳' : '📋') }}
+                  </span>
+                  <div>
+                    <h3 class="font-display text-sm font-bold text-slate-900">
+                      Estado de Afiliación Departamental (2 Fases)
+                    </h3>
+                    <p class="text-xs text-slate-600 mt-0.5">
+                      <span v-if="deportistaPerfil.estado_afiliacion_asociacion === 'aceptado'" class="text-emerald-700 font-bold">
+                        ✓ ¡Afiliación Vigente! Has sido validado y dado de alta oficialmente por tu Asociación Departamental.
+                      </span>
+                      <span v-else-if="deportistaPerfil.estado_afiliacion_club === 'aceptado'" class="text-amber-800 font-medium">
+                        ✓ Visto Bueno concedido por tu Club. Tu solicitud se encuentra actualmente en revisión por la Asociación Departamental para darte el alta formal.
+                      </span>
+                      <span v-else-if="deportistaPerfil.estado_afiliacion_club === 'rechazado'" class="text-red-700 font-medium">
+                        ⚠️ Tu solicitud de adscripción fue observada por tu Club: {{ deportistaPerfil.observaciones_club || 'Contacta a tu directiva.' }}
+                      </span>
+                      <span v-else class="text-amber-800 font-medium">
+                        ⏳ En espera del Visto Bueno inicial de tu Club Deportivo ({{ deportistaPerfil.club?.nombre || 'Club registrado' }}). Una vez aprobado, pasará a tu Asociación.
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-bold"
+                    :class="{
+                      'bg-emerald-100 text-emerald-800 border border-emerald-300': deportistaPerfil.estado_afiliacion_club === 'aceptado',
+                      'bg-amber-100 text-amber-800 border border-amber-300': deportistaPerfil.estado_afiliacion_club === 'pendiente',
+                      'bg-red-100 text-red-800 border border-red-300': deportistaPerfil.estado_afiliacion_club === 'rechazado'
+                    }"
+                  >
+                    Fase 1 Club: {{ deportistaPerfil.estado_afiliacion_club === 'aceptado' ? '✓ Aprobado' : (deportistaPerfil.estado_afiliacion_club === 'rechazado' ? '✕ Observado' : '⏳ Pendiente') }}
+                  </span>
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-bold"
+                    :class="{
+                      'bg-emerald-100 text-emerald-800 border border-emerald-300': deportistaPerfil.estado_afiliacion_asociacion === 'aceptado',
+                      'bg-amber-100 text-amber-800 border border-amber-300': deportistaPerfil.estado_afiliacion_asociacion === 'pendiente',
+                      'bg-red-100 text-red-800 border border-red-300': deportistaPerfil.estado_afiliacion_asociacion === 'rechazado'
+                    }"
+                  >
+                    Fase 2 Asoc: {{ deportistaPerfil.estado_afiliacion_asociacion === 'aceptado' ? '✓ Validado (Alta)' : (deportistaPerfil.estado_afiliacion_asociacion === 'rechazado' ? '✕ Observado' : '⏳ Pendiente') }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <!-- SECCIÓN DE ALERTAS ACTIVAS POR ETAPAS -->
             <div v-if="deportistaAlertas && deportistaAlertas.length > 0" class="space-y-3">
               <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">

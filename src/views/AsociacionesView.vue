@@ -213,27 +213,54 @@ onMounted(() => {
                 {{ asociacion.activo ? 'Activa' : 'Baja Lógica' }}
               </span>
             </td>
-            <td class="px-4 py-3 text-right space-x-2">
-              <button
-                v-if="asociacion.estado_legal === 'Pendiente'"
-                class="rounded bg-emerald-50 border border-emerald-300 px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
-                @click="aprobarAsociacion(asociacion)"
-              >
-                ✓ Aprobar Legal
-              </button>
-              <button class="text-xs font-semibold text-brand-600 hover:underline" @click="verClubes(asociacion)">
-                Clubes →
-              </button>
-              <button class="text-xs font-semibold text-slate-600 hover:underline" @click="openEditModal(asociacion)">
-                Editar
-              </button>
-              <button
-                class="text-xs font-semibold hover:underline"
-                :class="asociacion.activo ? 'text-red-600' : 'text-teal-700'"
-                @click="toggleActive(asociacion)"
-              >
-                {{ asociacion.activo ? 'Dar de Baja' : 'Reactivar' }}
-              </button>
+            <td class="px-3 py-2 text-center whitespace-nowrap">
+              <div class="inline-flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-0.5 shadow-2xs">
+                <!-- 1. Clubes -->
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white hover:text-brand-700 hover:shadow-2xs transition"
+                  title="Ver clubes afiliados a esta asociación"
+                  @click="verClubes(asociacion)"
+                >
+                  <span class="text-brand-600">🏢</span>
+                  <span>Clubes</span>
+                </button>
+
+                <!-- 2. Aprobar Legal (si está pendiente) -->
+                <button
+                  v-if="asociacion.estado_legal === 'Pendiente'"
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-white hover:shadow-2xs transition"
+                  title="Aprobar y certificar personería jurídica de la asociación"
+                  @click="aprobarAsociacion(asociacion)"
+                >
+                  <span>✓</span>
+                  <span>Aprobar Legal</span>
+                </button>
+
+                <!-- 3. Editar -->
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-2xs transition"
+                  title="Editar datos institucionales de la asociación"
+                  @click="openEditModal(asociacion)"
+                >
+                  <span class="text-slate-500">✏️</span>
+                  <span>Editar</span>
+                </button>
+
+                <!-- 4. Baja / Activar (Baja Lógica) -->
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold hover:bg-white hover:shadow-2xs transition"
+                  :class="asociacion.activo ? 'text-rose-600 hover:text-rose-700' : 'text-teal-600 hover:text-teal-700'"
+                  :title="asociacion.activo ? 'Dar de baja lógica institucional' : 'Reactivar asociación'"
+                  @click="toggleActive(asociacion)"
+                >
+                  <span>{{ asociacion.activo ? '🚫' : '✓' }}</span>
+                  <span>{{ asociacion.activo ? 'Baja' : 'Activar' }}</span>
+                </button>
+              </div>
             </td>
           </tr>
           <tr v-if="!asociaciones.length">

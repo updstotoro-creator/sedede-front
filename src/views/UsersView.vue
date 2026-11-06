@@ -175,7 +175,7 @@ onMounted(() => {
             <th class="px-4 py-3">Correo</th>
             <th class="px-4 py-3">Rol</th>
             <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3 text-right">Acciones</th>
+            <th class="px-4 py-3 text-center">Acciones</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -191,17 +191,31 @@ onMounted(() => {
                 {{ user.activo ? 'Activo' : 'Desactivado' }}
               </span>
             </td>
-            <td class="px-4 py-3 text-right">
-              <button class="mr-3 text-xs font-semibold text-brand-600 hover:underline" @click="openEditModal(user)">
-                Editar
-              </button>
-              <button
-                class="text-xs font-semibold hover:underline"
-                :class="user.activo ? 'text-red-600' : 'text-teal-700'"
-                @click="toggleActive(user)"
-              >
-                {{ user.activo ? 'Desactivar' : 'Activar' }}
-              </button>
+            <td class="px-3 py-2 text-center whitespace-nowrap">
+              <div class="inline-flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-0.5 shadow-2xs">
+                <!-- 1. Editar -->
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-2xs transition"
+                  title="Editar datos del usuario"
+                  @click="openEditModal(user)"
+                >
+                  <span class="text-slate-500">✏️</span>
+                  <span>Editar</span>
+                </button>
+
+                <!-- 2. Desactivar / Activar (Baja Lógica) -->
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold hover:bg-white hover:shadow-2xs transition"
+                  :class="user.activo ? 'text-rose-600 hover:text-rose-700' : 'text-teal-600 hover:text-teal-700'"
+                  :title="user.activo ? 'Desactivar acceso del usuario' : 'Activar acceso del usuario'"
+                  @click="toggleActive(user)"
+                >
+                  <span>{{ user.activo ? '🚫' : '✓' }}</span>
+                  <span>{{ user.activo ? 'Baja' : 'Activar' }}</span>
+                </button>
+              </div>
             </td>
           </tr>
           <tr v-if="!users.length">

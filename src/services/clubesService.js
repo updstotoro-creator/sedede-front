@@ -7,9 +7,23 @@ export default {
     return Array.isArray(data.data) ? data.data : (data.data?.data || []);
   },
 
-  // El backend sólo expone clubes anidados bajo una asociación, así que se
-  // consolidan en paralelo todas las asociaciones para tener el listado global.
+  // Listado global directo vía /clubes con fallback asociativo
   async listarTodas(filtroAsociacionId = null) {
+    try {
+      const params = {};
+      if (filtroAsociacionId) {
+        params.asociacion_id = filtroAsociacionId;
+      }
+      const { data } = await api.get('/clubes', { params });
+      const items = Array.isArray(data.data) ? data.data : (data.data?.data || []);
+      return items.map((club) => ({
+        ...club,
+        asociacion_id: Number(club.asociacion_id || club.asociacion?.id),
+      }));
+    } catch {
+      // Fallback a listado recursivo
+    }
+
     if (filtroAsociacionId) {
       try {
         const asoc = await asociacionService.get(filtroAsociacionId);

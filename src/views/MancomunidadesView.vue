@@ -741,8 +741,9 @@ async function saveSolicitudMaterial() {
     }
 
     const created = await mancomunidadService.createSolicitud(payload)
-    if (created?.data?.id) {
-      await mancomunidadService.enviarSolicitud(created.data.id)
+    const solId = created?.id || created?.data?.id
+    if (solId) {
+      await mancomunidadService.enviarSolicitud(solId)
     }
     showNotice('Solicitud de materiales de inventario enviada exitosamente en estado Solicitado')
     showSolicitudMaterialModal.value = false
@@ -803,8 +804,9 @@ async function saveSolicitudEscrita() {
     }
 
     const created = await mancomunidadService.createSolicitud(payload)
-    if (created?.data?.id) {
-      await mancomunidadService.enviarSolicitud(created.data.id)
+    const solId = created?.id || created?.data?.id
+    if (solId) {
+      await mancomunidadService.enviarSolicitud(solId)
     }
     showNotice('Solicitud escrita de materiales fuera de inventario enviada con éxito')
     showSolicitudEscritaModal.value = false
@@ -866,8 +868,9 @@ async function saveSolicitudEconomica() {
     }
 
     const created = await mancomunidadService.createSolicitud(payload)
-    if (created?.data?.id) {
-      await mancomunidadService.enviarSolicitud(created.data.id)
+    const solId = created?.id || created?.data?.id
+    if (solId) {
+      await mancomunidadService.enviarSolicitud(solId)
     }
     showNotice('Solicitud de apoyo económico enviada con éxito al SEDEDE')
     showSolicitudEconomicaModal.value = false
@@ -933,8 +936,9 @@ async function saveSolicitudEscenario() {
     }
 
     const created = await mancomunidadService.createSolicitud(payload)
-    if (created?.data?.id) {
-      await mancomunidadService.enviarSolicitud(created.data.id)
+    const solId = created?.id || created?.data?.id
+    if (solId) {
+      await mancomunidadService.enviarSolicitud(solId)
     }
     showNotice('Solicitud de reserva de escenario enviada exitosamente en estado Solicitado')
     showSolicitudEscenarioModal.value = false

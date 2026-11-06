@@ -256,7 +256,7 @@ onMounted(() => {
             <th class="px-4 py-3">Cuenta SIGEP</th>
             <th class="px-4 py-3">Ranking</th>
             <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3 text-right">Acciones</th>
+            <th class="px-4 py-3 text-center">Acciones</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -280,6 +280,30 @@ onMounted(() => {
             <td class="px-4 py-3">
               <div class="font-medium text-brand-700">{{ d.asociacion?.nombre || d.disciplina || 'Sin Asociación' }}</div>
               <div class="text-xs text-slate-500">Club: {{ d.club?.nombre || 'Independiente / Ninguno' }}</div>
+              <div class="mt-1 flex flex-wrap gap-1 text-[10px]">
+                <span
+                  class="rounded px-1.5 py-0.5 font-semibold"
+                  :class="{
+                    'bg-emerald-100 text-emerald-800': d.estado_afiliacion_club === 'aceptado',
+                    'bg-amber-100 text-amber-800': d.estado_afiliacion_club === 'pendiente',
+                    'bg-red-100 text-red-800': d.estado_afiliacion_club === 'rechazado'
+                  }"
+                  title="Estado de validación en su Club Deportivo"
+                >
+                  Club: {{ d.estado_afiliacion_club === 'aceptado' ? '✓ Visto Bueno' : (d.estado_afiliacion_club === 'rechazado' ? '✕ Rechazado' : '⏳ Pendiente') }}
+                </span>
+                <span
+                  class="rounded px-1.5 py-0.5 font-semibold"
+                  :class="{
+                    'bg-emerald-100 text-emerald-800': d.estado_afiliacion_asociacion === 'aceptado',
+                    'bg-amber-100 text-amber-800': d.estado_afiliacion_asociacion === 'pendiente',
+                    'bg-red-100 text-red-800': d.estado_afiliacion_asociacion === 'rechazado'
+                  }"
+                  title="Estado de validación en su Asociación Departamental"
+                >
+                  Asoc: {{ d.estado_afiliacion_asociacion === 'aceptado' ? '✓ Validado' : (d.estado_afiliacion_asociacion === 'rechazado' ? '✕ Observado' : '⏳ Pendiente') }}
+                </span>
+              </div>
             </td>
             <td class="px-4 py-3 text-slate-700">{{ d.categoria }}</td>
             <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ d.sigep_cuenta || 'Pendiente' }}</td>
@@ -289,17 +313,31 @@ onMounted(() => {
                 {{ d.activo ? 'Activo (Habilitado)' : 'Baja Lógica' }}
               </span>
             </td>
-            <td class="px-4 py-3 text-right space-x-2">
-              <button class="text-xs font-semibold text-brand-600 hover:underline" @click="openEditModal(d)">
-                Editar
-              </button>
-              <button
-                class="text-xs font-semibold hover:underline"
-                :class="d.activo ? 'text-red-600' : 'text-teal-700'"
-                @click="toggleActive(d)"
-              >
-                {{ d.activo ? 'Inactivar' : 'Reactivar' }}
-              </button>
+            <td class="px-3 py-2 text-center whitespace-nowrap">
+              <div class="inline-flex items-center gap-0.5 rounded-lg border border-slate-200/80 bg-slate-50/90 p-0.5 shadow-2xs">
+                <!-- 1. Editar -->
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-2xs transition"
+                  title="Editar datos del deportista"
+                  @click="openEditModal(d)"
+                >
+                  <span class="text-slate-500">✏️</span>
+                  <span>Editar</span>
+                </button>
+
+                <!-- 2. Baja / Activar (Baja Lógica) -->
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold hover:bg-white hover:shadow-2xs transition"
+                  :class="d.activo ? 'text-rose-600 hover:text-rose-700' : 'text-teal-600 hover:text-teal-700'"
+                  :title="d.activo ? 'Inactivar deportista (Baja lógica sin borrado físico)' : 'Reactivar deportista'"
+                  @click="toggleActive(d)"
+                >
+                  <span>{{ d.activo ? '🚫' : '✓' }}</span>
+                  <span>{{ d.activo ? 'Baja' : 'Activar' }}</span>
+                </button>
+              </div>
             </td>
           </tr>
           <tr v-if="!deportistas.length">
