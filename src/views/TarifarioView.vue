@@ -1770,7 +1770,6 @@ const franjasDiaSeleccionado = ref([])
 const loadingFranjasDia = ref(false)
 
 const asociacionesLista = ref([])
-const solicitanteTipoSeleccion = ref('ASOCIACION')
 const asociacionSeleccionadaModal = ref('')
 const franjasOcupacionModal = ref([])
 const loadingDisponibilidadModal = ref(false)
@@ -2070,9 +2069,6 @@ function reservarFranjaEspecifica(franja) {
   showModalNuevaReserva.value = true
 }
 
-function onDayClick(dayObj) {
-  seleccionarDiaCalendario(dayObj)
-}
 
 const cotizadorForm = ref({
   escenario_nombre: 'Estadio Patria',
@@ -2347,21 +2343,7 @@ const esModalidadPorcentaje = computed(() => {
   return cotizadorForm.value.concepto.includes('Taquilla') || cotizadorForm.value.concepto.includes('Entrada')
 })
 
-const escenariosFiltrados = computed(() => {
-  if (!filtroDisciplina.value) return escenarios.value
-  return escenarios.value.filter(e => {
-    let listDisc = e.disciplinas || []
-    if (typeof listDisc === 'string') {
-      try { listDisc = JSON.parse(listDisc) } catch { listDisc = [listDisc] }
-    }
-    if (listDisc.length === 0) return true
-    return listDisc.includes(filtroDisciplina.value)
-  })
-})
 
-function getReservasEscenario(nombreEscenario) {
-  return reservas.value.filter(r => r.escenario_nombre === nombreEscenario)
-}
 
 async function fetchOcupacion() {
   try {
@@ -2458,17 +2440,6 @@ async function calcular() {
   }
 }
 
-function abrirModalNuevaReserva(esc = null) {
-  if (esc) {
-    reservaForm.value.escenario_id = esc.id
-    reservaForm.value.escenario_nombre = esc.nombre
-    reservaForm.value.espacio = esc.espacio
-    if (esc.disciplinas && esc.disciplinas.length > 0) {
-      reservaForm.value.disciplina = esc.disciplinas[0]
-    }
-  }
-  showModalNuevaReserva.value = true
-}
 
 async function confirmarNuevaReserva() {
   if (reservaForm.value.tipo_solicitante === 'Particular') {

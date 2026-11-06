@@ -508,7 +508,7 @@ async function saveUsuarioComunidad() {
     return
   }
   try {
-    const res = await mancomunidadService.crearUsuarioMancomunidad(selectedComunidadForUser.value.id, {
+    await mancomunidadService.crearUsuarioMancomunidad(selectedComunidadForUser.value.id, {
       name: usuarioForm.name,
       email: usuarioForm.email,
       password: usuarioForm.password,
@@ -669,7 +669,7 @@ async function openMiembros(m) {
   try {
     miembrosList.value = await mancomunidadService.getMiembros(m.id)
     showMiembrosModal.value = true
-  } catch (err) {
+  } catch {
     showNotice('Error cargando miembros', 'error')
   }
 }
@@ -973,26 +973,7 @@ async function saveSolicitudEscenario() {
   }
 }
 
-// Transiciones de Solicitud
-async function enviarSol(sol) {
-  try {
-    await mancomunidadService.enviarSolicitud(sol.id)
-    showNotice('Solicitud enviada a revisión técnica del SEDEDE')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al enviar solicitud', 'error')
-  }
-}
 
-async function pasarRevisionSol(sol) {
-  try {
-    await mancomunidadService.revisarSolicitud(sol.id)
-    showNotice('Solicitud puesta En Revisión por la unidad técnica')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al poner en revisión', 'error')
-  }
-}
 
 function openAprobarModal(sol) {
   if (!confirm(`¿Confirma la aprobación de la solicitud ${sol.codigo}? La solicitud pasará a estado Aprobado y el inventario se mantendrá intacto hasta su entrega física.`)) return
@@ -1060,25 +1041,7 @@ async function executeTransicion() {
   }
 }
 
-async function asignarStockSol(sol) {
-  try {
-    await mancomunidadService.asignarSolicitud(sol.id)
-    showNotice('Recursos asignados y reservados en el almacén')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al asignar recursos', 'error')
-  }
-}
 
-async function completarSol(sol) {
-  try {
-    await mancomunidadService.completarSolicitud(sol.id)
-    showNotice('Solicitud completada exitosamente')
-    loadAll()
-  } catch (err) {
-    showNotice(err.response?.data?.message || 'Error al completar', 'error')
-  }
-}
 
 // --- RECURSOS (SEDEDE) ---
 function openCreateRecurso() {

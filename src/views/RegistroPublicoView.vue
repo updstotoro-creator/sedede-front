@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { registroService } from '../services/registroService'
 import PasswordRequisitos from '../components/common/PasswordRequisitos.vue'
 import {
@@ -13,7 +13,6 @@ import {
 import logo from '../assets/images/logo-sedede.png'
 
 const route = useRoute()
-const router = useRouter()
 
 // Pestaña activa: 'comunidad' | 'deportista' | 'asociacion' | 'club'
 const currentTab = ref('comunidad')

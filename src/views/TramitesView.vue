@@ -79,7 +79,6 @@ const showDerivarModal = ref(false)
 
 const selectedTramite = ref(null)
 const expedienteDetalle = ref(null)
-const activeTab = ref('etapa')
 
 const saving = ref(false)
 const formError = ref('')
@@ -133,15 +132,6 @@ const archivos = reactive({
   doc_resultados: null,
 })
 
-// Formulario de Derivación (para administrativos)
-const derivarForm = reactive({
-  etapa_destino: 4,
-  unidad_destino: 'Deporte Competitivo',
-  usuario_nombre: 'Revisor SEDEDE',
-  accion: 'Derivación de Expediente',
-  observaciones: '',
-  monto_aprobado: '',
-})
 
 // Cálculo en vivo de la regla de los 15 días
 const diasAnticipacion = computed(() => {
@@ -414,9 +404,6 @@ async function openSolicitud(t) {
   }
 }
 
-async function openExpediente(t, tab = 'etapa') {
-  await openSolicitud(t)
-}
 
 async function onTramiteUpdated() {
   if (selectedTramite.value?.id) {
@@ -432,22 +419,7 @@ async function onTramiteUpdated() {
   await fetchTramites()
 }
 
-function openDerivarModal(t) {
-  selectedTramite.value = t
-  const etapaSiguiente = Math.min((t.etapa_actual || 1) + 1, 17)
-  derivarForm.etapa_destino = etapaSiguiente
-  derivarForm.unidad_destino = getNombreUnidadPorEtapa(etapaSiguiente)
-  derivarForm.accion = 'Derivación de Expediente'
-  derivarForm.observaciones = ''
-  derivarForm.monto_aprobado = t.monto_aprobado || t.monto_solicitado
-  formError.value = ''
-  showDerivarModal.value = true
-}
 
-function getNombreUnidadPorEtapa(etapa) {
-  const item = ETAPAS_PROCEDIMIENTO.find(e => e.numero === etapa)
-  return item ? item.responsable : 'Unidad Institucional SEDEDE'
-}
 
 function closeModals() {
   showModal.value = false
@@ -552,26 +524,7 @@ async function crearTramite() {
   }
 }
 
-async function ejecutarDerivacion() {
-  saving.value = true
-  formError.value = ''
-  try {
-    await tramiteService.derivar(selectedTramite.value.id, { ...derivarForm })
-    closeModals()
-    await fetchTramites()
-  } catch (e) {
-    formError.value = e.response?.data?.error || 'Error al derivar expediente'
-  } finally {
-    saving.value = false
-  }
-}
 
-function openValidarRequisito(req) {
-  requisitoObsForm.requisito_id = req.id
-  requisitoObsForm.estado_validacion = req.estado_validacion || 'Valido'
-  requisitoObsForm.observacion = req.observacion || ''
-  showRequisitoObsModal.value = true
-}
 
 async function guardarValidacionRequisito() {
   saving.value = true
@@ -588,41 +541,8 @@ async function guardarValidacionRequisito() {
   }
 }
 
-const uploadingReqId = ref(null)
 
-async function subirDocumentoRequisito(req, event) {
-  const file = event.target.files[0]
-  if (!file) return
 
-  uploadingReqId.value = req.id
-  try {
-    await tramiteService.subirDocumento(selectedTramite.value.id, req.id, file)
-    const res = await tramiteService.expediente(selectedTramite.value.id)
-    expedienteDetalle.value = res
-    await fetchTramites()
-  } catch (e) {
-    alert(e.response?.data?.error || 'Error al subir el archivo.')
-  } finally {
-    uploadingReqId.value = null
-  }
-}
-
-async function ejecutarSubsanacion() {
-  saving.value = true
-  try {
-    await tramiteService.subsanar(selectedTramite.value.id, {
-      observaciones: 'Requisitos y documentación corregidos por el deportista para reingreso a Revisión Técnica.',
-    })
-    const res = await tramiteService.expediente(selectedTramite.value.id)
-    expedienteDetalle.value = res
-    await fetchTramites()
-    alert('✓ Expediente subsanado exitosamente. Ha sido derivado nuevamente a Revisión Técnica.')
-  } catch (e) {
-    alert(e.response?.data?.error || 'Error al subsanar observaciones.')
-  } finally {
-    saving.value = false
-  }
-}
 
 onMounted(async () => {
   await fetchMiPerfil()

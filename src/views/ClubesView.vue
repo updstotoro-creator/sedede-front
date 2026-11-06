@@ -237,16 +237,6 @@ async function submitForm() {
   }
 }
 
-async function aprobarDocumentacionClub(club) {
-  if (!confirm(`¿Desea validar y aprobar formalmente la personería y documentación del "${club.nombre}"?`)) return
-  try {
-    await clubesService.actualizarDocumentacion(club.id, { estado_documentacion: 'vigente' })
-    await loadData()
-    alert('Documentación y Personería del club aprobadas exitosamente.')
-  } catch (error) {
-    alert(error.response?.data?.error || 'Error al aprobar documentación del club.')
-  }
-}
 
 async function toggleActive(club) {
   const advertencia = club.activo

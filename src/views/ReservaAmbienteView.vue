@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { escenarioService } from '../services/escenarioService'
 import { deportistaService } from '../services/deportistaService'
 import { useAuthStore } from '../stores/auth'
@@ -14,7 +13,6 @@ import {
   RESERVA_DIAS_MAX_ANTICIPACION,
 } from '../utils/validaciones'
 
-const router = useRouter()
 const auth = useAuthStore()
 
 // Pestaña principal: 'nueva' | 'consultar'
