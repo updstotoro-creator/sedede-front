@@ -4,6 +4,8 @@ import { escenarioService } from '../services/escenarioService'
 import { deportistaService } from '../services/deportistaService'
 import { useAuthStore } from '../stores/auth'
 import logo from '../assets/images/logo-sedede.png'
+import logoUpdsFondoOscuro from '../assets/images/upds/upds-sucre-color-fondo-oscuro.png'
+import { URL_UPDS_SUCRE } from '../config/institucional'
 import {
   errorCI,
   mensajeDeError,
@@ -411,6 +413,9 @@ const formatFecha = (d) => {
       </router-link>
 
       <div class="flex items-center gap-2.5">
+        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" class="hidden md:flex items-center border-r border-slate-800 pr-3 mr-1" title="Universidad Privada Domingo Savio — Sede Sucre">
+          <img :src="logoUpdsFondoOscuro" alt="UPDS Sede Sucre" class="h-7 w-auto opacity-80 hover:opacity-100 transition-opacity" />
+        </a>
         <router-link
           to="/"
           class="rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5 shadow-sm"

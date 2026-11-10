@@ -1,6 +1,6 @@
 <script setup>
 import logo from '../../assets/images/logo-sedede.png'
-import logoUpdsBlanco from '../../assets/images/upds-logo-blanco.png'
+import logoUpdsFondoOscuro from '../../assets/images/upds/upds-sucre-color-fondo-oscuro.png'
 import logoProyectoBlanco from '../../assets/images/proyecto-upds-sucre-blanco.png'
 import { URL_UPDS_SUCRE, AUTORES_ORDENADOS } from '../../config/institucional'
 </script>
@@ -30,10 +30,10 @@ import { URL_UPDS_SUCRE, AUTORES_ORDENADOS } from '../../config/institucional'
       <!-- Logos UPDS: llevan a la página oficial de la UPDS Sucre -->
       <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4 border-t border-white/15 pt-6">
         <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
-          <img :src="logoUpdsBlanco" alt="Universidad Privada Domingo Savio" class="h-12 w-auto" />
+          <img :src="logoUpdsFondoOscuro" alt="Universidad Privada Domingo Savio — Sede Sucre" class="h-11 w-auto hover:opacity-90 transition-opacity" />
         </a>
         <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Proyecto UPDS Sucre">
-          <img :src="logoProyectoBlanco" alt="Proyecto UPDS Sucre" class="h-10 w-auto" />
+          <img :src="logoProyectoBlanco" alt="Proyecto UPDS Sucre" class="h-10 w-auto hover:opacity-90 transition-opacity" />
         </a>
         <p class="text-xs text-brand-100 sm:ml-auto sm:text-right">Desarrollado por estudiantes del Proyecto UPDS Sucre</p>
       </div>

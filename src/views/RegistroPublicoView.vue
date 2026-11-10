@@ -11,6 +11,8 @@ import {
   mensajeDeError,
 } from '../utils/validaciones'
 import logo from '../assets/images/logo-sedede.png'
+import logoUpdsFondoOscuro from '../assets/images/upds/upds-sucre-color-fondo-oscuro.png'
+import { URL_UPDS_SUCRE } from '../config/institucional'
 
 const route = useRoute()
 
@@ -443,6 +445,9 @@ async function submitClub() {
       </router-link>
 
       <div class="flex items-center gap-3">
+        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" class="hidden md:flex items-center border-r border-slate-800 pr-3 mr-1" title="Universidad Privada Domingo Savio — Sede Sucre">
+          <img :src="logoUpdsFondoOscuro" alt="UPDS Sede Sucre" class="h-7 w-auto opacity-80 hover:opacity-100 transition-opacity" />
+        </a>
         <span class="text-xs text-slate-400">¿Ya tienes cuenta?</span>
         <router-link
           to="/login"

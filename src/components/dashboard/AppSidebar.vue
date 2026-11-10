@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import logo from '../../assets/images/logo-sedede.png'
+import logoUpds from '../../assets/images/upds/upds-sucre-color.png'
+import { URL_UPDS_SUCRE } from '../../config/institucional'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -421,6 +423,14 @@ function initials(name) {
       >
         Cerrar sesión
       </button>
+
+      <!-- Convenio Académico UPDS -->
+      <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+        <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between w-full group" title="Universidad Privada Domingo Savio — Sede Sucre">
+          <img :src="logoUpds" alt="UPDS Sede Sucre" class="h-6 w-auto group-hover:scale-105 transition-transform" />
+          <span class="text-[10px] font-semibold text-slate-400 group-hover:text-brand-600 transition-colors">Sede Sucre</span>
+        </a>
+      </div>
     </div>
   </aside>
 </template>

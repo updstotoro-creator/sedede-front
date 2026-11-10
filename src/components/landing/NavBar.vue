@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import logo from '../../assets/images/logo-sedede.png'
-import logoUpds from '../../assets/images/upds-logo.png'
+import logoUpds from '../../assets/images/upds/upds-sucre-color.png'
 import { URL_UPDS_SUCRE } from '../../config/institucional'
 
 const open = ref(false)
@@ -31,7 +31,7 @@ const links = [
       <!-- Logos UPDS: llevan a la página oficial de la UPDS Sucre -->
       <div class="hidden min-[1100px]:flex items-center shrink-0 border-l border-slate-200 pl-3 xl:pl-4 ml-1 xl:ml-2">
         <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
-          <img :src="logoUpds" alt="Universidad Privada Domingo Savio" class="h-10 w-auto" />
+          <img :src="logoUpds" alt="Universidad Privada Domingo Savio — Sede Sucre" class="h-9 w-auto hover:opacity-90 transition-opacity" />
         </a>
       </div>
 

@@ -1,6 +1,9 @@
 <script setup>
 import LoginForm from '../components/auth/LoginForm.vue'
 import logo from '../assets/images/logo-sedede.png'
+import logoUpdsFondoOscuro from '../assets/images/upds/upds-sucre-color-fondo-oscuro.png'
+import logoUpdsColor from '../assets/images/upds/upds-sucre-color.png'
+import { URL_UPDS_SUCRE } from '../config/institucional'
 </script>
 
 <template>
@@ -21,9 +24,19 @@ import logo from '../assets/images/logo-sedede.png'
         </h1>
       </div>
 
-      <p class="text-xs text-slate-400">
-        Acceso restringido a personal autorizado del SEDEDE.
-      </p>
+      <div class="space-y-4">
+        <div class="pt-4 border-t border-white/15 flex items-center justify-between">
+          <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer" title="Universidad Privada Domingo Savio — Sede Sucre">
+            <img :src="logoUpdsFondoOscuro" alt="Universidad Privada Domingo Savio — Sede Sucre" class="h-9 w-auto opacity-90 hover:opacity-100 transition-opacity" />
+          </a>
+          <p class="text-[11px] text-brand-100/80 text-right leading-tight">
+            Convenio Interinstitucional<br /><span class="font-bold">UPDS Sede Sucre</span>
+          </p>
+        </div>
+        <p class="text-xs text-brand-200/80">
+          Acceso restringido a personal autorizado del SEDEDE.
+        </p>
+      </div>
     </div>
 
     <!-- Formulario -->
@@ -71,6 +84,14 @@ import logo from '../assets/images/logo-sedede.png'
               <span>Club</span>
             </router-link>
           </div>
+        </div>
+
+        <!-- Sello UPDS institucional para móvil -->
+        <div class="mt-8 pt-4 border-t border-slate-200/60 flex items-center justify-center gap-2 md:hidden">
+          <span class="text-xs text-slate-400">En colaboración con</span>
+          <a :href="URL_UPDS_SUCRE" target="_blank" rel="noopener noreferrer">
+            <img :src="logoUpdsColor" alt="UPDS Sede Sucre" class="h-6 w-auto inline-block" />
+          </a>
         </div>
       </div>
     </div>
