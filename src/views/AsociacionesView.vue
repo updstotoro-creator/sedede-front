@@ -106,7 +106,10 @@ async function submitForm() {
     if (editingAsociacion.value) {
       await asociacionService.update(editingAsociacion.value.id, { ...form })
     } else {
-      await asociacionService.create({ ...form })
+      const creada = await asociacionService.create({ ...form })
+      if (creada?.password_inicial) {
+        alert(`Acceso creado para ${creada.correo}.\nContraseña inicial: ${creada.password_inicial}\n\nEntréguela al responsable: no se volverá a mostrar.`)
+      }
     }
     closeModal()
     await loadAsociaciones()

@@ -20,30 +20,18 @@ export const useClubStore = defineStore('club', () => {
     };
 
     const registrarClub = async (asociacionId, payload) => {
-        try {
-            await clubService.crear(asociacionId, payload);
-            await listarClubes(asociacionId); // Refresca la lista automáticamente
-        } catch (err) {
-            throw err;
-        }
+        await clubService.crear(asociacionId, payload);
+        await listarClubes(asociacionId); // Refresca la lista automáticamente
     };
 
     const actualizarClub = async (asociacionId, clubId, payload) => {
-        try {
-            await clubService.actualizar(asociacionId, clubId, payload);
-            await listarClubes(asociacionId);
-        } catch (err) {
-            throw err;
-        }
+        await clubService.actualizar(asociacionId, clubId, payload);
+        await listarClubes(asociacionId);
     };
 
     const inactivarClub = async (asociacionId, clubId) => {
-        try {
-            await clubService.inactivar(asociacionId, clubId);
-            await listarClubes(asociacionId);
-        } catch (err) {
-            throw err;
-        }
+        await clubService.inactivar(asociacionId, clubId);
+        await listarClubes(asociacionId);
     };
 
     return {

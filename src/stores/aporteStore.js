@@ -20,39 +20,23 @@ export const useAporteStore = defineStore('aporte', () => {
   };
 
   const registrarAporte = async (asociacionId, payload) => {
-    try {
-      await aporteService.crear(asociacionId, payload);
-      await listarAportes(asociacionId);
-    } catch (err) {
-      throw err;
-    }
+    await aporteService.crear(asociacionId, payload);
+    await listarAportes(asociacionId);
   };
 
   const reportarEjecucion = async (asociacionId, aporteId, payload) => {
-    try {
-      await aporteService.reportarEjecucion(asociacionId, aporteId, payload);
-      await listarAportes(asociacionId);
-    } catch (err) {
-      throw err;
-    }
+    await aporteService.reportarEjecucion(asociacionId, aporteId, payload);
+    await listarAportes(asociacionId);
   };
 
   const inactivarAporte = async (asociacionId, aporteId) => {
-    try {
-      await aporteService.inactivar(asociacionId, aporteId);
-      await listarAportes(asociacionId);
-    } catch (err) {
-      throw err;
-    }
+    await aporteService.inactivar(asociacionId, aporteId);
+    await listarAportes(asociacionId);
   };
 
   const reactivarAporte = async (asociacionId, aporteId) => {
-    try {
-      await aporteService.reactivar(asociacionId, aporteId);
-      await listarAportes(asociacionId);
-    } catch (err) {
-      throw err;
-    }
+    await aporteService.reactivar(asociacionId, aporteId);
+    await listarAportes(asociacionId);
   };
 
   return {
