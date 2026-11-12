@@ -17,7 +17,8 @@ export const asociacionService = {
 
   async create(payload) {
     const { data } = await api.post('/asociaciones', payload)
-    return data.data
+    // Si no se indicó contraseña, el backend genera una y la devuelve una sola vez.
+    return data.password_inicial ? { ...data.data, password_inicial: data.password_inicial } : data.data
   },
 
   async update(id, payload) {
@@ -46,7 +47,7 @@ export const asociacionService = {
 
   async createClub(asociacionId, payload) {
     const { data } = await api.post(`/asociaciones/${asociacionId}/clubes`, payload)
-    return data.data
+    return data.password_inicial ? { ...data.data, password_inicial: data.password_inicial } : data.data
   },
 
   async updateClub(asociacionId, clubId, payload) {

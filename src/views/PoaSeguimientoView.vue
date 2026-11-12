@@ -35,7 +35,8 @@ const programas = computed(() => {
 
 function alternar(id) {
   const s = new Set(abiertas.value)
-  s.has(id) ? s.delete(id) : s.add(id)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
   abiertas.value = s
 }
 
