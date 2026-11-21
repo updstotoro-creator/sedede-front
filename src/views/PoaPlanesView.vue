@@ -27,6 +27,7 @@ const form = reactive({
 // Aprobación
 const aprobando = ref(null)
 const aprobacion = reactive({ resolucion_aprobacion: '', fecha_aprobacion: '' })
+const hoy = () => new Date().toLocaleDateString('sv-SE') // AAAA-MM-DD en la zona del navegador
 const aprobacionError = ref('')
 const aprobacionCuadre = ref([])
 
@@ -71,7 +72,8 @@ function abrirEstructura(plan) {
 function openAprobar(plan) {
   aprobando.value = plan
   aprobacion.resolucion_aprobacion = plan.resolucion_aprobacion ?? ''
-  aprobacion.fecha_aprobacion = new Date().toISOString().slice(0, 10)
+  // Fecha local: toISOString() usa UTC y desde las 20:00 en Bolivia daba el día siguiente.
+  aprobacion.fecha_aprobacion = hoy()
   aprobacionError.value = ''
   aprobacionCuadre.value = []
 }
@@ -265,7 +267,7 @@ onMounted(() => {
                 </div>
                 <div>
                   <label class="mb-2 block text-sm font-semibold text-slate-700">Fecha de aprobación</label>
-                  <input v-model="aprobacion.fecha_aprobacion" type="date" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" :disabled="saving" />
+                  <input v-model="aprobacion.fecha_aprobacion" type="date" :max="hoy()" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20" :disabled="saving" />
                 </div>
               </div>
               <div v-if="aprobacionError" role="alert" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
