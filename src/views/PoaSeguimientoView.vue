@@ -10,7 +10,8 @@ const datos = ref(null)
 const loading = ref(false)
 const error = ref('')
 const filtro = ref('')
-const abiertas = ref(new Set())
+const abiertas = ref(new Set()) // actividades desplegadas
+const plegados = ref(new Set()) // programas cerrados: por defecto se ven todos
 
 const SEMAFORO = {
   verde: { label: 'En meta', chip: 'bg-emerald-100 text-emerald-700', barra: 'bg-emerald-500' },
@@ -33,12 +34,17 @@ const programas = computed(() => {
     .filter((p) => p.actividades.length)
 })
 
-function alternar(id) {
-  const s = new Set(abiertas.value)
+// Recibe el ref (no el Set): en la plantilla Vue desenvuelve los ref.
+function conmutar(conjunto, id) {
+  const s = new Set(conjunto.value)
   if (s.has(id)) s.delete(id)
   else s.add(id)
-  abiertas.value = s
+  conjunto.value = s
 }
+const alternar = (id) => conmutar(abiertas, id)
+const plegar = (id) => conmutar(plegados, id)
+
+const fecha = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString('es-BO', { dateStyle: 'medium' })
 
 async function cargar() {
   datos.value = null
@@ -96,7 +102,7 @@ onMounted(async () => {
           <p class="text-xs font-medium text-slate-500">Periodos cerrados</p>
           <p class="mt-1 font-display text-3xl font-bold text-ink">{{ datos.periodos_cerrados }} de {{ datos.periodos.length }}</p>
           <p class="mt-2 text-xs text-slate-400">
-            {{ ultimoCerrado ? `Medido hasta ${ultimoCerrado.etiqueta} (${ultimoCerrado.fin})` : 'Aún no cierra ningún periodo' }}
+            {{ ultimoCerrado ? `Medido hasta ${ultimoCerrado.etiqueta} (${fecha(ultimoCerrado.fin)})` : 'Aún no cierra ningún periodo' }}
           </p>
         </div>
         <div class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -130,18 +136,31 @@ onMounted(async () => {
       <!-- Programas -->
       <div class="space-y-6">
         <div v-for="prog in programas" :key="prog.id" class="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-4">
-            <div class="min-w-0">
-              <span class="font-mono text-xs font-bold text-slate-400">{{ prog.codigo }}</span>
-              <h3 class="font-display text-base font-bold text-ink">{{ prog.denominacion }}</h3>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="font-display text-lg font-bold text-ink">{{ pct(prog.cumplimiento) }}</span>
-              <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="SEMAFORO[prog.semaforo].chip">{{ SEMAFORO[prog.semaforo].label }}</span>
-            </div>
-          </div>
+          <h3>
+            <button
+              type="button"
+              class="flex w-full flex-wrap items-center justify-between gap-3 bg-slate-50 px-5 py-4 text-left hover:bg-slate-100"
+              :class="!plegados.has(prog.id) && 'border-b border-slate-100'"
+              :aria-expanded="!plegados.has(prog.id)"
+              @click="plegar(prog.id)"
+            >
+              <span class="flex min-w-0 items-center gap-3">
+                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200" :class="{ 'rotate-90': !plegados.has(prog.id) }" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="min-w-0">
+                  <span class="block font-mono text-xs font-bold text-slate-400">{{ prog.codigo }}</span>
+                  <span class="block font-display text-base font-bold text-ink">{{ prog.denominacion }}</span>
+                </span>
+              </span>
+              <span class="flex items-center gap-2">
+                <span class="font-display text-lg font-bold text-ink">{{ pct(prog.cumplimiento) }}</span>
+                <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="SEMAFORO[prog.semaforo].chip">{{ SEMAFORO[prog.semaforo].label }}</span>
+              </span>
+            </button>
+          </h3>
 
-          <ul class="divide-y divide-slate-100">
+          <ul v-if="!plegados.has(prog.id)" class="divide-y divide-slate-100">
             <li v-for="act in prog.actividades" :key="act.id">
               <button type="button" class="flex w-full flex-col gap-2 px-5 py-3 text-left hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-4" :aria-expanded="abiertas.has(act.id)" @click="alternar(act.id)">
                 <div class="min-w-0 flex-1">

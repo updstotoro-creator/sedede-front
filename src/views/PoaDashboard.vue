@@ -68,7 +68,7 @@ onMounted(async () => {
 
     <div v-if="store.loading" class="py-16 text-center">
       <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-r-transparent"></div>
-      <p class="mt-3 text-sm text-slate-500">Cargando estadisticas...</p>
+      <p class="mt-3 text-sm text-slate-500">Cargando estadísticas...</p>
     </div>
 
     <div v-else-if="store.error" role="alert" class="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
@@ -183,7 +183,7 @@ onMounted(async () => {
                 </p>
               </div>
               <div class="rounded-xl bg-slate-50 p-4">
-                <p class="text-xs font-medium text-slate-500">Linea Base Total</p>
+                <p class="text-xs font-medium text-slate-500">Línea Base Total</p>
                 <p class="mt-1 font-display text-xl font-bold text-slate-700">
                   {{ metas.total_linea_base?.toLocaleString('es-BO') ?? '0' }}
                 </p>
@@ -205,10 +205,10 @@ onMounted(async () => {
 
           <!-- Ultimo Plan -->
           <div v-if="ultimoPlan" class="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 class="mb-4 text-sm font-semibold text-slate-700">Ultimo Plan</h3>
+            <h3 class="mb-4 text-sm font-semibold text-slate-700">Último Plan</h3>
             <div class="rounded-xl bg-gradient-to-r from-brand-50 to-blue-50 p-4">
               <p class="font-semibold text-ink">{{ ultimoPlan.denominacion }}</p>
-              <p class="mt-1 text-xs text-slate-500">Gestion {{ ultimoPlan.gestion_id }}</p>
+              <p class="mt-1 text-xs text-slate-500">Gestión {{ ultimoPlan.gestion_id }}</p>
               <div class="mt-2 flex items-center gap-2">
                 <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="ultimoPlan.estado === 'aprobado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
                   {{ ultimoPlan.estado }}

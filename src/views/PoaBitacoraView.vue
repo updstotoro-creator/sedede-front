@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePoaStore } from '../stores/poa'
+import PoaPlanSelector from '../components/poa/PoaPlanSelector.vue'
 
 const store = usePoaStore()
 const route = useRoute()
@@ -21,12 +22,16 @@ const fecha = (v) => (v ? new Date(v).toLocaleString('es-BO', { dateStyle: 'medi
 
 function cargar() {
   const params = {}
+  if (store.planId) params.plan_id = store.planId
   if (filtroIndicador.value) params.indicador_id = filtroIndicador.value
   if (filtroEvento.value) params.evento = filtroEvento.value
   store.fetchTransiciones(params)
 }
 
-onMounted(() => { cargar() })
+onMounted(async () => {
+  await store.fetchPlanes()
+  cargar()
+})
 </script>
 
 <template>
@@ -36,20 +41,24 @@ onMounted(() => { cargar() })
         <h2 class="font-display text-2xl font-bold text-ink">Bitácora de metas</h2>
         <p class="mt-1 text-sm text-slate-500">Registro inmutable de la creación, aprobación y reformulación de cada meta</p>
       </div>
-      <form class="flex flex-col gap-2 sm:flex-row sm:items-center" @submit.prevent="cargar">
-        <select v-model="filtroEvento" class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-          <option value="">Todos los eventos</option>
-          <option v-for="(cfg, key) in eventoConfig" :key="key" :value="key">{{ cfg.label }}</option>
-        </select>
-        <input
-          v-model="filtroIndicador"
-          type="number"
-          min="1"
-          placeholder="ID de indicador"
-          class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 sm:w-40"
-        />
-        <button type="submit" class="rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">Filtrar</button>
-      </form>
+      <div class="flex flex-col gap-2 lg:items-end">
+        <PoaPlanSelector @change="cargar" />
+        <form class="flex flex-col gap-2 sm:flex-row sm:items-center" @submit.prevent="cargar">
+          <select v-model="filtroEvento" aria-label="Evento" class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <option value="">Todos los eventos</option>
+            <option v-for="(cfg, key) in eventoConfig" :key="key" :value="key">{{ cfg.label }}</option>
+          </select>
+          <input
+            v-model="filtroIndicador"
+            type="number"
+            min="1"
+            placeholder="ID de indicador"
+            aria-label="ID de indicador"
+            class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 sm:w-40"
+          />
+          <button type="submit" class="rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">Filtrar</button>
+        </form>
+      </div>
     </div>
 
     <div v-if="store.loading" class="py-16 text-center">
