@@ -221,7 +221,10 @@ async function submitForm() {
     if (editingClub.value) {
       await clubesService.actualizar(editingClub.value.asociacion_id, editingClub.value.id, payload)
     } else {
-      await clubesService.crear(Number(form.asociacion_id), payload)
+      const creado = await clubesService.crear(Number(form.asociacion_id), payload)
+      if (creado?.password_inicial) {
+        alert(`Acceso creado para ${creado.email}.\nContraseña inicial: ${creado.password_inicial}\n\nEntréguela al delegado: no se volverá a mostrar.`)
+      }
     }
     closeModal()
     await loadData()

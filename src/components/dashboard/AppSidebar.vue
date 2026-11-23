@@ -417,6 +417,16 @@ function initials(name) {
           <p class="truncate text-xs text-slate-400">{{ auth.user?.role?.nombre ?? auth.user?.email }}</p>
         </div>
       </div>
+      <!-- Acceso a Manuales & Ayuda -->
+      <router-link
+        to="/dashboard/manuales"
+        class="mb-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg bg-slate-50 border border-slate-200 py-1.5 text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-800 hover:border-brand-300 transition-colors"
+        title="Manuales de Usuario y Guías del Sistema"
+      >
+        <span class="flex h-4 w-4 items-center justify-center rounded-full bg-brand-600 text-white text-[10px] font-extrabold">?</span>
+        <span>Manuales & Guías</span>
+      </router-link>
+
       <button
         class="w-full rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
         @click="cerrarSesion"

@@ -61,7 +61,8 @@ export default {
 
   async crear(asociacionId, payload) {
     const { data } = await api.post(`/asociaciones/${asociacionId}/clubes`, payload);
-    return data.data;
+    // Si no se indicó contraseña, el backend genera una y la devuelve una sola vez.
+    return data.password_inicial ? { ...data.data, password_inicial: data.password_inicial } : data.data;
   },
 
   async actualizar(asociacionId, clubId, payload) {

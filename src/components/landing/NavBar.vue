@@ -12,6 +12,7 @@ const links = [
   { label: 'Estadísticas', href: '#estadisticas' },
   { label: 'Atletas', href: '#buscador' },
   { label: 'Instalaciones', href: '#areas' },
+  { label: 'Manuales', href: '#manuales' },
   { label: 'Contacto', href: '#contacto' },
 ]
 </script>
@@ -48,7 +49,17 @@ const links = [
       </nav>
 
       <!-- Botones / Acciones a la Derecha -->
-      <div class="hidden md:flex items-center gap-2.5 lg:gap-3 shrink-0">
+      <div class="hidden md:flex items-center gap-2 lg:gap-2.5 shrink-0">
+        <!-- Manuales y Ayuda (?) -->
+        <router-link
+          to="/manuales"
+          class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 hover:bg-brand-50 border border-slate-200 hover:border-brand-300 px-3 py-1 text-xs font-bold text-slate-700 hover:text-brand-800 transition-all shadow-2xs whitespace-nowrap"
+          title="Manuales de Usuario y Guías del Sistema"
+        >
+          <span class="flex h-4 w-4 items-center justify-center rounded-full bg-brand-600 text-white text-[10px] font-extrabold">?</span>
+          <span>Manuales</span>
+        </router-link>
+
         <!-- Reservar Ambiente (Pill distintiva) -->
         <router-link
           to="/reservar"
@@ -107,6 +118,13 @@ const links = [
       </div>
 
       <div class="pt-3 border-t border-slate-100 space-y-2">
+        <router-link
+          to="/manuales"
+          class="block rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-4 py-2 text-center text-sm font-bold text-slate-800 shadow-2xs flex items-center justify-center gap-2"
+          @click="open = false"
+        >
+          <span>📖</span> Manuales y Guías
+        </router-link>
         <router-link
           to="/reservar"
           class="block rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-center text-sm font-bold text-white shadow-sm flex items-center justify-center gap-2"
