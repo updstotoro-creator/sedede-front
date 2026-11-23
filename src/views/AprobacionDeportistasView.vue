@@ -7,7 +7,6 @@ const auth = useAuthStore()
 
 // Roles y contexto de usuario
 const isSededeOrAdmin = computed(() => ['admin', 'sedede', 'personal_sedede'].includes(auth.user?.role?.nombre))
-const isAsociacion = computed(() => ['asociacion', 'coordinador_asociacion'].includes(auth.user?.role?.nombre))
 const miAsociacionId = computed(() => auth.user?.asociacion_id ? Number(auth.user.asociacion_id) : null)
 
 // Estado de datos
@@ -56,10 +55,6 @@ const listosParaAsociacion = computed(() => {
 
 const acreditadosOficiales = computed(() => {
   return deportistas.value.filter(d => d.estado_afiliacion_asociacion === 'aceptado').length
-})
-
-const observadosAsociacion = computed(() => {
-  return deportistas.value.filter(d => d.estado_afiliacion_asociacion === 'rechazado').length
 })
 
 // Filtrado de la lista en cliente
