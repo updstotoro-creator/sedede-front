@@ -3,13 +3,26 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { AUTORES_CONTRIBUCION } from '../config/institucional'
+import ManualPoa from '../components/manuales/ManualPoa.vue'
+import ManualFinanciero from '../components/manuales/ManualFinanciero.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-// Pestaña activa: 'registro' | 'reservas' | 'soporte'
+// Pestaña activa: 'registro' | 'reservas' | 'poa' | 'financiero' | 'soporte'
 const activeTab = ref('registro')
+
+// Las guías del POA y del Tarifario son internas: solo las ve quien entra a esos
+// módulos, con los mismos roles que el router exige para sus rutas.
+const puedeVer = (nombreRuta) => {
+  const rol = auth.user?.role?.nombre
+  return !!rol && (router.resolve({ name: nombreRuta }).meta.roles ?? []).includes(rol)
+}
+const veManualPoa = computed(() => puedeVer('dashboard-poa'))
+const veManualFinanciero = computed(() => puedeVer('dashboard-tarifario'))
+const numeroFinanciero = computed(() => (veManualPoa.value ? 4 : 3))
+const numeroSoporte = computed(() => 3 + Number(veManualPoa.value) + Number(veManualFinanciero.value))
 
 // Simulador interactivo de tarifas de reserva
 const simEscenario = ref('estadio_patria')
@@ -50,7 +63,10 @@ const calculoSimulado = computed(() => {
 })
 
 onMounted(() => {
-  if (route.query.tab && ['registro', 'reservas', 'soporte'].includes(route.query.tab)) {
+  const visibles = ['registro', 'reservas', 'soporte']
+  if (veManualPoa.value) visibles.push('poa')
+  if (veManualFinanciero.value) visibles.push('financiero')
+  if (route.query.tab && visibles.includes(route.query.tab)) {
     activeTab.value = route.query.tab
   }
 })
@@ -238,7 +254,107 @@ function imprimirManual() {
                 </div>
               </div>
 
-              <!-- Botón 3: Soporte Técnico -->
+              <!-- Guía interna: Interno (solo roles con acceso al módulo) -->
+              <div v-if="veManualPoa">
+                <button
+                  type="button"
+                  @click="setTab('poa')"
+                  class="w-full text-left rounded-xl p-3 transition-all flex items-start gap-3 border"
+                  :class="activeTab === 'poa'
+                    ? 'bg-indigo-50/90 border-indigo-400 text-indigo-950 shadow-xs ring-1 ring-indigo-300'
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'"
+                >
+                  <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base shadow-2xs transition-colors"
+                    :class="activeTab === 'poa' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'">
+                    📊
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-1">
+                      <p class="text-xs font-bold truncate" :class="activeTab === 'poa' ? 'text-indigo-950' : 'text-slate-900'">
+                        3. Plan Operativo Anual
+                      </p>
+                      <span class="rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider"
+                        :class="activeTab === 'poa' ? 'bg-indigo-200 text-indigo-900' : 'bg-slate-100 text-slate-500'">
+                        Interno
+                      </span>
+                    </div>
+                    <p class="text-[11px] leading-snug mt-0.5"
+                      :class="activeTab === 'poa' ? 'text-indigo-800' : 'text-slate-500'">
+                      Formular, aprobar y dar seguimiento al POA con semáforo.
+                    </p>
+                  </div>
+                </button>
+
+                <div v-if="activeTab === 'poa'" class="mt-2 ml-4 pl-3 border-l-2 border-indigo-300 space-y-1.5 text-[11px]">
+                  <button @click="scrollToSection('poa-resumen')" class="block w-full text-left text-slate-600 hover:text-indigo-700 transition font-medium">
+                    • Resumen y Estructura
+                  </button>
+                  <button @click="scrollToSection('poa-flujo')" class="block w-full text-left text-slate-600 hover:text-indigo-700 transition font-medium">
+                    • Flujo y Estados del Plan
+                  </button>
+                  <button @click="scrollToSection('poa-pasos')" class="block w-full text-left text-slate-600 hover:text-indigo-700 transition font-medium">
+                    • Instrucciones Paso a Paso
+                  </button>
+                  <button @click="scrollToSection('poa-faq')" class="block w-full text-left text-slate-600 hover:text-indigo-700 transition font-medium">
+                    • Preguntas Frecuentes (FAQ)
+                  </button>
+                  <button @click="scrollToSection('poa-glosario')" class="block w-full text-left text-slate-600 hover:text-indigo-700 transition font-medium">
+                    • Glosario
+                  </button>
+                </div>
+              </div>
+
+              <!-- Guía interna: Interno (solo roles con acceso al módulo) -->
+              <div v-if="veManualFinanciero">
+                <button
+                  type="button"
+                  @click="setTab('financiero')"
+                  class="w-full text-left rounded-xl p-3 transition-all flex items-start gap-3 border"
+                  :class="activeTab === 'financiero'
+                    ? 'bg-sky-50/90 border-sky-400 text-sky-950 shadow-xs ring-1 ring-sky-300'
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'"
+                >
+                  <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base shadow-2xs transition-colors"
+                    :class="activeTab === 'financiero' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600'">
+                    💵
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-1">
+                      <p class="text-xs font-bold truncate" :class="activeTab === 'financiero' ? 'text-sky-950' : 'text-slate-900'">
+                        {{ numeroFinanciero }}. Financiero: Tarifario
+                      </p>
+                      <span class="rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider"
+                        :class="activeTab === 'financiero' ? 'bg-sky-200 text-sky-900' : 'bg-slate-100 text-slate-500'">
+                        Interno
+                      </span>
+                    </div>
+                    <p class="text-[11px] leading-snug mt-0.5"
+                      :class="activeTab === 'financiero' ? 'text-sky-800' : 'text-slate-500'">
+                      Liquidaciones, cobro con recibo oficial y exenciones.
+                    </p>
+                  </div>
+                </button>
+
+                <div v-if="activeTab === 'financiero'" class="mt-2 ml-4 pl-3 border-l-2 border-sky-300 space-y-1.5 text-[11px]">
+                  <button @click="scrollToSection('financiero-resumen')" class="block w-full text-left text-slate-600 hover:text-sky-700 transition font-medium">
+                    • Resumen del Tarifario
+                  </button>
+                  <button @click="scrollToSection('financiero-flujo')" class="block w-full text-left text-slate-600 hover:text-sky-700 transition font-medium">
+                    • Flujo de un Ingreso
+                  </button>
+                  <button @click="scrollToSection('financiero-pasos')" class="block w-full text-left text-slate-600 hover:text-sky-700 transition font-medium">
+                    • Instrucciones Paso a Paso
+                  </button>
+                  <button @click="scrollToSection('financiero-faq')" class="block w-full text-left text-slate-600 hover:text-sky-700 transition font-medium">
+                    • Preguntas Frecuentes (FAQ)
+                  </button>
+                  <button @click="scrollToSection('financiero-glosario')" class="block w-full text-left text-slate-600 hover:text-sky-700 transition font-medium">
+                    • Glosario
+                  </button>
+                </div>
+              </div>
+
+              <!-- Botón de Soporte Técnico (siempre al final) -->
               <div>
                 <button
                   type="button"
@@ -255,7 +371,7 @@ function imprimirManual() {
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-1">
                       <p class="text-xs font-bold truncate" :class="activeTab === 'soporte' ? 'text-amber-950' : 'text-slate-900'">
-                        3. Soporte y Contacto
+                        {{ numeroSoporte }}. Soporte y Contacto
                       </p>
                       <span class="rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider"
                         :class="activeTab === 'soporte' ? 'bg-amber-200 text-amber-900' : 'bg-slate-100 text-slate-500'">
@@ -304,6 +420,22 @@ function imprimirManual() {
                 class="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 text-xs font-bold transition shadow-xs"
               >
                 <span>Ir al Portal de Reservas</span>
+                <span>➔</span>
+              </router-link>
+              <router-link
+                v-else-if="activeTab === 'poa' && veManualPoa"
+                to="/dashboard/poa/dashboard"
+                class="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-2 text-xs font-bold transition shadow-xs"
+              >
+                <span>Ir al POA</span>
+                <span>➔</span>
+              </router-link>
+              <router-link
+                v-else-if="activeTab === 'financiero' && veManualFinanciero"
+                to="/dashboard/tarifario"
+                class="w-full flex items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white px-3 py-2 text-xs font-bold transition shadow-xs"
+              >
+                <span>Ir al Tarifario</span>
                 <span>➔</span>
               </router-link>
             </div>
@@ -790,8 +922,12 @@ function imprimirManual() {
             </div>
           </section>
 
+          <!-- GUÍAS INTERNAS: POA Y FINANCIERO (solo roles con acceso)           -->
+          <ManualPoa v-if="activeTab === 'poa' && veManualPoa" />
+          <ManualFinanciero v-if="activeTab === 'financiero' && veManualFinanciero" />
+
           <!-- =================================================================== -->
-          <!-- PESTAÑA 3: SOPORTE TÉCNICO Y DIRECTORIO DE DESARROLLADORES UPDS   -->
+          <!-- PESTAÑA DE SOPORTE TÉCNICO Y DIRECTORIO DE DESARROLLADORES UPDS   -->
           <!-- =================================================================== -->
           <section v-if="activeTab === 'soporte'" class="space-y-8">
             <!-- Encabezado de Soporte -->
