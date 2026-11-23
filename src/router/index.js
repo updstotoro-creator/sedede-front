@@ -43,6 +43,15 @@ const routes = [
     redirect: '/reservar',
   },
   {
+    path: '/manuales',
+    name: 'manuales-publico',
+    component: () => import('../views/ManualesView.vue'),
+  },
+  {
+    path: '/ayuda',
+    redirect: '/manuales',
+  },
+  {
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('../views/DashboardView.vue'),
@@ -218,6 +227,12 @@ const routes = [
         name: 'dashboard-formacion-inscripciones',
         component: () => import('../views/InscripcionEscuelasView.vue'),
         meta: { roles: ['admin', 'sedede', 'personal_sedede', 'entrenador', 'coordinador_asociacion', 'asociacion', 'club'] },
+      },
+      // Manuales de Usuario y Guías
+      {
+        path: 'manuales',
+        name: 'dashboard-manuales',
+        component: () => import('../views/ManualesView.vue'),
       },
     ],
   },

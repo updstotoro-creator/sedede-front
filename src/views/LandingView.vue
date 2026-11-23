@@ -12,6 +12,7 @@ import NewsSection from '../components/landing/NewsSection.vue'
 import ContactSection from '../components/landing/ContactSection.vue'
 import SiteFooter from '../components/landing/SiteFooter.vue'
 import EscenariosSection from '../components/landing/EscenariosSection.vue'
+import ManualesSection from '../components/landing/ManualesSection.vue'
 </script>
 
 <template>
@@ -26,6 +27,7 @@ import EscenariosSection from '../components/landing/EscenariosSection.vue'
     <AboutSection />
     <FocusAreasSection />
     <EscenariosSection />
+    <ManualesSection />
     <NewsSection />
     <ContactSection />
     <SiteFooter />

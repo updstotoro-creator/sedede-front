@@ -37,6 +37,7 @@ const titles = {
   'dashboard-poa-seguimiento': 'Seguimiento y Avance Físico POA',
   'dashboard-poa-techos': 'Techos Presupuestarios POA',
   'dashboard-poa-bitacora': 'Bitácora de Metas POA',
+  'dashboard-manuales': 'Manuales de Usuario y Guías del Sistema',
 }
 
 const isLoading = ref(true)
@@ -402,14 +403,38 @@ watch(
           </h1>
         </div>
 
-        <div v-if="isDeportista && deportistaPerfil" class="flex items-center gap-3">
-          <div class="text-right hidden sm:block">
-            <p class="text-xs font-bold text-slate-800">{{ deportistaPerfil.nombres }} {{ deportistaPerfil.apellidos }}</p>
-            <p class="text-[11px] text-brand-700 font-semibold">{{ deportistaPerfil.disciplina }} · {{ deportistaPerfil.asociacion?.sigla || 'Deportista' }}</p>
+        <div class="flex items-center gap-3">
+          <!-- Ícono de Interrogación (?) que manda al view de los manuales -->
+          <router-link
+            to="/dashboard/manuales"
+            class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 hover:text-brand-800 px-3 py-1.5 text-xs font-bold text-slate-700 transition shadow-2xs group"
+            title="Manuales de Usuario y Guías del Sistema (Registros y Reservas)"
+          >
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-white font-extrabold text-xs shadow-xs group-hover:bg-brand-700 transition-colors">?</span>
+            <span class="hidden sm:inline font-semibold">Manuales & Ayuda</span>
+          </router-link>
+
+          <!-- Perfil si es deportista -->
+          <div v-if="isDeportista && deportistaPerfil" class="flex items-center gap-3 pl-2 border-l border-slate-200">
+            <div class="text-right hidden sm:block">
+              <p class="text-xs font-bold text-slate-800">{{ deportistaPerfil.nombres }} {{ deportistaPerfil.apellidos }}</p>
+              <p class="text-[11px] text-brand-700 font-semibold">{{ deportistaPerfil.disciplina }} · {{ deportistaPerfil.asociacion?.sigla || 'Deportista' }}</p>
+            </div>
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-800 font-bold text-xs border border-brand-300">
+              {{ deportistaPerfil.nombres?.[0] }}{{ deportistaPerfil.apellidos?.[0] }}
+            </span>
           </div>
-          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-800 font-bold text-xs border border-brand-300">
-            {{ deportistaPerfil.nombres?.[0] }}{{ deportistaPerfil.apellidos?.[0] }}
-          </span>
+
+          <!-- Si no es deportista, información de usuario autenticado -->
+          <div v-else class="flex items-center gap-2.5 pl-2 border-l border-slate-200">
+            <div class="text-right hidden sm:block">
+              <p class="text-xs font-bold text-slate-800">{{ auth.user?.name || 'Usuario' }}</p>
+              <p class="text-[11px] text-slate-500 font-medium capitalize">{{ auth.user?.role?.nombre?.replace('_', ' ') || 'Autenticado' }}</p>
+            </div>
+            <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+              {{ auth.user?.name?.[0] || 'U' }}
+            </span>
+          </div>
         </div>
       </header>
 
